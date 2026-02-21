@@ -335,18 +335,20 @@ const RestaurantPage = () => {
       </header>
 
       {/* Restaurant header with cover */}
-      <section className="relative">
+      <section className="relative pb-6">
         {/* Cover image */}
-        <div className="w-full h-40 md:h-56 bg-gradient-to-b from-primary/10 to-primary/5 overflow-hidden">
+        <div className="w-full h-48 md:h-64 overflow-hidden">
           {(tenant as any).cover_url ? (
             <img src={(tenant as any).cover_url} alt="Capa" className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-gradient-to-b from-primary/10 to-background" />
+            <div className="w-full h-full bg-gradient-to-br from-primary/20 via-primary/10 to-secondary" />
           )}
+          {/* Bottom fade into background */}
+          <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background to-transparent" />
         </div>
         {/* Logo + info overlapping the cover */}
-        <div className="container mx-auto px-4 flex flex-col items-center text-center -mt-16 relative z-10 pb-6">
-          <div className="w-28 h-28 md:w-36 md:h-36 rounded-full bg-card border-4 border-card shadow-lg overflow-hidden">
+        <div className="container mx-auto px-4 flex flex-col items-center text-center -mt-20 relative z-10">
+          <div className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-card border-4 border-card shadow-xl overflow-hidden">
             {tenant.logo_url ? (
               <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
             ) : (
@@ -360,7 +362,7 @@ const RestaurantPage = () => {
             <p className="text-sm text-muted-foreground mt-1">{tenant.category}</p>
           )}
           {tenant.address && (
-            <p className="text-xs text-muted-foreground mt-2">{tenant.address}{tenant.city ? `, ${tenant.city}` : ""}</p>
+            <p className="text-xs text-muted-foreground mt-1">{tenant.address}{tenant.city ? `, ${tenant.city}` : ""}</p>
           )}
         </div>
       </section>
