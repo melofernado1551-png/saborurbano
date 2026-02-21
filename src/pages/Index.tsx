@@ -8,6 +8,7 @@ import RestaurantCard from "@/components/RestaurantCard";
 import FilterSheet from "@/components/FilterSheet";
 import { categories, restaurants } from "@/data/mockData";
 import { MapPin } from "lucide-react";
+import Footer from "@/components/Footer";
 
 const Index = () => {
   const [location, setLocation] = useState("Rua das Flores, 123");
@@ -152,18 +153,7 @@ const Index = () => {
         </section>
       </main>
 
-      {/* Footer with login */}
-      <footer className="border-t border-border py-6 mt-8">
-        <div className="container mx-auto px-4 flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">© 2025 Sabor Urbano</p>
-          <a
-            href="/login"
-            className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-          >
-            Login
-          </a>
-        </div>
-      </footer>
+      <Footer />
 
       {/* Filter sheet */}
       <FilterSheet
