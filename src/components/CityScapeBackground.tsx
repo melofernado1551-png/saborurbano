@@ -297,7 +297,7 @@ const CityScapeBackground = () => {
           const sunProgress = Math.max(0, Math.min(1, (hour - sunRise) / sunDuration));
           const sunX = -20 + sunProgress * 460;
           const sunArc = Math.sin(sunProgress * Math.PI);
-          const sunY = 95 - sunArc * 75;
+          const sunY = 110 - sunArc * 60; // peak at ~50, edges at ~110
           const sunOpacity = hour >= sunRise && hour <= sunSet ? Math.min(1, sunArc * 3) : 0;
           return sunOpacity > 0 ? (
             <g opacity={sunOpacity}>
@@ -331,7 +331,7 @@ const CityScapeBackground = () => {
           }
           const moonX = -20 + moonProgress * 460;
           const moonArc = Math.sin(moonProgress * Math.PI);
-          const moonY = 75 - moonArc * 50;
+          const moonY = 90 - moonArc * 45; // peak at ~45, edges at ~90
           const moonOpacity = moonProgress >= 0 && moonProgress <= 1 ? Math.min(1, moonArc * 3) : 0;
           return moonOpacity > 0 ? (
             <g opacity={moonOpacity}>
