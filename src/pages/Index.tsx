@@ -113,6 +113,7 @@ const Index = () => {
   const restaurants = tenants.map((t) => ({
     id: t.id,
     name: t.name,
+    slug: t.slug,
     image: t.logo_url || "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop",
     category: (t.category || "").split(",")[0]?.trim().toLowerCase() || "other",
     rating: 0,

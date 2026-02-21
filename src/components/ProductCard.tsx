@@ -1,6 +1,7 @@
 import { Share2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 interface ProductCardProduct {
   id: string;
@@ -21,6 +22,7 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({ product, index }: ProductCardProps) => {
+  const navigate = useNavigate();
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const url = `${window.location.origin}/${product.tenant_slug}/produto/${product.id}`;
@@ -110,7 +112,13 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
         </div>
 
         {/* Tenant info */}
-        <div className="flex items-center gap-2 pt-2 border-t border-border">
+        <div
+          className="flex items-center gap-2 pt-2 border-t border-border cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/restaurante/${product.tenant_slug}`);
+          }}
+        >
           <div className="w-6 h-6 rounded-full bg-secondary overflow-hidden flex-shrink-0">
             {product.tenant_logo ? (
               <img
