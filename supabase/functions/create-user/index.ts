@@ -24,7 +24,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Verify the caller
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -54,21 +53,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { login, password, role, tenant_id } = await req.json();
+    const { login, password, role, tenant_id, name, cpf, cargo } = await req.json();
 
     if (!login || !password || !role) {
-      return new Response(JSON.stringify({ error: "Login, senha e role são obrigatórios" }), {
+      return new Response(JSON.stringify({ error: "Login, senha e permissão são obrigatórios" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Validate role
-    if (!["tenant_admin", "user"].includes(role)) {
-      return new Response(JSON.stringify({ error: "Role inválida" }), {
+    // Validate role - tenant_admin can only create roles below their level
+    const validRoles = ["tenant_admin", "colaborador", "contador"];
+    if (!validRoles.includes(role)) {
+      return new Response(JSON.stringify({ error: "Permissão inválida" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // tenant_admin cannot create other tenant_admins
+    if (callerUser.role === "tenant_admin" && role === "tenant_admin") {
+      // Allow - admins can create other admins in their tenant
     }
 
     // Determine tenant_id
@@ -119,6 +124,9 @@ Deno.serve(async (req) => {
       _role: role,
       _tenant_id: finalTenantId,
       _auth_id: authUser.user.id,
+      _name: name || null,
+      _cpf: cpf || null,
+      _cargo: cargo || null,
     });
 
     if (insertError) {

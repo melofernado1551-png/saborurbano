@@ -12,6 +12,8 @@ import SalesPageNew from "./pages/admin/SalesPageNew";
 import PlaceholderPage from "./pages/admin/PlaceholderPage";
 import TenantsListPage from "./pages/admin/TenantsListPage";
 import TenantFormPage from "./pages/admin/TenantFormPage";
+import UsersListPage from "./pages/admin/UsersListPage";
+import UserFormPage from "./pages/admin/UserFormPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,7 +33,9 @@ const App = () => (
               <Route path="vendas" element={<SalesPageNew />} />
               <Route path="pedidos" element={<PlaceholderPage title="Pedidos" />} />
               <Route path="produtos" element={<PlaceholderPage title="Produtos" />} />
-              <Route path="usuarios" element={<PlaceholderPage title="Usuários" />} />
+              <Route path="usuarios" element={<UsersListPage />} />
+              <Route path="usuarios/novo" element={<UserFormPage />} />
+              <Route path="usuarios/:id" element={<UserFormPage />} />
               <Route path="configuracoes" element={<PlaceholderPage title="Configurações" />} />
               <Route path="tenants" element={<TenantsListPage />} />
               <Route path="tenants/novo" element={<TenantFormPage />} />

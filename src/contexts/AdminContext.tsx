@@ -16,6 +16,8 @@ interface AdminContextType {
   effectiveTenantId: string | null;
   isSuperAdmin: boolean;
   isAdminTenant: boolean;
+  isColaborador: boolean;
+  isContador: boolean;
   isReadOnly: boolean;
   tenantName: string;
 }
@@ -34,7 +36,9 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const isSuperAdmin = user?.role === "superadmin";
   const isAdminTenant = user?.role === "tenant_admin";
-  const isReadOnly = user?.role === "user";
+  const isColaborador = user?.role === "colaborador";
+  const isContador = user?.role === "contador";
+  const isReadOnly = user?.role === "contador";
 
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery({
     queryKey: ["admin-tenants"],
@@ -64,6 +68,8 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
         effectiveTenantId,
         isSuperAdmin,
         isAdminTenant,
+        isColaborador,
+        isContador,
         isReadOnly,
         tenantName,
       }}
