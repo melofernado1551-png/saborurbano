@@ -120,6 +120,8 @@ const TenantFormPage = () => {
   const [cnpjError, setCnpjError] = useState("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
   const [showNewUser, setShowNewUser] = useState(false);
   const [newUser, setNewUser] = useState({ login: "", password: "", name: "", role: "user" as string, active: true });
 
@@ -153,6 +155,7 @@ const TenantFormPage = () => {
         whatsapp_number: tenant.whatsapp_number || "",
       });
       setLogoUrl(tenant.logo_url || null);
+      setCoverUrl((tenant as any).cover_url || null);
     }
   }, [tenant]);
 
@@ -181,6 +184,34 @@ const TenantFormPage = () => {
       toast.error(err.message || "Erro ao enviar logo");
     } finally {
       setLogoUploading(false);
+    }
+  };
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const tenantId = id || "new";
+    const ext = file.name.split(".").pop();
+    const filePath = `${tenantId}/cover.${ext}`;
+
+    setCoverUploading(true);
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("tenant-logos")
+        .upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("tenant-logos")
+        .getPublicUrl(filePath);
+      
+      setCoverUrl(publicUrl);
+      toast.success("Capa enviada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar capa");
+    } finally {
+      setCoverUploading(false);
     }
   };
 
@@ -225,6 +256,7 @@ const TenantFormPage = () => {
         owner_email: form.owner_email || null,
         whatsapp_number: form.whatsapp_number || null,
         logo_url: logoUrl || null,
+        cover_url: coverUrl || null,
       };
 
       if (isEditing) {
@@ -346,6 +378,34 @@ const TenantFormPage = () => {
                   </label>
                 </Button>
                 <p className="text-xs text-muted-foreground mt-1">PNG, JPG ou WebP. Recomendado: 200x200px</p>
+              </div>
+            </div>
+          </div>
+          {/* Cover upload */}
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Imagem de Capa</Label>
+            <div className="space-y-3">
+              <div className="w-full h-40 rounded-xl bg-secondary overflow-hidden border border-border">
+                {coverUrl ? (
+                  <img src={coverUrl} alt="Capa" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">Nenhuma capa definida</div>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <Button variant="outline" size="sm" className="gap-2" asChild disabled={coverUploading}>
+                  <label className="cursor-pointer">
+                    {coverUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {coverUploading ? "Enviando..." : "Enviar capa"}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
+                  </label>
+                </Button>
+                {coverUrl && (
+                  <Button variant="ghost" size="sm" onClick={() => setCoverUrl(null)}>
+                    <X className="w-4 h-4 mr-1" /> Remover
+                  </Button>
+                )}
+                <p className="text-xs text-muted-foreground">PNG, JPG ou WebP. Recomendado: 1200x400px</p>
               </div>
             </div>
           </div>

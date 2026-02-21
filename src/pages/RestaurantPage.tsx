@@ -334,10 +334,19 @@ const RestaurantPage = () => {
         </div>
       </header>
 
-      {/* Restaurant header */}
-      <section className="relative bg-gradient-to-b from-primary/10 to-background py-8 md:py-12">
-        <div className="container mx-auto px-4 flex flex-col items-center text-center">
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-card border-4 border-card shadow-lg overflow-hidden mb-4">
+      {/* Restaurant header with cover */}
+      <section className="relative">
+        {/* Cover image */}
+        <div className="w-full h-40 md:h-56 bg-gradient-to-b from-primary/10 to-primary/5 overflow-hidden">
+          {(tenant as any).cover_url ? (
+            <img src={(tenant as any).cover_url} alt="Capa" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-b from-primary/10 to-background" />
+          )}
+        </div>
+        {/* Logo + info overlapping the cover */}
+        <div className="container mx-auto px-4 flex flex-col items-center text-center -mt-16 relative z-10 pb-6">
+          <div className="w-28 h-28 md:w-36 md:h-36 rounded-full bg-card border-4 border-card shadow-lg overflow-hidden">
             {tenant.logo_url ? (
               <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
             ) : (
@@ -346,7 +355,7 @@ const RestaurantPage = () => {
               </div>
             )}
           </div>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-foreground">{tenant.name}</h2>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-foreground mt-3">{tenant.name}</h2>
           {tenant.category && (
             <p className="text-sm text-muted-foreground mt-1">{tenant.category}</p>
           )}
