@@ -23,7 +23,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Trash2, UserPlus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
@@ -41,10 +42,42 @@ const CATEGORIES = [
   "Outro",
 ];
 
+// CNPJ validation
+const validateCNPJ = (cnpj: string): boolean => {
+  const cleaned = cnpj.replace(/\D/g, "");
+  if (cleaned.length !== 14) return false;
+  if (/^(\d)\1+$/.test(cleaned)) return false;
+
+  const calc = (digits: string, factors: number[]) =>
+    factors.reduce((sum, f, i) => sum + parseInt(digits[i]) * f, 0);
+
+  const d1factors = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const d2factors = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+
+  const remainder1 = calc(cleaned, d1factors) % 11;
+  const digit1 = remainder1 < 2 ? 0 : 11 - remainder1;
+  if (parseInt(cleaned[12]) !== digit1) return false;
+
+  const remainder2 = calc(cleaned, d2factors) % 11;
+  const digit2 = remainder2 < 2 ? 0 : 11 - remainder2;
+  if (parseInt(cleaned[13]) !== digit2) return false;
+
+  return true;
+};
+
+const formatCNPJ = (value: string): string => {
+  const cleaned = value.replace(/\D/g, "").slice(0, 14);
+  return cleaned
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+};
+
 interface TenantForm {
   name: string;
-  slug: string;
-  category: string;
+  cnpj: string;
+  categories: string[];
   active: boolean;
   address: string;
   city: string;
@@ -60,8 +93,8 @@ interface TenantForm {
 
 const emptyForm: TenantForm = {
   name: "",
-  slug: "",
-  category: "",
+  cnpj: "",
+  categories: [],
   active: true,
   address: "",
   city: "",
@@ -83,6 +116,7 @@ const TenantFormPage = () => {
   const isEditing = !!id;
 
   const [form, setForm] = useState<TenantForm>(emptyForm);
+  const [cnpjError, setCnpjError] = useState("");
   const [showNewUser, setShowNewUser] = useState(false);
   const [newUser, setNewUser] = useState({ login: "", password: "", name: "", role: "user" as string, active: true });
 
@@ -98,10 +132,11 @@ const TenantFormPage = () => {
 
   useEffect(() => {
     if (tenant) {
+      const catStr = (tenant as any).category || "";
       setForm({
         name: tenant.name || "",
-        slug: tenant.slug || "",
-        category: (tenant as any).category || "",
+        cnpj: (tenant as any).cnpj || "",
+        categories: catStr ? catStr.split(",").map((s: string) => s.trim()) : [],
         active: tenant.active,
         address: (tenant as any).address || "",
         city: (tenant as any).city || "",
@@ -133,10 +168,24 @@ const TenantFormPage = () => {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // Validate CNPJ if provided
+      if (form.cnpj && !validateCNPJ(form.cnpj)) {
+        throw new Error("CNPJ inválido");
+      }
+
+      // Auto-generate slug from name
+      const slug = form.name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "");
+
       const payload: any = {
         name: form.name,
-        slug: form.slug || form.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""),
-        category: form.category || null,
+        slug,
+        category: form.categories.length > 0 ? form.categories.join(", ") : null,
+        cnpj: form.cnpj ? form.cnpj.replace(/\D/g, "") : null,
         active: form.active,
         address: form.address || null,
         city: form.city || null,
@@ -205,9 +254,23 @@ const TenantFormPage = () => {
 
   const set = (key: keyof TenantForm, value: any) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const handleSlugGenerate = () => {
-    if (form.name) {
-      set("slug", form.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""));
+  const toggleCategory = (cat: string) => {
+    setForm((prev) => ({
+      ...prev,
+      categories: prev.categories.includes(cat)
+        ? prev.categories.filter((c) => c !== cat)
+        : [...prev.categories, cat],
+    }));
+  };
+
+  const handleCnpjChange = (value: string) => {
+    const formatted = formatCNPJ(value);
+    set("cnpj", formatted);
+    const cleaned = value.replace(/\D/g, "");
+    if (cleaned.length === 14) {
+      setCnpjError(validateCNPJ(cleaned) ? "" : "CNPJ inválido");
+    } else {
+      setCnpjError("");
     }
   };
 
@@ -240,23 +303,51 @@ const TenantFormPage = () => {
             <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex: Burger King" />
           </div>
           <div className="space-y-2">
-            <Label>Categoria</Label>
-            <Select value={form.category} onValueChange={(v) => set("category", v)}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>CNPJ</Label>
+            <Input
+              value={form.cnpj}
+              onChange={(e) => handleCnpjChange(e.target.value)}
+              placeholder="00.000.000/0000-00"
+              maxLength={18}
+            />
+            {cnpjError && <p className="text-xs text-destructive">{cnpjError}</p>}
           </div>
-          <div className="space-y-2">
-            <Label>Slug (URL)</Label>
-            <div className="flex gap-2">
-              <Input value={form.slug} onChange={(e) => set("slug", e.target.value)} placeholder="nome-do-restaurante" />
-              <Button type="button" variant="outline" size="sm" onClick={handleSlugGenerate}>Gerar</Button>
+
+          {/* Multi-select categories */}
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Categorias</Label>
+            {form.categories.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {form.categories.map((cat) => (
+                  <Badge key={cat} variant="secondary" className="gap-1 pr-1">
+                    {cat}
+                    <button
+                      type="button"
+                      onClick={() => toggleCategory(cat)}
+                      className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              {CATEGORIES.map((cat) => (
+                <label
+                  key={cat}
+                  className="flex items-center gap-2 text-sm cursor-pointer rounded-lg border px-3 py-2 hover:bg-secondary transition-colors"
+                >
+                  <Checkbox
+                    checked={form.categories.includes(cat)}
+                    onCheckedChange={() => toggleCategory(cat)}
+                  />
+                  {cat}
+                </label>
+              ))}
             </div>
           </div>
+
           <div className="space-y-2">
             <Label>WhatsApp</Label>
             <Input value={form.whatsapp_number} onChange={(e) => set("whatsapp_number", e.target.value)} placeholder="(11) 99999-9999" />
@@ -320,7 +411,10 @@ const TenantFormPage = () => {
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => navigate("/admin/tenants")}>Cancelar</Button>
-        <Button onClick={() => saveMutation.mutate()} disabled={!form.name || saveMutation.isPending}>
+        <Button
+          onClick={() => saveMutation.mutate()}
+          disabled={!form.name || !!cnpjError || saveMutation.isPending}
+        >
           {saveMutation.isPending ? "Salvando..." : isEditing ? "Salvar Alterações" : "Criar Restaurante"}
         </Button>
       </div>

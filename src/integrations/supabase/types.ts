@@ -661,6 +661,7 @@ export type Database = {
           address: string | null
           category: string | null
           city: string | null
+          cnpj: string | null
           created_at: string
           id: string
           latitude: number | null
@@ -683,6 +684,7 @@ export type Database = {
           address?: string | null
           category?: string | null
           city?: string | null
+          cnpj?: string | null
           created_at?: string
           id?: string
           latitude?: number | null
@@ -705,6 +707,7 @@ export type Database = {
           address?: string | null
           category?: string | null
           city?: string | null
+          cnpj?: string | null
           created_at?: string
           id?: string
           latitude?: number | null
