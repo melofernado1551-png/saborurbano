@@ -4,12 +4,12 @@ import CityScapeBackground from "./CityScapeBackground";
 
 const HeroSection = () => {
   return (
-    <section className="relative pb-0 pt-8 md:pt-12 overflow-visible min-h-[280px]">
+    <section className="relative py-8 md:py-12 overflow-hidden min-h-[280px]">
       <CityScapeBackground />
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="flex items-end justify-between gap-8">
-          <div className="text-center md:text-left max-w-2xl flex-1 pb-12 md:pb-16">
+        <div className="flex items-center justify-between gap-8">
+          <div className="text-center md:text-left max-w-2xl flex-1">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 backdrop-blur-sm text-primary text-sm font-semibold mb-4 animate-fade-in border border-white/30 shadow-sm">
               <Sparkles className="w-4 h-4" />
               Mais de 150 restaurantes disponíveis
@@ -25,11 +25,11 @@ const HeroSection = () => {
             </p>
           </div>
 
-          <div className="hidden md:block flex-shrink-0 animate-fade-in relative z-20 mb-[-60px] lg:mb-[-80px]" style={{ animationDelay: "300ms" }}>
+          <div className="hidden md:block flex-shrink-0 animate-fade-in" style={{ animationDelay: "300ms" }}>
             <img
               src={heroCharacter}
               alt="Entregador Sabor Urbano"
-              className="w-52 lg:w-64 h-auto drop-shadow-2xl"
+              className="w-44 lg:w-56 h-auto drop-shadow-lg"
             />
           </div>
         </div>
