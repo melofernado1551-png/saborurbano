@@ -9,8 +9,10 @@ import {
   Settings,
   LogOut,
   Store,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import logo from "@/assets/logo.png";
 
 interface Props {
@@ -49,51 +51,82 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
     { label: "Configurações", icon: Settings, path: "/admin/configuracoes" },
   ];
 
+  const roleLabel =
+    user?.role === "superadmin"
+      ? "Superadmin"
+      : user?.role === "tenant_admin"
+      ? "Administrador"
+      : "Usuário";
+
   return (
-    <div className="h-full bg-card border-r border-border flex flex-col">
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center gap-3">
+    <div className="h-full flex flex-col" style={{ background: "hsl(var(--sidebar-background))" }}>
+      {/* Logo */}
+      <div className="px-5 py-6 flex justify-center">
+        <div className="bg-white/10 rounded-2xl p-3 flex items-center gap-3">
           <img src={logo} alt="Logo" className="w-10 h-10 rounded-xl" />
           <div>
-            <h2 className="font-bold text-sm">Sabor Urbano</h2>
-            <span className="text-xs text-muted-foreground capitalize">
-              {user?.role?.replace("_", " ")}
+            <h2 className="font-bold text-sm text-white">Sabor Urbano</h2>
+            <span className="text-xs" style={{ color: "hsl(var(--sidebar-muted))" }}>
+              {roleLabel}
             </span>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 p-3 space-y-1">
+      {/* Navigation */}
+      <nav className="flex-1 px-3 space-y-0.5">
         {navItems.map((item) => {
-          const isActive = item.path === "/admin"
+          const isActive =
+            item.path === "/admin"
               ? location.pathname === "/admin"
               : location.pathname.startsWith(item.path);
+
           return (
             <button
               key={item.path}
               onClick={() => go(item.path)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                 isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : "hover:bg-[hsl(var(--sidebar-accent))]"
               }`}
+              style={
+                !isActive
+                  ? { color: "hsl(var(--sidebar-foreground))" }
+                  : undefined
+              }
             >
-              <item.icon className="w-4 h-4" />
+              <item.icon className="w-[18px] h-[18px]" />
               {item.label}
             </button>
           );
         })}
       </nav>
 
-      <div className="p-3 border-t border-border">
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-3 text-muted-foreground"
+      {/* User footer */}
+      <div className="px-3 pb-2" style={{ borderTop: "1px solid hsl(var(--sidebar-border))" }}>
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Avatar className="w-8 h-8 border-2" style={{ borderColor: "hsl(var(--sidebar-primary))" }}>
+            <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+              {user?.login?.charAt(0).toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white truncate">{user?.login}</p>
+            <p className="text-xs truncate" style={{ color: "hsl(var(--sidebar-muted))" }}>
+              {roleLabel}
+            </p>
+          </div>
+        </div>
+
+        <button
           onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-[hsl(var(--sidebar-accent))]"
+          style={{ color: "hsl(var(--sidebar-foreground))" }}
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-[18px] h-[18px]" />
           Sair
-        </Button>
+        </button>
       </div>
     </div>
   );
