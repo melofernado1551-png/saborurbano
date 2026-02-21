@@ -1,4 +1,5 @@
 import { MapPin, ShoppingBag, User, Menu } from "lucide-react";
+import logo from "@/assets/logo.png";
 import { Button } from "./ui/button";
 import { useState } from "react";
 
@@ -16,9 +17,7 @@ const Header = ({ location, onLocationClick }: HeaderProps) => {
         <div className="flex items-center justify-between gap-4">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-md">
-              <span className="text-xl">🍽️</span>
-            </div>
+            <img src={logo} alt="Sabor Urbano" className="w-10 h-10 rounded-xl object-cover" />
             <span className="text-xl font-bold text-foreground hidden sm:block">
               Sabor<span className="text-primary"> Urbano</span>
             </span>
