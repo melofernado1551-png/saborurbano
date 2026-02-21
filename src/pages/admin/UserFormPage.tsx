@@ -3,7 +3,7 @@ import { useAdmin } from "@/contexts/AdminContext";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,6 +89,39 @@ const UserFormPage = () => {
   const canAccess = user?.role === "superadmin" || user?.role === "tenant_admin";
 
   const [form, setForm] = useState<UserForm>(emptyForm);
+  const [loginError, setLoginError] = useState("");
+  const [checkingLogin, setCheckingLogin] = useState(false);
+  const loginCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const originalLogin = useRef("");
+
+  // Check login uniqueness with debounce
+  const checkLoginAvailability = (login: string) => {
+    if (loginCheckTimer.current) clearTimeout(loginCheckTimer.current);
+    setLoginError("");
+    if (!login.trim()) return;
+    // Skip if login hasn't changed during edit
+    if (isEditing && login === originalLogin.current) return;
+
+    setCheckingLogin(true);
+    loginCheckTimer.current = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase
+          .from("app_users" as any)
+          .select("id")
+          .eq("login", login)
+          .eq("active", true)
+          .neq("id", id || "00000000-0000-0000-0000-000000000000")
+          .limit(1);
+        if (!error && data && (data as any[]).length > 0) {
+          setLoginError("Este login já está em uso. Escolha outro nome de usuário.");
+        }
+      } catch {
+        // ignore
+      } finally {
+        setCheckingLogin(false);
+      }
+    }, 500);
+  };
 
   const { data: userData, isLoading } = useQuery({
     queryKey: ["admin-user-detail", id],
@@ -115,6 +148,7 @@ const UserFormPage = () => {
         active: userData.active,
         tenant_id: userData.tenant_id || "",
       });
+      originalLogin.current = userData.login || "";
     } else if (!isEditing) {
       if (!isSuperAdmin && user?.tenant_id) {
         setForm((prev) => ({ ...prev, tenant_id: user.tenant_id! }));
@@ -301,10 +335,21 @@ const UserFormPage = () => {
             <Label>Login (username) *</Label>
             <Input
               value={form.login}
-              onChange={(e) => set("login", e.target.value.toLowerCase().replace(/\s/g, ""))}
+              onChange={(e) => {
+                const val = e.target.value.toLowerCase().replace(/\s/g, "");
+                set("login", val);
+                checkLoginAvailability(val);
+              }}
               placeholder="Ex: joaosilva"
               disabled={isViewOnly}
+              className={loginError ? "border-destructive" : ""}
             />
+            {loginError && (
+              <p className="text-xs text-destructive">{loginError}</p>
+            )}
+            {checkingLogin && (
+              <p className="text-xs text-muted-foreground">Verificando disponibilidade...</p>
+            )}
           </div>
           {!isViewOnly && (
             <div className="flex items-center gap-3 sm:col-span-2">
@@ -389,7 +434,7 @@ const UserFormPage = () => {
           </Button>
           <Button
             onClick={() => saveMutation.mutate()}
-            disabled={!form.name || !form.login || !form.role || saveMutation.isPending}
+            disabled={!form.name || !form.login || !form.role || !!loginError || checkingLogin || saveMutation.isPending}
           >
             {saveMutation.isPending
               ? "Salvando..."
