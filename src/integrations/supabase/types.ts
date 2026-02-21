@@ -658,39 +658,69 @@ export type Database = {
       tenants: {
         Row: {
           active: boolean
+          address: string | null
+          category: string | null
+          city: string | null
           created_at: string
           id: string
+          latitude: number | null
           layout_id: string | null
           logo_url: string | null
+          longitude: number | null
           name: string
+          owner_email: string | null
+          owner_name: string | null
+          owner_phone: string | null
           primary_color: string | null
           secondary_color: string | null
           slug: string
+          state: string | null
           whatsapp_number: string | null
+          zip_code: string | null
         }
         Insert: {
           active?: boolean
+          address?: string | null
+          category?: string | null
+          city?: string | null
           created_at?: string
           id?: string
+          latitude?: number | null
           layout_id?: string | null
           logo_url?: string | null
+          longitude?: number | null
           name: string
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
           primary_color?: string | null
           secondary_color?: string | null
           slug: string
+          state?: string | null
           whatsapp_number?: string | null
+          zip_code?: string | null
         }
         Update: {
           active?: boolean
+          address?: string | null
+          category?: string | null
+          city?: string | null
           created_at?: string
           id?: string
+          latitude?: number | null
           layout_id?: string | null
           logo_url?: string | null
+          longitude?: number | null
           name?: string
+          owner_email?: string | null
+          owner_name?: string | null
+          owner_phone?: string | null
           primary_color?: string | null
           secondary_color?: string | null
           slug?: string
+          state?: string | null
           whatsapp_number?: string | null
+          zip_code?: string | null
         }
         Relationships: [
           {

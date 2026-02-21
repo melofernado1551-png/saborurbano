@@ -8,6 +8,7 @@ import {
   Users,
   Settings,
   LogOut,
+  Store,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
@@ -39,6 +40,9 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
     { label: "Vendas", icon: ShoppingCart, path: "/admin/vendas" },
     { label: "Pedidos", icon: ClipboardList, path: "/admin/pedidos" },
     { label: "Produtos", icon: Package, path: "/admin/produtos" },
+    ...(isSuperAdmin
+      ? [{ label: "Restaurantes", icon: Store, path: "/admin/tenants" }]
+      : []),
     ...(isSuperAdmin || isAdminTenant
       ? [{ label: "Usuários", icon: Users, path: "/admin/usuarios" }]
       : []),
@@ -61,7 +65,9 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
 
       <nav className="flex-1 p-3 space-y-1">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive = item.path === "/admin"
+              ? location.pathname === "/admin"
+              : location.pathname.startsWith(item.path);
           return (
             <button
               key={item.path}

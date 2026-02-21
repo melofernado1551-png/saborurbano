@@ -10,6 +10,8 @@ import AdminLayout from "./components/admin/AdminLayout";
 import DashboardPage from "./pages/admin/DashboardPage";
 import SalesPageNew from "./pages/admin/SalesPageNew";
 import PlaceholderPage from "./pages/admin/PlaceholderPage";
+import TenantsListPage from "./pages/admin/TenantsListPage";
+import TenantFormPage from "./pages/admin/TenantFormPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +33,9 @@ const App = () => (
               <Route path="produtos" element={<PlaceholderPage title="Produtos" />} />
               <Route path="usuarios" element={<PlaceholderPage title="Usuários" />} />
               <Route path="configuracoes" element={<PlaceholderPage title="Configurações" />} />
+              <Route path="tenants" element={<TenantsListPage />} />
+              <Route path="tenants/novo" element={<TenantFormPage />} />
+              <Route path="tenants/:id" element={<TenantFormPage />} />
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
