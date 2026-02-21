@@ -4,7 +4,7 @@ import CityScapeBackground from "./CityScapeBackground";
 
 const HeroSection = () => {
   return (
-    <section className="relative pt-6 md:pt-12 pb-0 overflow-hidden min-h-[220px] md:min-h-[280px]">
+    <section className="relative pb-0 overflow-hidden min-h-[220px] md:min-h-[280px] flex flex-col justify-end">
       <CityScapeBackground />
 
       <div className="container mx-auto px-4 relative z-10">
