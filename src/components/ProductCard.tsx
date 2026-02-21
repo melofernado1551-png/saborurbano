@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 interface ProductCardProduct {
   id: string;
   name: string;
+  slug?: string;
   description: string | null;
   price: number;
   promo_price: number | null;
@@ -25,7 +26,8 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
   const navigate = useNavigate();
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = `${window.location.origin}/${product.tenant_slug}/produto/${product.id}`;
+    const productPath = product.slug ? `/${product.tenant_slug}/${product.slug}` : `/${product.tenant_slug}/produto/${product.id}`;
+    const url = `${window.location.origin}${productPath}`;
     const shareData = {
       title: product.name,
       text: `Confira ${product.name} em ${product.tenant_name}!`,
@@ -47,6 +49,10 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
   return (
     <div
       className="group relative bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer animate-fade-in"
+      onClick={() => {
+        const path = product.slug ? `/${product.tenant_slug}/${product.slug}` : `/${product.tenant_slug}/produto/${product.id}`;
+        navigate(path);
+      }}
       style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Image */}
