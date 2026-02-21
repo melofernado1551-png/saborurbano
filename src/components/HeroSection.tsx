@@ -31,7 +31,7 @@ const HeroSection = () => {
             <img
               src={heroCharacter}
               alt="Entregador Sabor Urbano"
-              className="w-64 lg:w-80 h-auto drop-shadow-lg"
+              className="w-44 lg:w-56 h-auto drop-shadow-lg"
             />
           </div>
         </div>
