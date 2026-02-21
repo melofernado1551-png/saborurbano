@@ -1,0 +1,1 @@
+ALTER TABLE public.tenants ADD COLUMN cover_url text DEFAULT NULL;
