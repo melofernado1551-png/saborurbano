@@ -24,17 +24,18 @@ const AdminTopbar = () => {
           <>
             <div className="flex items-center gap-2">
               <Building2 className="w-4 h-4 text-muted-foreground" />
-              <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+              <Select value={selectedTenantId || "none"} onValueChange={(v) => setSelectedTenantId(v === "none" ? "" : v)}>
                 <SelectTrigger className="w-48 lg:w-64 h-9">
                   <SelectValue placeholder="Selecione um restaurante" />
                 </SelectTrigger>
-                <SelectContent>
-                  {tenants.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+              <SelectContent>
+                <SelectItem value="none">Nenhum</SelectItem>
+                {tenants.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
               </Select>
             </div>
             <Button
