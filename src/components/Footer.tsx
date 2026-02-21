@@ -19,19 +19,8 @@ const Footer = () => {
             <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
               Nosso sistema ajuda você a organizar pedidos, controlar estoque automaticamente e acompanhar suas vendas de forma simples.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+            <div className="pt-4">
               <Button
-                size="lg"
-                className="w-full sm:w-auto gap-2"
-                onClick={() => {
-                  // placeholder – futuro fluxo de assinatura
-                }}
-              >
-                Quero assinar o sistema
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="outline"
                 size="lg"
                 className="w-full sm:w-auto gap-2"
                 asChild
@@ -41,8 +30,8 @@ const Footer = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <MessageCircle className="w-4 h-4" />
-                  Falar com o comercial
+                  Quero assinar o sistema
+                  <ArrowRight className="w-4 h-4" />
                 </a>
               </Button>
             </div>
