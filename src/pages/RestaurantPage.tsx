@@ -2,16 +2,36 @@ import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Search, Share2, Sparkles } from "lucide-react";
+import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const CATEGORY_EMOJIS: Record<string, string> = {
+  "hambúrguer": "🍔", "hamburger": "🍔", "burger": "🍔",
+  "pizza": "🍕", "pizzas": "🍕",
+  "lanche": "🌭", "lanches": "🌭",
+  "porção": "🍟", "porções": "🍟", "porcao": "🍟", "porcoes": "🍟",
+  "bebida": "🥤", "bebidas": "🥤", "refrigerante": "🥤",
+  "sobremesa": "🍰", "sobremesas": "🍰", "doce": "🍰", "doces": "🍰",
+  "suco": "🧃", "sucos": "🧃",
+  "batata": "🍟",
+};
+
+const getCategoryEmoji = (name: string) => {
+  const lower = name.toLowerCase();
+  for (const [key, emoji] of Object.entries(CATEGORY_EMOJIS)) {
+    if (lower.includes(key)) return emoji;
+  }
+  return "🍽️";
+};
 
 const RestaurantPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
 
   // Fetch tenant
   const { data: tenant, isLoading: tenantLoading } = useQuery({
@@ -145,14 +165,35 @@ const RestaurantPage = () => {
     return map;
   }, [categoryRelations]);
 
+  // Categories with products (hide empty)
+  const categoriesWithProducts = useMemo(() => {
+    const catProductCount: Record<string, number> = {};
+    for (const p of products) {
+      const cats = categoryMap[p.id] || [];
+      for (const catId of cats) {
+        catProductCount[catId] = (catProductCount[catId] || 0) + 1;
+      }
+    }
+    return categories.filter((cat) => (catProductCount[cat.id] || 0) > 0);
+  }, [categories, products, categoryMap]);
+
   // Filter products
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        if (!p.name.toLowerCase().includes(q) && !(p.description || "").toLowerCase().includes(q)) {
-          return false;
-        }
+        const matchesName = p.name.toLowerCase().includes(q);
+        const matchesDesc = (p.description || "").toLowerCase().includes(q);
+        // Also search by category name
+        const cats = categoryMap[p.id] || [];
+        const matchesCat = cats.some((catId) => {
+          const cat = categories.find((c) => c.id === catId);
+          return cat?.name.toLowerCase().includes(q);
+        });
+        if (!matchesName && !matchesDesc && !matchesCat) return false;
+      }
+      if (showFeaturedOnly) {
+        if (!featuredIds.includes(p.id)) return false;
       }
       if (activeCategory) {
         const cats = categoryMap[p.id] || [];
@@ -160,9 +201,8 @@ const RestaurantPage = () => {
       }
       return true;
     });
-  }, [products, searchQuery, activeCategory, categoryMap]);
+  }, [products, searchQuery, activeCategory, categoryMap, categories, showFeaturedOnly, featuredIds]);
 
-  // Separate featured/combos/general
   const featuredProducts = filteredProducts.filter((p) => featuredIds.includes(p.id));
   const generalProducts = filteredProducts;
 
@@ -184,7 +224,7 @@ const RestaurantPage = () => {
     }
 
     const result: { name: string; products: typeof products }[] = [];
-    for (const cat of categories) {
+    for (const cat of categoriesWithProducts) {
       if (groups[cat.id] && groups[cat.id].length > 0) {
         result.push({ name: cat.name, products: groups[cat.id] });
       }
@@ -192,14 +232,13 @@ const RestaurantPage = () => {
     if (uncategorized.length > 0) {
       result.push({ name: "Outros", products: uncategorized });
     }
-    // If no categories at all, show everything as "Todos os produtos"
     if (result.length === 0 && generalProducts.length > 0) {
       result.push({ name: "Todos os Produtos", products: generalProducts });
     }
     return result;
-  }, [generalProducts, categoryMap, categories]);
+  }, [generalProducts, categoryMap, categoriesWithProducts]);
 
-  const handleShare = async () => {
+  const handleShareRestaurant = async () => {
     const url = window.location.href;
     try {
       if (navigator.share) {
@@ -209,6 +248,36 @@ const RestaurantPage = () => {
         toast.success("Link copiado!");
       }
     } catch { /* cancelled */ }
+  };
+
+  const handleShareProduct = async (product: typeof products[0], e: React.MouseEvent) => {
+    e.stopPropagation();
+    const productUrl = `${window.location.origin}/${slug}/${product.slug}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: product.name,
+          text: `Confira ${product.name} no ${tenant?.name}!`,
+          url: productUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(productUrl);
+        toast.success("Link do produto copiado!", {
+          action: {
+            label: "WhatsApp",
+            onClick: () => {
+              window.open(`https://wa.me/?text=${encodeURIComponent(`Confira ${product.name}: ${productUrl}`)}`, "_blank");
+            },
+          },
+        });
+      }
+    } catch { /* cancelled */ }
+  };
+
+  const handleShareWhatsApp = (product: typeof products[0], e: React.MouseEvent) => {
+    e.stopPropagation();
+    const productUrl = `${window.location.origin}/${slug}/${product.slug}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(`Confira ${product.name} no ${tenant?.name}! ${productUrl}`)}`, "_blank");
   };
 
   if (tenantLoading) {
@@ -235,20 +304,36 @@ const RestaurantPage = () => {
     );
   }
 
+  // Skeleton loaders
+  const ProductSkeleton = () => (
+    <div className="bg-card rounded-2xl overflow-hidden shadow-card">
+      <Skeleton className="h-40 w-full" />
+      <div className="p-3 space-y-2">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-5 w-1/2" />
+      </div>
+    </div>
+  );
+
   const ProductGridCard = ({ product }: { product: typeof products[0] }) => {
     const outOfStock = stockMap[product.id] !== undefined && stockMap[product.id] <= 0;
 
     return (
-      <div className={`group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer ${outOfStock ? "opacity-50 pointer-events-none" : ""}`} onClick={() => product.slug && navigate(`/${slug}/${product.slug}`)}>
+      <div
+        className={`group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer ${outOfStock ? "opacity-50 pointer-events-none" : ""}`}
+        onClick={() => product.slug && navigate(`/${slug}/${product.slug}`)}
+      >
         <div className="relative h-40 overflow-hidden bg-secondary">
           {imageMap[product.id] ? (
             <img src={imageMap[product.id]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-4xl">🍔</div>
+            <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-secondary to-muted">🍔</div>
           )}
           {product.has_discount && product.promo_price && (
-            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground text-xs font-semibold">
-              -{Math.round(((Number(product.price) - Number(product.promo_price)) / Number(product.price)) * 100)}%
+            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold flex items-center gap-1">
+              <Flame className="w-3 h-3" />
+              Promoção
             </div>
           )}
           {outOfStock && (
@@ -256,19 +341,47 @@ const RestaurantPage = () => {
               <span className="px-3 py-1.5 rounded-full bg-card text-foreground font-semibold text-xs">Indisponível</span>
             </div>
           )}
+          {/* Share & WhatsApp buttons */}
+          <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => handleShareProduct(product, e)}
+              className="w-8 h-8 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center hover:scale-110 transition-transform"
+              title="Copiar link"
+            >
+              <Copy className="w-3.5 h-3.5 text-foreground" />
+            </button>
+            <button
+              onClick={(e) => handleShareWhatsApp(product, e)}
+              className="w-8 h-8 rounded-full bg-green-500/90 backdrop-blur-sm flex items-center justify-center hover:scale-110 transition-transform"
+              title="Compartilhar via WhatsApp"
+            >
+              <MessageCircle className="w-3.5 h-3.5 text-white" />
+            </button>
+          </div>
         </div>
         <div className="p-3">
           <h4 className="font-semibold text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">{product.name}</h4>
           {product.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{product.description}</p>}
-          <div className="flex items-center gap-2 mt-2">
-            {product.has_discount && product.promo_price ? (
-              <>
-                <span className="text-base font-bold text-primary">R$ {Number(product.promo_price).toFixed(2)}</span>
-                <span className="text-xs text-muted-foreground line-through">R$ {Number(product.price).toFixed(2)}</span>
-              </>
-            ) : (
-              <span className="text-base font-bold text-foreground">R$ {Number(product.price).toFixed(2)}</span>
-            )}
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-2">
+              {product.has_discount && product.promo_price ? (
+                <>
+                  <span className="text-base font-bold text-primary">R$ {Number(product.promo_price).toFixed(2)}</span>
+                  <span className="text-xs text-muted-foreground line-through">R$ {Number(product.price).toFixed(2)}</span>
+                </>
+              ) : (
+                <span className="text-base font-bold text-foreground">R$ {Number(product.price).toFixed(2)}</span>
+              )}
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toast.success(`${product.name} adicionado!`);
+              }}
+              className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-110 transition-transform shadow-md"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -279,20 +392,24 @@ const RestaurantPage = () => {
     const outOfStock = stockMap[product.id] !== undefined && stockMap[product.id] <= 0;
 
     return (
-      <div className={`group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer border-2 border-primary/20 ${outOfStock ? "opacity-50 pointer-events-none" : ""}`} onClick={() => product.slug && navigate(`/${slug}/${product.slug}`)}>
+      <div
+        className={`group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer border-2 border-primary/20 ${outOfStock ? "opacity-50 pointer-events-none" : ""}`}
+        onClick={() => product.slug && navigate(`/${slug}/${product.slug}`)}
+      >
         <div className="relative h-48 overflow-hidden bg-secondary">
           {imageMap[product.id] ? (
             <img src={imageMap[product.id]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-5xl">⭐</div>
+            <div className="w-full h-full flex items-center justify-center text-5xl bg-gradient-to-br from-primary/10 to-secondary">⭐</div>
           )}
-          <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1">
+          <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1 shadow-md">
             <Sparkles className="w-3 h-3" />
             Destaque
           </div>
           {product.has_discount && product.promo_price && (
-            <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground text-xs font-semibold">
-              -{Math.round(((Number(product.price) - Number(product.promo_price)) / Number(product.price)) * 100)}%
+            <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold flex items-center gap-1">
+              <Flame className="w-3 h-3" />
+              Promoção
             </div>
           )}
           {outOfStock && (
@@ -300,43 +417,72 @@ const RestaurantPage = () => {
               <span className="px-3 py-1.5 rounded-full bg-card text-foreground font-semibold text-xs">Indisponível</span>
             </div>
           )}
+          {/* Share buttons */}
+          <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => handleShareProduct(product, e)}
+              className="w-8 h-8 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center hover:scale-110 transition-transform"
+              title="Copiar link"
+            >
+              <Copy className="w-3.5 h-3.5 text-foreground" />
+            </button>
+            <button
+              onClick={(e) => handleShareWhatsApp(product, e)}
+              className="w-8 h-8 rounded-full bg-green-500/90 backdrop-blur-sm flex items-center justify-center hover:scale-110 transition-transform"
+              title="WhatsApp"
+            >
+              <MessageCircle className="w-3.5 h-3.5 text-white" />
+            </button>
+          </div>
         </div>
         <div className="p-4">
           <h4 className="font-bold text-foreground group-hover:text-primary transition-colors">{product.name}</h4>
           {product.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{product.description}</p>}
-          <div className="flex items-center gap-2 mt-3">
-            {product.has_discount && product.promo_price ? (
-              <>
-                <span className="text-lg font-bold text-primary">R$ {Number(product.promo_price).toFixed(2)}</span>
-                <span className="text-sm text-muted-foreground line-through">R$ {Number(product.price).toFixed(2)}</span>
-              </>
-            ) : (
-              <span className="text-lg font-bold text-foreground">R$ {Number(product.price).toFixed(2)}</span>
-            )}
+          <div className="flex items-center justify-between mt-3">
+            <div className="flex items-center gap-2">
+              {product.has_discount && product.promo_price ? (
+                <>
+                  <span className="text-lg font-bold text-primary">R$ {Number(product.promo_price).toFixed(2)}</span>
+                  <span className="text-sm text-muted-foreground line-through">R$ {Number(product.price).toFixed(2)}</span>
+                </>
+              ) : (
+                <span className="text-lg font-bold text-foreground">R$ {Number(product.price).toFixed(2)}</span>
+              )}
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                toast.success(`${product.name} adicionado!`);
+              }}
+              className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-110 transition-transform shadow-md"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
     );
   };
 
+  const hasActiveFilters = searchQuery.trim() || activeCategory || showFeaturedOnly;
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Top navigation bar */}
+      {/* Top navigation bar - NOT CHANGED */}
       <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="font-semibold text-foreground truncate">{tenant.name}</h1>
-          <Button variant="ghost" size="icon" onClick={handleShare}>
+          <Button variant="ghost" size="icon" onClick={handleShareRestaurant}>
             <Share2 className="w-5 h-5" />
           </Button>
         </div>
       </header>
 
-      {/* Restaurant header with cover */}
+      {/* Restaurant header with cover - NOT CHANGED */}
       <section className="relative">
-        {/* Cover image - extends behind the logo */}
         <div className="w-full h-56 md:h-72 overflow-hidden">
           {(tenant as any).cover_url ? (
             <img src={(tenant as any).cover_url} alt="Capa" className="w-full h-full object-cover" />
@@ -344,7 +490,6 @@ const RestaurantPage = () => {
             <div className="w-full h-full bg-gradient-to-br from-primary/20 via-primary/10 to-secondary" />
           )}
         </div>
-        {/* Logo overlapping the cover bottom edge */}
         <div className="container mx-auto px-4 flex flex-col items-center text-center -mt-16 relative z-10">
           <div className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-card border-4 border-card shadow-xl overflow-hidden">
             {tenant.logo_url ? (
@@ -355,7 +500,6 @@ const RestaurantPage = () => {
               </div>
             )}
           </div>
-          {/* Info below the logo, on background */}
           <h2 className="text-2xl md:text-3xl font-extrabold text-foreground mt-3">{tenant.name}</h2>
           {tenant.category && (
             <p className="text-sm text-muted-foreground mt-1">{tenant.category}</p>
@@ -366,59 +510,109 @@ const RestaurantPage = () => {
         </div>
       </section>
 
-      {/* Search and category filters */}
-      <section className="container mx-auto px-4 -mt-4 relative z-10">
-        <div className="bg-card rounded-2xl shadow-lg p-4 border border-border">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar produto..."
-              className="w-full h-11 pl-12 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-            />
-          </div>
-          {categories.length > 0 && (
-            <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-none">
-              <button
-                onClick={() => setActiveCategory(null)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                  !activeCategory ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                }`}
-              >
-                Todos
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setActiveCategory(activeCategory === cat.id ? null : cat.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                    activeCategory === cat.id ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
+      {/* Search bar */}
+      <section className="container mx-auto px-4 mt-6">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="🔍 Buscar produto ou categoria"
+            className="w-full h-12 pl-12 pr-4 rounded-2xl bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all shadow-sm"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-sm font-medium"
+            >
+              Limpar
+            </button>
           )}
         </div>
       </section>
 
-      <main className="container mx-auto px-4 py-8 space-y-10">
-        {productsLoading ? (
-          <div className="text-center py-16">
-            <div className="text-5xl animate-pulse mb-4">🍽️</div>
-            <p className="text-muted-foreground">Carregando produtos...</p>
+      {/* Category chips */}
+      <section className="container mx-auto px-4 mt-4">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+          {/* All button */}
+          <button
+            onClick={() => { setActiveCategory(null); setShowFeaturedOnly(false); }}
+            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-1.5 shadow-sm ${
+              !activeCategory && !showFeaturedOnly
+                ? "bg-primary text-primary-foreground shadow-md scale-105"
+                : "bg-card text-foreground border border-border hover:bg-secondary"
+            }`}
+          >
+            🍽️ Todos
+          </button>
+          {/* Featured button */}
+          {featuredIds.length > 0 && (
+            <button
+              onClick={() => { setShowFeaturedOnly(!showFeaturedOnly); setActiveCategory(null); }}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-1.5 shadow-sm ${
+                showFeaturedOnly
+                  ? "bg-primary text-primary-foreground shadow-md scale-105"
+                  : "bg-card text-foreground border border-border hover:bg-secondary"
+              }`}
+            >
+              ⭐ Destaques
+            </button>
+          )}
+          {/* Category buttons */}
+          {categoriesWithProducts.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => { setActiveCategory(activeCategory === cat.id ? null : cat.id); setShowFeaturedOnly(false); }}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-1.5 shadow-sm ${
+                activeCategory === cat.id
+                  ? "bg-primary text-primary-foreground shadow-md scale-105"
+                  : "bg-card text-foreground border border-border hover:bg-secondary"
+              }`}
+            >
+              {getCategoryEmoji(cat.name)} {cat.name}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Active filter indicator */}
+      {hasActiveFilters && (
+        <section className="container mx-auto px-4 mt-3">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted-foreground">
+              {filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""} encontrado{filteredProducts.length !== 1 ? "s" : ""}
+            </span>
+            <button
+              onClick={() => { setSearchQuery(""); setActiveCategory(null); setShowFeaturedOnly(false); }}
+              className="text-primary font-medium hover:underline"
+            >
+              Limpar filtros
+            </button>
           </div>
+        </section>
+      )}
+
+      <main className="container mx-auto px-4 py-6 space-y-8">
+        {productsLoading ? (
+          <>
+            {/* Skeleton loading */}
+            <section>
+              <Skeleton className="h-6 w-48 mb-4" />
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {[...Array(8)].map((_, i) => (
+                  <ProductSkeleton key={i} />
+                ))}
+              </div>
+            </section>
+          </>
         ) : (
           <>
-            {/* Featured products */}
-            {featuredProducts.length > 0 && !activeCategory && !searchQuery && (
+            {/* Featured products section */}
+            {featuredProducts.length > 0 && !activeCategory && !showFeaturedOnly && !searchQuery && (
               <section>
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                  Destaques
+                  ⭐ Destaques do Restaurante
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {featuredProducts.map((p) => (
@@ -428,24 +622,57 @@ const RestaurantPage = () => {
               </section>
             )}
 
-            {/* Products by category */}
-            {productsByCategory.length > 0 ? (
-              productsByCategory.map((group) => (
-                <section key={group.name}>
-                  <h3 className="text-lg font-bold mb-4">{group.name}</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {group.products.map((p) => (
-                      <ProductGridCard key={p.id} product={p} />
+            {/* Featured-only mode */}
+            {showFeaturedOnly && (
+              <section>
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  ⭐ Destaques do Restaurante
+                </h3>
+                {filteredProducts.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredProducts.map((p) => (
+                      <FeaturedCard key={p.id} product={p} />
                     ))}
                   </div>
-                </section>
-              ))
-            ) : (
-              <div className="text-center py-16">
-                <div className="text-5xl mb-4">🍽️</div>
-                <h3 className="text-xl font-semibold mb-2">Nenhum produto encontrado</h3>
-                <p className="text-muted-foreground">Tente ajustar a busca ou os filtros</p>
-              </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="text-5xl mb-4">⭐</div>
+                    <p className="text-muted-foreground">Nenhum produto em destaque no momento</p>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Products by category */}
+            {!showFeaturedOnly && (
+              <>
+                {productsByCategory.length > 0 ? (
+                  productsByCategory.map((group) => (
+                    <section key={group.name}>
+                      <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                        {getCategoryEmoji(group.name)} {group.name}
+                      </h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {group.products.map((p) => (
+                          <ProductGridCard key={p.id} product={p} />
+                        ))}
+                      </div>
+                    </section>
+                  ))
+                ) : (
+                  <div className="text-center py-16">
+                    <div className="text-5xl mb-4">😢</div>
+                    <h3 className="text-xl font-semibold mb-2">Nenhum produto encontrado</h3>
+                    <p className="text-muted-foreground mb-4">Tente ajustar a busca ou os filtros</p>
+                    <Button
+                      variant="outline"
+                      onClick={() => { setSearchQuery(""); setActiveCategory(null); setShowFeaturedOnly(false); }}
+                    >
+                      Limpar filtros
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
