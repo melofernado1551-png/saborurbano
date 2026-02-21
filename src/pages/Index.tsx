@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import SearchBar from "@/components/SearchBar";
@@ -6,12 +6,20 @@ import CategoryFilter from "@/components/CategoryFilter";
 import QuickFilters from "@/components/QuickFilters";
 import RestaurantCard from "@/components/RestaurantCard";
 import FilterSheet from "@/components/FilterSheet";
-import { categories, restaurants } from "@/data/mockData";
+import CitySelectionModal from "@/components/CitySelectionModal";
+import { categories } from "@/data/mockData";
 import { MapPin } from "lucide-react";
 import Footer from "@/components/Footer";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+
+const CITY_STORAGE_KEY = "sabor_urbano_city";
 
 const Index = () => {
-  const [location, setLocation] = useState("Rua das Flores, 123");
+  const [selectedCity, setSelectedCity] = useState<string | null>(() => {
+    return localStorage.getItem(CITY_STORAGE_KEY);
+  });
+  const [showCityModal, setShowCityModal] = useState(!selectedCity);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeQuickFilters, setActiveQuickFilters] = useState<string[]>([]);
@@ -23,6 +31,49 @@ const Index = () => {
     priceRange: "any",
   });
 
+  const handleCitySelect = (city: string) => {
+    setSelectedCity(city);
+    localStorage.setItem(CITY_STORAGE_KEY, city);
+    setShowCityModal(false);
+  };
+
+  const handleChangeCity = () => {
+    setShowCityModal(true);
+  };
+
+  // Fetch tenants from Supabase filtered by city
+  const { data: tenants = [], isLoading } = useQuery({
+    queryKey: ["tenants-by-city", selectedCity],
+    enabled: !!selectedCity,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("*")
+        .eq("active", true)
+        .ilike("city", selectedCity!);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Map tenants to restaurant-like objects for RestaurantCard
+  const restaurants = tenants.map((t) => ({
+    id: t.id,
+    name: t.name,
+    image: t.logo_url || "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&h=300&fit=crop",
+    category: (t.category || "").split(",")[0]?.trim().toLowerCase() || "other",
+    rating: 0,
+    reviewCount: 0,
+    deliveryTime: "30-45 min",
+    deliveryFee: 0,
+    minOrder: 0,
+    distance: 0,
+    isOpen: true,
+    isFavorite: false,
+    tags: t.category ? t.category.split(",").map((c: string) => c.trim()) : [],
+    promoted: false,
+  }));
+
   const handleQuickFilterToggle = (filterId: string) => {
     setActiveQuickFilters((prev) =>
       prev.includes(filterId)
@@ -31,58 +82,28 @@ const Index = () => {
     );
   };
 
-  const filteredRestaurants = useMemo(() => {
-    let result = [...restaurants];
-
-    // Category filter
-    if (activeCategory !== "all") {
-      result = result.filter((r) => r.category === activeCategory);
-    }
-
-    // Search filter
+  // Filter restaurants by search
+  const filteredRestaurants = restaurants.filter((r) => {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (r) =>
-          r.name.toLowerCase().includes(query) ||
-          r.tags.some((tag) => tag.toLowerCase().includes(query))
-      );
+      if (
+        !r.name.toLowerCase().includes(query) &&
+        !r.tags.some((tag) => tag.toLowerCase().includes(query))
+      ) {
+        return false;
+      }
     }
-
-    // Rating filter
-    if (filters.rating > 0) {
-      result = result.filter((r) => r.rating >= filters.rating);
-    }
-
-    // Free delivery filter
-    if (filters.freeDelivery) {
-      result = result.filter((r) => r.deliveryFee === 0);
-    }
-
-    // Quick filters
-    if (activeQuickFilters.includes("popular")) {
-      result = result.filter((r) => r.reviewCount > 500);
-    }
-    if (activeQuickFilters.includes("freeDelivery")) {
-      result = result.filter((r) => r.deliveryFee === 0);
-    }
-    if (activeQuickFilters.includes("topRated")) {
-      result = result.filter((r) => r.rating >= 4.5);
-    }
-
-    // Sort promoted first
-    result.sort((a, b) => {
-      if (a.promoted && !b.promoted) return -1;
-      if (!a.promoted && b.promoted) return 1;
-      return 0;
-    });
-
-    return result;
-  }, [activeCategory, searchQuery, filters, activeQuickFilters]);
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-background">
-      <Header location={location} onLocationClick={() => {}} />
+      <Header
+        location={selectedCity || "Selecione a cidade"}
+        onLocationClick={handleChangeCity}
+      />
+
+      <CitySelectionModal open={showCityModal} onCitySelect={handleCitySelect} />
 
       <main>
         <HeroSection />
@@ -129,7 +150,22 @@ const Index = () => {
             </div>
           </div>
 
-          {filteredRestaurants.length === 0 ? (
+          {!selectedCity ? (
+            <div className="text-center py-16">
+              <div className="text-6xl mb-4">📍</div>
+              <h3 className="text-xl font-semibold mb-2">
+                Selecione sua cidade
+              </h3>
+              <p className="text-muted-foreground">
+                Para ver os restaurantes disponíveis na sua região
+              </p>
+            </div>
+          ) : isLoading ? (
+            <div className="text-center py-16">
+              <div className="text-6xl mb-4 animate-pulse">🍽️</div>
+              <h3 className="text-xl font-semibold mb-2">Carregando restaurantes...</h3>
+            </div>
+          ) : filteredRestaurants.length === 0 ? (
             <div className="text-center py-16">
               <div className="text-6xl mb-4">🍽️</div>
               <h3 className="text-xl font-semibold mb-2">

@@ -368,8 +368,8 @@ const TenantFormPage = () => {
             <Input value={form.address} onChange={(e) => set("address", e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Cidade</Label>
-            <Input value={form.city} onChange={(e) => set("city", e.target.value)} />
+            <Label>Cidade *</Label>
+            <Input value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="Ex: São Paulo" />
           </div>
           <div className="space-y-2">
             <Label>Estado</Label>
@@ -413,7 +413,7 @@ const TenantFormPage = () => {
         <Button variant="outline" onClick={() => navigate("/admin/tenants")}>Cancelar</Button>
         <Button
           onClick={() => saveMutation.mutate()}
-          disabled={!form.name || !!cnpjError || saveMutation.isPending}
+          disabled={!form.name || !form.city || !!cnpjError || saveMutation.isPending}
         >
           {saveMutation.isPending ? "Salvando..." : isEditing ? "Salvar Alterações" : "Criar Restaurante"}
         </Button>
