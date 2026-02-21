@@ -41,13 +41,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setTimeout(async () => {
           try {
             const { data, error } = await supabase
-              .from("app_users" as any)
+              .from("profiles" as any)
               .select("id, login, name, role, tenant_id, must_change_password")
               .eq("auth_id", session.user.id)
               .eq("active", true)
               .single();
 
-            console.log("[Auth] app_users lookup:", { data, error: error?.message });
+            console.log("[Auth] profiles lookup:", { data, error: error?.message });
             if (data) {
               const userData = data as any;
               setUser({
@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setMustChangePassword(false);
             }
           } catch (e) {
-            console.error("[Auth] Error fetching app_user:", e);
+            console.error("[Auth] Error fetching profile:", e);
             setUser(null);
           }
           setLoading(false);

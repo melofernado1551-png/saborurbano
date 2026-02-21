@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: callerUser } = await supabaseAdmin
-      .from("app_users")
+      .from("profiles")
       .select("role, tenant_id")
       .eq("auth_id", caller.id)
       .eq("active", true)
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
 
     // Get target user
     const { data: targetUser, error: targetErr } = await supabaseAdmin
-      .from("app_users")
+      .from("profiles")
       .select("id, tenant_id, auth_id, role")
       .eq("id", user_id)
       .single();
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
     // Check login uniqueness if changed
     if (login) {
       const { data: existing } = await supabaseAdmin
-        .from("app_users")
+        .from("profiles")
         .select("id")
         .eq("login", login)
         .eq("active", true)
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
 
     if (Object.keys(updatePayload).length > 0) {
       const { error: updateErr } = await supabaseAdmin
-        .from("app_users")
+        .from("profiles")
         .update(updatePayload)
         .eq("id", user_id);
 

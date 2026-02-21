@@ -106,7 +106,7 @@ const UserFormPage = () => {
     loginCheckTimer.current = setTimeout(async () => {
       try {
         const { data, error } = await supabase
-          .from("app_users" as any)
+          .from("profiles" as any)
           .select("id")
           .eq("login", login)
           .eq("active", true)
@@ -128,7 +128,7 @@ const UserFormPage = () => {
     enabled: isEditing,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("app_users" as any)
+        .from("profiles" as any)
         .select("id, login, name, cpf, cargo, role, active, tenant_id")
         .eq("id", id!)
         .single();
