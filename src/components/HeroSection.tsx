@@ -4,7 +4,7 @@ import CityScapeBackground from "./CityScapeBackground";
 
 const HeroSection = () => {
   return (
-    <section className="relative py-8 md:py-16 pb-12 md:pb-24 overflow-hidden min-h-[320px]">
+    <section className="relative py-8 md:py-12 overflow-hidden min-h-[280px]">
       <CityScapeBackground />
 
       <div className="container mx-auto px-4 relative z-10">
@@ -25,11 +25,11 @@ const HeroSection = () => {
             </p>
           </div>
 
-          <div className="hidden md:flex items-end flex-shrink-0 animate-fade-in self-end" style={{ animationDelay: "300ms" }}>
+          <div className="hidden md:block flex-shrink-0 animate-fade-in" style={{ animationDelay: "300ms" }}>
             <img
               src={heroCharacter}
               alt="Entregador Sabor Urbano"
-              className="w-44 lg:w-56 h-auto drop-shadow-lg translate-y-16"
+              className="w-44 lg:w-56 h-auto drop-shadow-lg"
             />
           </div>
         </div>
