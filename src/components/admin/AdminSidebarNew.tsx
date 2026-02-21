@@ -26,7 +26,7 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
 
   const handleLogout = async () => {
     await logout();
-    navigate("/");
+    navigate("/login");
   };
 
   const go = (path: string) => {
