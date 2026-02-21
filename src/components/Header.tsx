@@ -40,12 +40,13 @@ const Header = ({ location, onLocationClick }: HeaderProps) => {
           <div className="flex items-center gap-2">
             {user && (
               <Button
-                variant="ghost"
-                size="icon"
+                variant="default"
+                size="sm"
                 onClick={() => navigate("/admin")}
-                className="text-muted-foreground/50 hover:text-primary transition-colors"
+                className="gap-2 rounded-xl"
               >
-                <Settings className="w-5 h-5" />
+                <Settings className="w-4 h-4" />
+                <span className="hidden sm:inline">Administração</span>
               </Button>
             )}
             <Button variant="ghost" size="icon" className="relative">
