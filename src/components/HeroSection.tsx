@@ -15,7 +15,7 @@ const HeroSection = () => {
               Mais de 150 restaurantes
             </div>
             
-            <h1 className="text-2xl md:text-4xl lg:text-5xl font-extrabold mb-2 md:mb-4 animate-fade-in leading-tight" style={{ animationDelay: "100ms" }}>
+            <h1 className="text-xl md:text-4xl lg:text-5xl font-extrabold mb-2 md:mb-4 animate-fade-in leading-tight" style={{ animationDelay: "100ms" }}>
               <span className="text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">A melhor comida da cidade,{" "}</span>
               <span className="text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]" style={{ WebkitTextStroke: "0.5px rgba(255,107,0,0.5)" }}>na sua porta</span>
             </h1>
