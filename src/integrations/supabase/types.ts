@@ -18,9 +18,12 @@ export type Database = {
         Row: {
           active: boolean
           auth_id: string | null
+          cargo: string | null
+          cpf: string | null
           created_at: string
           id: string
           login: string
+          name: string | null
           password_hash: string
           role: string
           tenant_id: string | null
@@ -28,9 +31,12 @@ export type Database = {
         Insert: {
           active?: boolean
           auth_id?: string | null
+          cargo?: string | null
+          cpf?: string | null
           created_at?: string
           id?: string
           login: string
+          name?: string | null
           password_hash: string
           role?: string
           tenant_id?: string | null
@@ -38,9 +44,12 @@ export type Database = {
         Update: {
           active?: boolean
           auth_id?: string | null
+          cargo?: string | null
+          cpf?: string | null
           created_at?: string
           id?: string
           login?: string
+          name?: string | null
           password_hash?: string
           role?: string
           tenant_id?: string | null
@@ -803,16 +812,30 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      create_app_user: {
-        Args: {
-          _auth_id: string
-          _login: string
-          _password: string
-          _role: string
-          _tenant_id: string
-        }
-        Returns: string
-      }
+      create_app_user:
+        | {
+            Args: {
+              _auth_id: string
+              _login: string
+              _password: string
+              _role: string
+              _tenant_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _auth_id: string
+              _cargo?: string
+              _cpf?: string
+              _login: string
+              _name?: string
+              _password: string
+              _role: string
+              _tenant_id: string
+            }
+            Returns: string
+          }
       get_app_user_role: { Args: { _auth_id: string }; Returns: string }
       get_app_user_tenant_id: { Args: { _auth_id: string }; Returns: string }
       get_user_tenant_id: { Args: never; Returns: string }
@@ -827,6 +850,10 @@ export type Database = {
       is_tenant_member: {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
+      }
+      update_app_user_password: {
+        Args: { _password: string; _user_id: string }
+        Returns: undefined
       }
       verify_password: {
         Args: { _hash: string; _password: string }

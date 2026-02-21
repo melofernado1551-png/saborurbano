@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface AppUser {
   id: string;
   login: string;
-  role: "superadmin" | "tenant_admin" | "user";
+  role: "superadmin" | "tenant_admin" | "colaborador" | "contador" | "user";
   tenant_id: string | null;
 }
 

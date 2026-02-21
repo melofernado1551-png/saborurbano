@@ -36,19 +36,32 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
 
   const isSuperAdmin = user?.role === "superadmin";
   const isAdminTenant = user?.role === "tenant_admin";
+  const isContador = user?.role === "contador";
+  const isColaborador = user?.role === "colaborador";
 
+  // Build nav items based on role
   const navItems = [
     { label: "Dashboard", icon: LayoutDashboard, path: "/admin" },
-    { label: "Vendas", icon: ShoppingCart, path: "/admin/vendas" },
-    { label: "Pedidos", icon: ClipboardList, path: "/admin/pedidos" },
-    { label: "Produtos", icon: Package, path: "/admin/produtos" },
+    // Monetary pages: hidden from colaborador
+    ...(!isColaborador
+      ? [{ label: "Vendas", icon: ShoppingCart, path: "/admin/vendas" }]
+      : []),
+    // Operational pages: hidden from contador
+    ...(!isContador
+      ? [{ label: "Pedidos", icon: ClipboardList, path: "/admin/pedidos" }]
+      : []),
+    ...(!isContador
+      ? [{ label: "Produtos", icon: Package, path: "/admin/produtos" }]
+      : []),
     ...(isSuperAdmin
       ? [{ label: "Restaurantes", icon: Store, path: "/admin/tenants" }]
       : []),
     ...(isSuperAdmin || isAdminTenant
       ? [{ label: "Usuários", icon: Users, path: "/admin/usuarios" }]
       : []),
-    { label: "Configurações", icon: Settings, path: "/admin/configuracoes" },
+    ...(!isContador
+      ? [{ label: "Configurações", icon: Settings, path: "/admin/configuracoes" }]
+      : []),
   ];
 
   const roleLabel =
@@ -56,6 +69,10 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       ? "Superadmin"
       : user?.role === "tenant_admin"
       ? "Administrador"
+      : user?.role === "colaborador"
+      ? "Colaborador"
+      : user?.role === "contador"
+      ? "Contador"
       : "Usuário";
 
   return (
