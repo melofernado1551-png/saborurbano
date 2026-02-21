@@ -1,6 +1,7 @@
 import { Star, Clock, MapPin, Heart, Sparkles } from "lucide-react";
 import { Restaurant } from "@/data/mockData";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -9,11 +10,13 @@ interface RestaurantCardProps {
 
 const RestaurantCard = ({ restaurant, index }: RestaurantCardProps) => {
   const [isFavorite, setIsFavorite] = useState(restaurant.isFavorite);
+  const navigate = useNavigate();
 
   return (
     <div
       className="group relative bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer animate-fade-in"
       style={{ animationDelay: `${index * 50}ms` }}
+      onClick={() => restaurant.slug && navigate(`/restaurante/${restaurant.slug}`)}
     >
       {/* Image */}
       <div className="relative h-44 overflow-hidden">

@@ -15,6 +15,7 @@ import TenantsListPage from "./pages/admin/TenantsListPage";
 import TenantFormPage from "./pages/admin/TenantFormPage";
 import UsersListPage from "./pages/admin/UsersListPage";
 import UserFormPage from "./pages/admin/UserFormPage";
+import RestaurantPage from "./pages/RestaurantPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="tenants/novo" element={<TenantFormPage />} />
               <Route path="tenants/:id" element={<TenantFormPage />} />
             </Route>
+            <Route path="/restaurante/:slug" element={<RestaurantPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
