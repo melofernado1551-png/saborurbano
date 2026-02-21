@@ -24,7 +24,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, UserPlus, X } from "lucide-react";
+import { ArrowLeft, UserPlus, X, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
@@ -117,6 +117,8 @@ const TenantFormPage = () => {
 
   const [form, setForm] = useState<TenantForm>(emptyForm);
   const [cnpjError, setCnpjError] = useState("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [showNewUser, setShowNewUser] = useState(false);
   const [newUser, setNewUser] = useState({ login: "", password: "", name: "", role: "user" as string, active: true });
 
@@ -149,8 +151,37 @@ const TenantFormPage = () => {
         owner_email: (tenant as any).owner_email || "",
         whatsapp_number: tenant.whatsapp_number || "",
       });
+      setLogoUrl(tenant.logo_url || null);
     }
   }, [tenant]);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const tenantId = id || "new";
+    const ext = file.name.split(".").pop();
+    const filePath = `${tenantId}/logo.${ext}`;
+
+    setLogoUploading(true);
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("tenant-logos")
+        .upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("tenant-logos")
+        .getPublicUrl(filePath);
+      
+      setLogoUrl(publicUrl);
+      toast.success("Logo enviada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar logo");
+    } finally {
+      setLogoUploading(false);
+    }
+  };
 
   const { data: collaborators = [], isLoading: collabLoading } = useQuery({
     queryKey: ["tenant-collaborators", id],
@@ -197,6 +228,7 @@ const TenantFormPage = () => {
         owner_phone: form.owner_phone || null,
         owner_email: form.owner_email || null,
         whatsapp_number: form.whatsapp_number || null,
+        logo_url: logoUrl || null,
       };
 
       if (isEditing) {
@@ -298,6 +330,29 @@ const TenantFormPage = () => {
       <Card>
         <CardHeader><CardTitle className="text-lg">Dados Básicos</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
+          {/* Logo upload */}
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Logo do Restaurante</Label>
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-xl bg-secondary overflow-hidden flex-shrink-0 border border-border">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-2xl text-muted-foreground">🏪</div>
+                )}
+              </div>
+              <div>
+                <Button variant="outline" size="sm" className="gap-2" asChild disabled={logoUploading}>
+                  <label className="cursor-pointer">
+                    {logoUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    {logoUploading ? "Enviando..." : "Enviar logo"}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                  </label>
+                </Button>
+                <p className="text-xs text-muted-foreground mt-1">PNG, JPG ou WebP. Recomendado: 200x200px</p>
+              </div>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label>Nome do restaurante *</Label>
             <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex: Burger King" />
