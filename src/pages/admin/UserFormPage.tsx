@@ -16,7 +16,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserForm {
@@ -24,7 +35,6 @@ interface UserForm {
   cpf: string;
   cargo: string;
   login: string;
-  password: string;
   role: string;
   active: boolean;
   tenant_id: string;
@@ -35,7 +45,6 @@ const emptyForm: UserForm = {
   cpf: "",
   cargo: "",
   login: "",
-  password: "",
   role: "colaborador",
   active: true,
   tenant_id: "",
@@ -81,7 +90,6 @@ const UserFormPage = () => {
 
   const [form, setForm] = useState<UserForm>(emptyForm);
 
-  // Load user for editing
   const { data: userData, isLoading } = useQuery({
     queryKey: ["admin-user-detail", id],
     enabled: isEditing,
@@ -103,13 +111,11 @@ const UserFormPage = () => {
         cpf: userData.cpf || "",
         cargo: userData.cargo || "",
         login: userData.login || "",
-        password: "",
         role: userData.role || "colaborador",
         active: userData.active,
         tenant_id: userData.tenant_id || "",
       });
     } else if (!isEditing) {
-      // Set default tenant_id for new users
       if (!isSuperAdmin && user?.tenant_id) {
         setForm((prev) => ({ ...prev, tenant_id: user.tenant_id! }));
       } else if (effectiveTenantId) {
@@ -125,7 +131,6 @@ const UserFormPage = () => {
       if (!form.name.trim()) throw new Error("Nome é obrigatório");
       if (!form.login.trim()) throw new Error("Login é obrigatório");
       if (!form.role) throw new Error("Permissão é obrigatória");
-      if (!isEditing && !form.password) throw new Error("Senha é obrigatória para novo usuário");
       if (!form.tenant_id) throw new Error("Estabelecimento é obrigatório");
 
       if (isEditing) {
@@ -138,7 +143,6 @@ const UserFormPage = () => {
           active: form.active,
           login: form.login,
         };
-        if (form.password) body.password = form.password;
 
         const { data, error } = await supabase.functions.invoke("update-user", { body });
         if (error) throw error;
@@ -147,7 +151,6 @@ const UserFormPage = () => {
         const { data, error } = await supabase.functions.invoke("create-user", {
           body: {
             login: form.login,
-            password: form.password,
             role: form.role,
             tenant_id: form.tenant_id,
             name: form.name,
@@ -161,10 +164,28 @@ const UserFormPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
-      toast.success(isEditing ? "Usuário atualizado!" : "Usuário criado!");
+      toast.success(
+        isEditing
+          ? "Usuário atualizado!"
+          : "Usuário criado! Ele receberá uma senha padrão e precisará alterá-la no primeiro login."
+      );
       navigate("/admin/usuarios");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao salvar"),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("reset-password", {
+        body: { user_id: id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      toast.success("A senha foi resetada. O usuário precisará definir uma nova senha no próximo login.");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao resetar senha"),
   });
 
   if (!canAccess) return <Navigate to="/admin" replace />;
@@ -173,13 +194,16 @@ const UserFormPage = () => {
     return <div className="text-center py-12 text-muted-foreground">Carregando...</div>;
   }
 
+  // Can reset password: not self, not superadmin target
+  const canResetPassword = isViewOnly && userData && userData.id !== user?.id && userData.role !== "superadmin";
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/admin/usuarios")}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold">
             {isViewOnly ? "Visualizar Usuário" : isEditing ? "Editar Usuário" : "Novo Usuário"}
           </h1>
@@ -192,16 +216,52 @@ const UserFormPage = () => {
           </p>
         </div>
         {isViewOnly && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            onClick={() => navigate(`/admin/usuarios/${id}?edit=true`)}
-          >
-            Editar
-          </Button>
+          <div className="flex gap-2">
+            {canResetPassword && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <RotateCcw className="w-4 h-4" />
+                    Resetar Senha
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Resetar senha do usuário</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      A senha de <strong>{userData?.name || userData?.login}</strong> será resetada para a senha padrão.
+                      O usuário precisará definir uma nova senha no próximo login.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => resetPasswordMutation.mutate()}
+                      disabled={resetPasswordMutation.isPending}
+                    >
+                      {resetPasswordMutation.isPending ? "Resetando..." : "Confirmar Reset"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/admin/usuarios/${id}?edit=true`)}
+            >
+              Editar
+            </Button>
+          </div>
         )}
       </div>
+
+      {/* Info about default password for new users */}
+      {!isEditing && (
+        <div className="bg-muted/50 border border-border rounded-lg p-4 text-sm text-muted-foreground">
+          O novo usuário receberá uma <strong>senha padrão</strong> e será obrigado a alterá-la no primeiro login.
+        </div>
+      )}
 
       {/* Basic Info */}
       <Card>
@@ -243,16 +303,6 @@ const UserFormPage = () => {
               value={form.login}
               onChange={(e) => set("login", e.target.value.toLowerCase().replace(/\s/g, ""))}
               placeholder="Ex: joaosilva"
-              disabled={isViewOnly}
-            />
-          </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label>{isEditing ? "Nova senha (deixe vazio para manter)" : "Senha *"}</Label>
-            <Input
-              type="password"
-              value={form.password}
-              onChange={(e) => set("password", e.target.value)}
-              placeholder={isEditing ? "••••••••" : "Mínimo 6 caracteres"}
               disabled={isViewOnly}
             />
           </div>
@@ -305,7 +355,7 @@ const UserFormPage = () => {
         </CardContent>
       </Card>
 
-      {/* Tenant Selection - only for superadmin creating new user */}
+      {/* Tenant Selection - only for superadmin */}
       {isSuperAdmin && (
         <Card>
           <CardHeader>

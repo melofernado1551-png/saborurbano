@@ -23,6 +23,7 @@ export type Database = {
           created_at: string
           id: string
           login: string
+          must_change_password: boolean
           name: string | null
           password_hash: string
           role: string
@@ -36,6 +37,7 @@ export type Database = {
           created_at?: string
           id?: string
           login: string
+          must_change_password?: boolean
           name?: string | null
           password_hash: string
           role?: string
@@ -49,6 +51,7 @@ export type Database = {
           created_at?: string
           id?: string
           login?: string
+          must_change_password?: boolean
           name?: string | null
           password_hash?: string
           role?: string
