@@ -219,6 +219,12 @@ const utensils = [
   { x: 280, type: "fork" },
 ];
 
+// Stable random for windows (seeded by position)
+const stableRandom = (seed: number) => {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+};
+
 const stars = Array.from({ length: 30 }, (_, i) => ({
   cx: (i * 37 + 13) % 420,
   cy: (i * 23 + 7) % 100,
@@ -319,7 +325,7 @@ const CityScapeBackground = () => {
                       y={200 - b.h + 4 + wi * 12}
                       width={3}
                       height={4}
-                      fill={Math.random() > 0.5 ? "rgba(255,220,120,0.6)" : "rgba(255,220,120,0.15)"}
+                      fill={stableRandom(b.x * 100 + wi * 10 + wj) > 0.5 ? "rgba(255,220,120,0.6)" : "rgba(255,220,120,0.15)"}
                       rx={0.3}
                     />
                   ))
@@ -350,7 +356,7 @@ const CityScapeBackground = () => {
                       y={200 - b.h + 5 + wi * 14}
                       width={3.5}
                       height={5}
-                      fill={Math.random() > 0.4 ? "rgba(255,220,120,0.7)" : "rgba(100,150,255,0.3)"}
+                      fill={stableRandom(b.x * 100 + wi * 10 + wj + 500) > 0.4 ? "rgba(255,220,120,0.7)" : "rgba(100,150,255,0.3)"}
                       rx={0.3}
                     />
                   ))
