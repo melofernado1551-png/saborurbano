@@ -20,7 +20,7 @@ const Header = ({ location, onLocationClick }: HeaderProps) => {
               <span className="text-xl">🍽️</span>
             </div>
             <span className="text-xl font-bold text-foreground hidden sm:block">
-              Food<span className="text-primary">City</span>
+              Sabor<span className="text-primary"> Urbano</span>
             </span>
           </div>
 
