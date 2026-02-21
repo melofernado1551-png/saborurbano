@@ -269,17 +269,83 @@ const CityScapeBackground = () => {
         style={{ minHeight: "100%" }}
       >
         <defs>
-          {/* Sun/Moon glow */}
           <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={colors.sunGlow} />
+            <stop offset="0%" stopColor="#FFE87C" stopOpacity="1" />
+            <stop offset="40%" stopColor="#FFD700" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#FF8C00" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="sunCore" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#FFFFFF" />
+            <stop offset="50%" stopColor="#FFF176" />
+            <stop offset="100%" stopColor="#FFB300" />
+          </radialGradient>
+          <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="rgba(200,220,255,0.4)" />
             <stop offset="100%" stopColor="transparent" />
+          </radialGradient>
+          <radialGradient id="moonSurface" cx="40%" cy="40%" r="50%">
+            <stop offset="0%" stopColor="#F5F5F0" />
+            <stop offset="100%" stopColor="#D0D0C8" />
           </radialGradient>
         </defs>
 
-        {/* Sun/Moon glow */}
-        <circle cx="340" cy={colors.sunY} r="60" fill="url(#sunGlow)" className="transition-all duration-[3000ms]">
-          <animate attributeName="r" values="55;65;55" dur="8s" repeatCount="indefinite" />
-        </circle>
+        {/* === SUN === visible ~5:30 to 19:00 */}
+        {(() => {
+          const sunRise = 5.5;
+          const sunSet = 19;
+          const sunDuration = sunSet - sunRise;
+          const sunProgress = Math.max(0, Math.min(1, (hour - sunRise) / sunDuration));
+          const sunX = -20 + sunProgress * 460;
+          const sunArc = Math.sin(sunProgress * Math.PI);
+          const sunY = 95 - sunArc * 75;
+          const sunOpacity = hour >= sunRise && hour <= sunSet ? Math.min(1, sunArc * 3) : 0;
+          return sunOpacity > 0 ? (
+            <g opacity={sunOpacity}>
+              <circle cx={sunX} cy={sunY} r="40" fill="url(#sunGlow)">
+                <animate attributeName="r" values="38;44;38" dur="6s" repeatCount="indefinite" />
+              </circle>
+              <circle cx={sunX} cy={sunY} r="12" fill="url(#sunCore)" />
+              {Array.from({ length: 8 }, (_, i) => {
+                const angle = (i * 45) * (Math.PI / 180);
+                return (
+                  <line key={`ray-${i}`} x1={sunX + Math.cos(angle) * 16} y1={sunY + Math.sin(angle) * 16} x2={sunX + Math.cos(angle) * 24} y2={sunY + Math.sin(angle) * 24} stroke="#FFD700" strokeWidth="1.5" strokeLinecap="round" opacity="0.7">
+                    <animate attributeName="opacity" values="0.4;0.8;0.4" dur={`${3 + i * 0.3}s`} repeatCount="indefinite" />
+                  </line>
+                );
+              })}
+            </g>
+          ) : null;
+        })()}
+
+        {/* === MOON === visible ~19:00 to 5:30 */}
+        {(() => {
+          const moonRise = 19;
+          const moonSet = 5.5;
+          let moonProgress: number;
+          if (hour >= moonRise) {
+            moonProgress = (hour - moonRise) / (24 - moonRise + moonSet);
+          } else if (hour <= moonSet) {
+            moonProgress = (hour + 24 - moonRise) / (24 - moonRise + moonSet);
+          } else {
+            moonProgress = -1;
+          }
+          const moonX = -20 + moonProgress * 460;
+          const moonArc = Math.sin(moonProgress * Math.PI);
+          const moonY = 75 - moonArc * 50;
+          const moonOpacity = moonProgress >= 0 && moonProgress <= 1 ? Math.min(1, moonArc * 3) : 0;
+          return moonOpacity > 0 ? (
+            <g opacity={moonOpacity}>
+              <circle cx={moonX} cy={moonY} r="30" fill="url(#moonGlow)">
+                <animate attributeName="r" values="28;34;28" dur="8s" repeatCount="indefinite" />
+              </circle>
+              <circle cx={moonX} cy={moonY} r="9" fill="url(#moonSurface)" />
+              <circle cx={moonX - 2} cy={moonY - 2} r="1.5" fill="rgba(180,180,170,0.4)" />
+              <circle cx={moonX + 3} cy={moonY + 1} r="1" fill="rgba(180,180,170,0.3)" />
+              <circle cx={moonX - 1} cy={moonY + 3} r="0.8" fill="rgba(180,180,170,0.25)" />
+              <circle cx={moonX + 3} cy={moonY - 1} r="7.5" fill="rgba(20,20,40,0.15)" />
+            </g>
+          ) : null;
+        })()}
 
         {/* Stars */}
         {stars.map((s, i) => (
