@@ -120,9 +120,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setSession(null);
     try {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'local' });
     } catch {
-      // Even if signOut fails (e.g. session not found), local state is already cleared
+      // Even if signOut fails, local state is already cleared
     }
   };
 
