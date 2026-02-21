@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 
 const DashboardPage = () => {
   const { user } = useAuth();
-  const { effectiveTenantId, isSuperAdmin } = useAdmin();
+  const { effectiveTenantId, isSuperAdmin, tenantName } = useAdmin();
 
   const today = new Date();
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
@@ -126,7 +126,7 @@ const DashboardPage = () => {
       {/* Greeting */}
       <div>
         <h1 className="text-2xl font-bold">
-          Dashboard {isSuperAdmin && <span className="text-primary">Global</span>}
+          Dashboard {tenantName ? `- ${tenantName}` : isSuperAdmin ? <span className="text-primary">Global</span> : ""}
         </h1>
         <p className="text-muted-foreground text-sm">Bem-vindo, {user?.login}</p>
       </div>
