@@ -102,21 +102,28 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Check login uniqueness if changed
+    // Check login uniqueness if changed (global, active users only)
     if (login) {
       const { data: existing } = await supabaseAdmin
         .from("app_users")
         .select("id")
         .eq("login", login)
+        .eq("active", true)
         .neq("id", user_id)
         .single();
 
       if (existing) {
-        return new Response(JSON.stringify({ error: "Login já existe" }), {
+        return new Response(JSON.stringify({ error: "Este login já está em uso. Escolha outro nome de usuário." }), {
           status: 409,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+    }
+
+    // Update login email in auth if login changed
+    if (login && targetUser.auth_id) {
+      const fakeEmail = `${login}@app.internal`;
+      await supabaseAdmin.auth.admin.updateUserById(targetUser.auth_id, { email: fakeEmail });
     }
 
     // Build update payload (excluding password)
@@ -166,11 +173,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update login email in auth if login changed
-      if (login && targetUser.auth_id) {
-        const fakeEmail = `${login}@app.internal`;
-        await supabaseAdmin.auth.admin.updateUserById(targetUser.auth_id, { email: fakeEmail });
-      }
     }
 
     return new Response(

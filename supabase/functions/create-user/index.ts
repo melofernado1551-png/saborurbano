@@ -84,11 +84,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check login uniqueness
+    // Check login uniqueness (global, active users only)
     const { data: existing } = await supabaseAdmin
       .from("app_users")
       .select("id")
       .eq("login", login)
+      .eq("active", true)
       .single();
 
     if (existing) {
