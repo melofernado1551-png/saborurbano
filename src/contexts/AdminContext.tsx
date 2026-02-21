@@ -54,9 +54,26 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     },
   });
 
+  // Fetch tenant name for non-superadmin users
+  const { data: userTenant } = useQuery({
+    queryKey: ["user-tenant", user?.tenant_id],
+    enabled: !isSuperAdmin && !!user?.tenant_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("id, name")
+        .eq("id", user!.tenant_id!)
+        .single();
+      if (error) throw error;
+      return data as Tenant;
+    },
+  });
+
   const effectiveTenantId = isSuperAdmin ? selectedTenantId || null : user?.tenant_id || null;
 
-  const tenantName = tenants.find((t) => t.id === effectiveTenantId)?.name || "";
+  const tenantName = isSuperAdmin
+    ? tenants.find((t) => t.id === effectiveTenantId)?.name || ""
+    : userTenant?.name || "";
 
   return (
     <AdminContext.Provider
