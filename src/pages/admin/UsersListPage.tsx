@@ -52,6 +52,7 @@ const UsersListPage = () => {
         .from("app_users" as any)
         .select("id, login, name, role, cargo, active, tenant_id, created_at")
         .eq("active", true)
+        .neq("role", "superadmin")
         .order("name", { ascending: true });
 
       if (!isSuperAdmin) {
