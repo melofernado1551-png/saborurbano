@@ -116,9 +116,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
+    // Clear local state first, regardless of server response
     setUser(null);
     setSession(null);
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Even if signOut fails (e.g. session not found), local state is already cleared
+    }
   };
 
   return (
