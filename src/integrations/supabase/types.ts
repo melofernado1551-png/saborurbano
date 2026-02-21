@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_users: {
+        Row: {
+          active: boolean
+          auth_id: string | null
+          created_at: string
+          id: string
+          login: string
+          password_hash: string
+          role: string
+          tenant_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          auth_id?: string | null
+          created_at?: string
+          id?: string
+          login: string
+          password_hash: string
+          role?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          auth_id?: string | null
+          created_at?: string
+          id?: string
+          login?: string
+          password_hash?: string
+          role?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_users_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           active: boolean
@@ -463,6 +504,44 @@ export type Database = {
           },
         ]
       }
+      sales: {
+        Row: {
+          active: boolean
+          created_at: string
+          forma_pagamento: string | null
+          id: string
+          observacao: string | null
+          tenant_id: string
+          valor_total: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          forma_pagamento?: string | null
+          id?: string
+          observacao?: string | null
+          tenant_id: string
+          valor_total?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          forma_pagamento?: string | null
+          id?: string
+          observacao?: string | null
+          tenant_id?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_alerts: {
         Row: {
           active: boolean
@@ -691,6 +770,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_app_user: {
+        Args: {
+          _auth_id: string
+          _login: string
+          _password: string
+          _role: string
+          _tenant_id: string
+        }
+        Returns: string
+      }
+      get_app_user_role: { Args: { _auth_id: string }; Returns: string }
+      get_app_user_tenant_id: { Args: { _auth_id: string }; Returns: string }
       get_user_tenant_id: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -699,8 +790,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_superadmin: { Args: { _auth_id: string }; Returns: boolean }
       is_tenant_member: {
         Args: { _tenant_id: string; _user_id: string }
+        Returns: boolean
+      }
+      verify_password: {
+        Args: { _hash: string; _password: string }
         Returns: boolean
       }
     }
