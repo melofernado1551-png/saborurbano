@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lock, User, ArrowLeft, AlertCircle } from "lucide-react";
 import logo from "@/assets/logo.png";
+import LoginSkyBackground from "@/components/LoginSkyBackground";
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -38,11 +39,12 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center p-4 relative">
+      <LoginSkyBackground />
+      <div className="w-full max-w-md relative z-10">
         <button
           onClick={() => navigate("/")}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
+          className="flex items-center gap-2 text-white/70 hover:text-white mb-8 transition-colors drop-shadow-sm"
         >
           <ArrowLeft className="w-4 h-4" />
           Voltar ao site
