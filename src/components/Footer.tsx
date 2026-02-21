@@ -1,4 +1,4 @@
-import { MessageCircle, ArrowRight } from "lucide-react";
+import { Settings, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const WHATSAPP_NUMBER = "558694726151";
@@ -45,9 +45,9 @@ const Footer = () => {
           <p className="text-sm text-muted-foreground">© 2025 Sabor Urbano</p>
           <a
             href="/login"
-            className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+            className="text-muted-foreground/30 hover:text-primary transition-colors"
           >
-            Login
+            <Settings className="w-5 h-5" />
           </a>
         </div>
       </div>
