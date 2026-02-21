@@ -80,9 +80,12 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
 
   return (
     <div className="h-full flex flex-col" style={{ background: "hsl(var(--sidebar-background))" }}>
-      {/* Logo */}
+      {/* Logo - clickable to go to home */}
       <div className="px-5 py-6 flex justify-center">
-        <div className="bg-white/10 rounded-2xl p-3 flex items-center gap-3">
+        <button
+          onClick={() => go("/")}
+          className="bg-white/10 rounded-2xl p-3 flex items-center gap-3 hover:bg-white/20 transition-colors cursor-pointer"
+        >
           <img src={logo} alt="Logo" className="w-10 h-10 rounded-xl" />
           <div>
             <h2 className="font-bold text-sm text-white">Sabor Urbano</h2>
@@ -90,7 +93,7 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
               {roleLabel}
             </span>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Navigation */}
