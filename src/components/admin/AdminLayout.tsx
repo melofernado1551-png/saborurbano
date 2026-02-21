@@ -21,7 +21,7 @@ const AdminLayoutInner = () => {
     <div className="flex min-h-screen bg-background w-full">
       {/* Desktop Sidebar */}
       {!isMobile && (
-        <aside className="w-64 flex-shrink-0">
+        <aside className="w-64 flex-shrink-0 sticky top-0 h-screen overflow-y-auto">
           <AdminSidebarNew />
         </aside>
       )}
