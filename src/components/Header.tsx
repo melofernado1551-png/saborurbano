@@ -1,7 +1,9 @@
-import { MapPin, ShoppingBag, User, Menu } from "lucide-react";
+import { MapPin, ShoppingBag, User, Menu, Settings } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { Button } from "./ui/button";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   location: string;
@@ -10,6 +12,8 @@ interface HeaderProps {
 
 const Header = ({ location, onLocationClick }: HeaderProps) => {
   const [cartCount] = useState(3);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border">
@@ -34,6 +38,16 @@ const Header = ({ location, onLocationClick }: HeaderProps) => {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
+            {user && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate("/admin")}
+                className="text-muted-foreground/50 hover:text-primary transition-colors"
+              >
+                <Settings className="w-5 h-5" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="relative">
               <ShoppingBag className="w-5 h-5" />
               {cartCount > 0 && (
