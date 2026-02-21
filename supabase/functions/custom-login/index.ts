@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     // Get user by login
     const { data: user, error: userError } = await supabaseAdmin
       .from("app_users")
-      .select("id, login, role, tenant_id, active, auth_id, password_hash")
+      .select("id, login, role, tenant_id, active, auth_id, password_hash, must_change_password")
       .eq("login", login)
       .eq("active", true)
       .single();
@@ -83,7 +83,6 @@ Deno.serve(async (req) => {
     let authId = user.auth_id;
 
     if (!authId) {
-      // Create auth user
       const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: fakeEmail,
         password: password,
@@ -106,7 +105,7 @@ Deno.serve(async (req) => {
         const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(authId, { password });
         if (updateErr) console.error("Update user password error:", updateErr.message);
       } catch (e) {
-        console.error("Update user failed, trying alternative:", e);
+        console.error("Update user failed:", e);
       }
     }
 
@@ -136,6 +135,7 @@ Deno.serve(async (req) => {
           role: user.role,
           tenant_id: user.tenant_id,
         },
+        must_change_password: user.must_change_password || false,
       }),
       {
         status: 200,

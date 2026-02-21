@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const AdminLayout = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, mustChangePassword } = useAuth();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -24,6 +24,10 @@ const AdminLayout = () => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (mustChangePassword) {
+    return <Navigate to="/alterar-senha" replace />;
   }
 
   return (

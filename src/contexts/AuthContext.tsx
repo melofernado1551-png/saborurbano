@@ -12,6 +12,8 @@ interface AuthContextType {
   user: AppUser | null;
   session: any;
   loading: boolean;
+  mustChangePassword: boolean;
+  setMustChangePassword: (v: boolean) => void;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -28,28 +30,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("[Auth] onAuthStateChange:", event);
       setSession(session);
       if (session?.user) {
-        // Use setTimeout to prevent Supabase client deadlock
         setTimeout(async () => {
           try {
             const { data, error } = await supabase
               .from("app_users" as any)
-              .select("id, login, role, tenant_id")
+              .select("id, login, role, tenant_id, must_change_password")
               .eq("auth_id", session.user.id)
               .eq("active", true)
               .single();
 
             console.log("[Auth] app_users lookup:", { data, error: error?.message });
             if (data) {
-              setUser(data as unknown as AppUser);
+              const userData = data as any;
+              setUser({
+                id: userData.id,
+                login: userData.login,
+                role: userData.role,
+                tenant_id: userData.tenant_id,
+              });
+              setMustChangePassword(userData.must_change_password || false);
             } else {
               setUser(null);
+              setMustChangePassword(false);
             }
           } catch (e) {
             console.error("[Auth] Error fetching app_user:", e);
@@ -59,11 +68,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }, 0);
       } else {
         setUser(null);
+        setMustChangePassword(false);
         setLoading(false);
       }
     });
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log("[Auth] getSession:", session ? "has session" : "no session");
       setSession(session);
@@ -80,11 +89,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       body: { login: username, password },
     });
 
-    console.log("[Auth] custom-login response:", {
-      data: response.data,
-      error: response.error,
-    });
-
     if (response.error) {
       throw new Error(response.error.message || "Erro no login");
     }
@@ -94,31 +98,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw new Error(data.error);
     }
 
-    // Set session from response
     if (data?.session) {
-      console.log("[Auth] Setting session...");
       const { error: sessionError } = await supabase.auth.setSession({
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
       });
 
       if (sessionError) {
-        console.error("[Auth] setSession error:", sessionError.message);
         throw new Error("Erro ao criar sessão: " + sessionError.message);
       }
 
-      // Set user immediately (don't wait for onAuthStateChange)
       setUser(data.user);
-      console.log("[Auth] Login complete, user set:", data.user);
+      setMustChangePassword(data.must_change_password || false);
     } else {
       throw new Error("Resposta inválida do servidor");
     }
   };
 
   const logout = async () => {
-    // Clear local state first, regardless of server response
     setUser(null);
     setSession(null);
+    setMustChangePassword(false);
     try {
       await supabase.auth.signOut({ scope: 'local' });
     } catch {
@@ -127,7 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, session, loading, mustChangePassword, setMustChangePassword, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

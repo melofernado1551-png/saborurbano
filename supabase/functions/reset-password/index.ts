@@ -42,114 +42,109 @@ Deno.serve(async (req) => {
 
     const { data: callerUser } = await supabaseAdmin
       .from("app_users")
-      .select("role, tenant_id")
+      .select("id, role, tenant_id")
       .eq("auth_id", caller.id)
       .eq("active", true)
       .single();
 
     if (!callerUser || !["superadmin", "tenant_admin"].includes(callerUser.role)) {
-      return new Response(JSON.stringify({ error: "Sem permissão para criar usuários" }), {
+      return new Response(JSON.stringify({ error: "Sem permissão" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { login, role, tenant_id, name, cpf, cargo } = await req.json();
+    const { user_id } = await req.json();
 
-    if (!login || !role) {
-      return new Response(JSON.stringify({ error: "Login e permissão são obrigatórios" }), {
+    if (!user_id) {
+      return new Response(JSON.stringify({ error: "user_id é obrigatório" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Validate role
-    const validRoles = ["tenant_admin", "colaborador", "contador"];
-    if (!validRoles.includes(role)) {
-      return new Response(JSON.stringify({ error: "Permissão inválida" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Determine tenant_id
-    let finalTenantId = tenant_id;
-    if (callerUser.role === "tenant_admin") {
-      finalTenantId = callerUser.tenant_id;
-    }
-    if (!finalTenantId) {
-      return new Response(JSON.stringify({ error: "tenant_id é obrigatório" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Check login uniqueness
-    const { data: existing } = await supabaseAdmin
+    // Get target user
+    const { data: targetUser, error: targetErr } = await supabaseAdmin
       .from("app_users")
-      .select("id")
-      .eq("login", login)
+      .select("id, tenant_id, auth_id, role")
+      .eq("id", user_id)
       .single();
 
-    if (existing) {
-      return new Response(JSON.stringify({ error: "Login já existe" }), {
-        status: 409,
+    if (targetErr || !targetUser) {
+      return new Response(JSON.stringify({ error: "Usuário não encontrado" }), {
+        status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Create auth user with default password
-    const fakeEmail = `${login}@app.internal`;
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: fakeEmail,
-      password: DEFAULT_PASSWORD,
-      email_confirm: true,
-    });
-
-    if (authError) {
-      return new Response(JSON.stringify({ error: "Erro ao criar usuário: " + authError.message }), {
-        status: 500,
+    // Cannot reset own password through this flow
+    if (callerUser.id === user_id) {
+      return new Response(JSON.stringify({ error: "Não é possível resetar a própria senha por este fluxo" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Insert into app_users with hashed default password and must_change_password = true
-    const { data: newUser, error: insertError } = await supabaseAdmin.rpc("create_app_user", {
-      _login: login,
+    // Cannot reset superadmin password unless you are superadmin
+    if (targetUser.role === "superadmin" && callerUser.role !== "superadmin") {
+      return new Response(JSON.stringify({ error: "Sem permissão" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Tenant admin can only reset users of their own tenant
+    if (callerUser.role === "tenant_admin" && targetUser.tenant_id !== callerUser.tenant_id) {
+      return new Response(JSON.stringify({ error: "Sem permissão para resetar este usuário" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Reset password hash in app_users
+    const { error: pwErr } = await supabaseAdmin.rpc("update_app_user_password", {
+      _user_id: user_id,
       _password: DEFAULT_PASSWORD,
-      _role: role,
-      _tenant_id: finalTenantId,
-      _auth_id: authUser.user.id,
-      _name: name || null,
-      _cpf: cpf || null,
-      _cargo: cargo || null,
     });
 
-    if (insertError) {
-      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
-      return new Response(JSON.stringify({ error: "Erro ao salvar usuário" }), {
+    if (pwErr) {
+      console.error("Password hash reset error:", pwErr.message);
+      return new Response(JSON.stringify({ error: "Erro ao resetar senha" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Reset auth password
+    if (targetUser.auth_id) {
+      const { error: authPwErr } = await supabaseAdmin.auth.admin.updateUserById(
+        targetUser.auth_id,
+        { password: DEFAULT_PASSWORD }
+      );
+      if (authPwErr) {
+        console.error("Auth password reset error:", authPwErr.message);
+      }
     }
 
     // Set must_change_password = true
-    if (newUser) {
-      await supabaseAdmin
-        .from("app_users")
-        .update({ must_change_password: true })
-        .eq("id", newUser);
+    const { error: flagErr } = await supabaseAdmin
+      .from("app_users")
+      .update({ must_change_password: true })
+      .eq("id", user_id);
+
+    if (flagErr) {
+      console.error("Flag update error:", flagErr.message);
     }
 
     return new Response(
-      JSON.stringify({ success: true, message: "Usuário criado com sucesso" }),
+      JSON.stringify({ success: true, message: "Senha resetada com sucesso" }),
       {
-        status: 201,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (err) {
-    console.error("create-user error:", err);
+    console.error("reset-password error:", err);
     return new Response(JSON.stringify({ error: "Erro interno" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
