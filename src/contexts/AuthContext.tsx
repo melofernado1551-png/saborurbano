@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface AppUser {
   id: string;
   login: string;
+  name: string | null;
   role: "superadmin" | "tenant_admin" | "colaborador" | "contador" | "user";
   tenant_id: string | null;
 }
@@ -41,7 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           try {
             const { data, error } = await supabase
               .from("app_users" as any)
-              .select("id, login, role, tenant_id, must_change_password")
+              .select("id, login, name, role, tenant_id, must_change_password")
               .eq("auth_id", session.user.id)
               .eq("active", true)
               .single();
@@ -52,6 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setUser({
                 id: userData.id,
                 login: userData.login,
+                name: userData.name || null,
                 role: userData.role,
                 tenant_id: userData.tenant_id,
               });

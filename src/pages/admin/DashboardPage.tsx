@@ -128,7 +128,7 @@ const DashboardPage = () => {
         <h1 className="text-2xl font-bold">
           Dashboard {tenantName ? `- ${tenantName}` : isSuperAdmin ? <span className="text-primary">Global</span> : ""}
         </h1>
-        <p className="text-muted-foreground text-sm">Bem-vindo, {user?.login}</p>
+        <p className="text-muted-foreground text-sm">Bem-vindo, {user?.name || user?.login}</p>
       </div>
 
       {/* KPI Cards */}

@@ -125,11 +125,11 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
         <div className="flex items-center gap-3 px-4 py-3">
           <Avatar className="w-8 h-8 border-2" style={{ borderColor: "hsl(var(--sidebar-primary))" }}>
             <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-              {user?.login?.charAt(0).toUpperCase() || "U"}
+              {(user?.name || user?.login)?.charAt(0).toUpperCase() || "U"}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{user?.login}</p>
+            <p className="text-sm font-medium text-white truncate">{user?.name || user?.login}</p>
             <p className="text-xs truncate" style={{ color: "hsl(var(--sidebar-muted))" }}>
               {roleLabel}
             </p>
