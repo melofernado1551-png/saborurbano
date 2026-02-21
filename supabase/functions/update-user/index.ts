@@ -1,8 +1,8 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -24,14 +24,12 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user: caller } } = await supabaseClient.auth.getUser();
-    if (!caller) {
+    // Extract user from JWT using admin client
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user: caller }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    
+    if (!caller || authError) {
+      console.error("Auth error:", authError?.message);
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -102,7 +100,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Check login uniqueness if changed (global, active users only)
+    // Check login uniqueness if changed
     if (login) {
       const { data: existing } = await supabaseAdmin
         .from("app_users")
@@ -126,7 +124,7 @@ Deno.serve(async (req) => {
       await supabaseAdmin.auth.admin.updateUserById(targetUser.auth_id, { email: fakeEmail });
     }
 
-    // Build update payload (excluding password)
+    // Build update payload
     const updatePayload: Record<string, any> = {};
     if (name !== undefined) updatePayload.name = name;
     if (cpf !== undefined) updatePayload.cpf = cpf;
@@ -135,7 +133,6 @@ Deno.serve(async (req) => {
     if (active !== undefined) updatePayload.active = active;
     if (login !== undefined) updatePayload.login = login;
 
-    // Update app_users record
     if (Object.keys(updatePayload).length > 0) {
       const { error: updateErr } = await supabaseAdmin
         .from("app_users")
@@ -152,35 +149,24 @@ Deno.serve(async (req) => {
 
     // Update password if provided
     if (password) {
-      // Update hash in app_users via DB function
       const { error: pwErr } = await supabaseAdmin.rpc("update_app_user_password", {
         _user_id: user_id,
         _password: password,
       });
+      if (pwErr) console.error("Password hash update error:", pwErr.message);
 
-      if (pwErr) {
-        console.error("Password hash update error:", pwErr.message);
-      }
-
-      // Update auth password
       if (targetUser.auth_id) {
         const { error: authPwErr } = await supabaseAdmin.auth.admin.updateUserById(
           targetUser.auth_id,
           { password }
         );
-        if (authPwErr) {
-          console.error("Auth password update error:", authPwErr.message);
-        }
+        if (authPwErr) console.error("Auth password update error:", authPwErr.message);
       }
-
     }
 
     return new Response(
       JSON.stringify({ success: true, message: "Usuário atualizado com sucesso" }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     console.error("Unhandled error:", err);
