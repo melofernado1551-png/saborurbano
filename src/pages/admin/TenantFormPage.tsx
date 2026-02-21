@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
+import { generateUniqueTenantSlug } from "@/lib/slugUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -204,13 +205,8 @@ const TenantFormPage = () => {
         throw new Error("CNPJ inválido");
       }
 
-      // Auto-generate slug from name
-      const slug = form.name
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "");
+      // Auto-generate unique slug from name
+      const slug = await generateUniqueTenantSlug(form.name, isEditing ? id : undefined);
 
       const payload: any = {
         name: form.name,

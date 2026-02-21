@@ -53,7 +53,7 @@ const Index = () => {
       // Fetch products for those tenants
       const { data: prods, error: pErr } = await supabase
         .from("products")
-        .select("id, name, description, price, promo_price, has_discount, tenant_id")
+        .select("id, name, slug, description, price, promo_price, has_discount, tenant_id")
         .eq("active", true)
         .in("tenant_id", tenantIds);
       if (pErr) throw pErr;
@@ -81,6 +81,7 @@ const Index = () => {
         return {
           id: p.id,
           name: p.name,
+          slug: (p as any).slug || undefined,
           description: p.description,
           price: Number(p.price),
           promo_price: p.promo_price ? Number(p.promo_price) : null,

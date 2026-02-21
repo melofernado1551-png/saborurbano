@@ -36,7 +36,7 @@ const RestaurantPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, description, price, promo_price, has_discount, tenant_id")
+        .select("id, name, slug, description, price, promo_price, has_discount, tenant_id")
         .eq("tenant_id", tenant!.id)
         .eq("active", true);
       if (error) throw error;
@@ -239,7 +239,7 @@ const RestaurantPage = () => {
     const outOfStock = stockMap[product.id] !== undefined && stockMap[product.id] <= 0;
 
     return (
-      <div className={`group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer ${outOfStock ? "opacity-50 pointer-events-none" : ""}`}>
+      <div className={`group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer ${outOfStock ? "opacity-50 pointer-events-none" : ""}`} onClick={() => product.slug && navigate(`/${slug}/${product.slug}`)}>
         <div className="relative h-40 overflow-hidden bg-secondary">
           {imageMap[product.id] ? (
             <img src={imageMap[product.id]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -279,7 +279,7 @@ const RestaurantPage = () => {
     const outOfStock = stockMap[product.id] !== undefined && stockMap[product.id] <= 0;
 
     return (
-      <div className={`group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer border-2 border-primary/20 ${outOfStock ? "opacity-50 pointer-events-none" : ""}`}>
+      <div className={`group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer border-2 border-primary/20 ${outOfStock ? "opacity-50 pointer-events-none" : ""}`} onClick={() => product.slug && navigate(`/${slug}/${product.slug}`)}>
         <div className="relative h-48 overflow-hidden bg-secondary">
           {imageMap[product.id] ? (
             <img src={imageMap[product.id]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />

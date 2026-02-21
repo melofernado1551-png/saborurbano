@@ -447,6 +447,7 @@ export type Database = {
           name: string
           price: number
           promo_price: number | null
+          slug: string
           tenant_id: string
         }
         Insert: {
@@ -458,6 +459,7 @@ export type Database = {
           name: string
           price?: number
           promo_price?: number | null
+          slug: string
           tenant_id: string
         }
         Update: {
@@ -469,6 +471,7 @@ export type Database = {
           name?: string
           price?: number
           promo_price?: number | null
+          slug?: string
           tenant_id?: string
         }
         Relationships: [
