@@ -59,6 +59,9 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
     ...(isSuperAdmin || isAdminTenant
       ? [{ label: "Usuários", icon: Users, path: "/admin/usuarios" }]
       : []),
+    ...(isAdminTenant
+      ? [{ label: "Dados do Estabelecimento", icon: Pencil, path: "/admin/tenant/editar" }]
+      : []),
     ...(!isContador
       ? [{ label: "Configurações", icon: Settings, path: "/admin/configuracoes" }]
       : []),
