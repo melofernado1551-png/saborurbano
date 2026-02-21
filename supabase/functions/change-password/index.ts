@@ -70,9 +70,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get the user's app_users record
+    // Get the user's profile record
     const { data: appUser, error: appErr } = await supabaseAdmin
-      .from("app_users")
+      .from("profiles")
       .select("id, must_change_password, auth_id")
       .eq("auth_id", caller.id)
       .eq("active", true)
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update password hash in app_users
+    // Update password hash in profiles
     const { error: pwErr } = await supabaseAdmin.rpc("update_app_user_password", {
       _user_id: appUser.id,
       _password: new_password,
@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
 
     // Set must_change_password = false
     const { error: flagErr } = await supabaseAdmin
-      .from("app_users")
+      .from("profiles")
       .update({ must_change_password: false })
       .eq("id", appUser.id);
 

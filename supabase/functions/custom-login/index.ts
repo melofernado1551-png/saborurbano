@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
     // Get user by login
     const { data: user, error: userError } = await supabaseAdmin
-      .from("app_users")
+      .from("profiles")
       .select("id, login, role, tenant_id, active, auth_id, password_hash, must_change_password")
       .eq("login", login)
       .eq("active", true)
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
       }
 
       authId = authUser.user.id;
-      await supabaseAdmin.from("app_users").update({ auth_id: authId }).eq("id", user.id);
+      await supabaseAdmin.from("profiles").update({ auth_id: authId }).eq("id", user.id);
     } else {
       // Sync password to auth
       try {

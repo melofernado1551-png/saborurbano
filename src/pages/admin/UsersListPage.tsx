@@ -49,7 +49,7 @@ const UsersListPage = () => {
     enabled: canAccess,
     queryFn: async () => {
       let query = supabase
-        .from("app_users" as any)
+        .from("profiles" as any)
         .select("id, login, name, role, cargo, active, tenant_id, created_at")
         .eq("active", true)
         .neq("role", "superadmin")

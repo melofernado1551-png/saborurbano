@@ -14,59 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      app_users: {
-        Row: {
-          active: boolean
-          auth_id: string | null
-          cargo: string | null
-          cpf: string | null
-          created_at: string
-          id: string
-          login: string
-          must_change_password: boolean
-          name: string | null
-          password_hash: string
-          role: string
-          tenant_id: string | null
-        }
-        Insert: {
-          active?: boolean
-          auth_id?: string | null
-          cargo?: string | null
-          cpf?: string | null
-          created_at?: string
-          id?: string
-          login: string
-          must_change_password?: boolean
-          name?: string | null
-          password_hash: string
-          role?: string
-          tenant_id?: string | null
-        }
-        Update: {
-          active?: boolean
-          auth_id?: string | null
-          cargo?: string | null
-          cpf?: string | null
-          created_at?: string
-          id?: string
-          login?: string
-          must_change_password?: boolean
-          name?: string | null
-          password_hash?: string
-          role?: string
-          tenant_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "app_users_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       customers: {
         Row: {
           active: boolean
@@ -477,6 +424,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "products_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          active: boolean
+          auth_id: string | null
+          cargo: string | null
+          cpf: string | null
+          created_at: string
+          id: string
+          login: string
+          must_change_password: boolean
+          name: string | null
+          password_hash: string
+          role: string
+          tenant_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          auth_id?: string | null
+          cargo?: string | null
+          cpf?: string | null
+          created_at?: string
+          id?: string
+          login: string
+          must_change_password?: boolean
+          name?: string | null
+          password_hash: string
+          role?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          auth_id?: string | null
+          cargo?: string | null
+          cpf?: string | null
+          created_at?: string
+          id?: string
+          login?: string
+          must_change_password?: boolean
+          name?: string | null
+          password_hash?: string
+          role?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_users_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

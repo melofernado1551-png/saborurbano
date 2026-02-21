@@ -220,7 +220,7 @@ const TenantFormPage = () => {
     enabled: isEditing,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("app_users")
+        .from("profiles" as any)
         .select("id, login, role, active")
         .eq("tenant_id", id!)
         .order("login");
@@ -301,7 +301,7 @@ const TenantFormPage = () => {
   const toggleUserActive = useMutation({
     mutationFn: async ({ userId, active }: { userId: string; active: boolean }) => {
       const { error } = await supabase
-        .from("app_users" as any)
+        .from("profiles" as any)
         .update({ active: !active })
         .eq("id", userId);
       if (error) throw error;

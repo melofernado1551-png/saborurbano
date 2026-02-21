@@ -37,7 +37,7 @@ const TenantsListPage = () => {
     queryKey: ["tenant-user-counts"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("app_users")
+        .from("profiles" as any)
         .select("tenant_id")
         .eq("active", true);
       if (error) throw error;

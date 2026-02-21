@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: callerUser } = await supabaseAdmin
-      .from("app_users")
+      .from("profiles")
       .select("role, tenant_id")
       .eq("auth_id", caller.id)
       .eq("active", true)
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
 
     // Check login uniqueness (global, active users only)
     const { data: existing } = await supabaseAdmin
-      .from("app_users")
+      .from("profiles")
       .select("id")
       .eq("login", login)
       .eq("active", true)
@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Insert into app_users with hashed default password and must_change_password = true
+    // Insert into profiles with hashed default password and must_change_password = true
     const { data: newUser, error: insertError } = await supabaseAdmin.rpc("create_app_user", {
       _login: login,
       _password: DEFAULT_PASSWORD,
@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
     // Set must_change_password = true
     if (newUser) {
       await supabaseAdmin
-        .from("app_users")
+        .from("profiles")
         .update({ must_change_password: true })
         .eq("id", newUser);
     }
