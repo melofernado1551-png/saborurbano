@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          active: boolean
+          key: string
+          updated_at: string | null
+          value: Json
+        }
+        Insert: {
+          active?: boolean
+          key: string
+          updated_at?: string | null
+          value?: Json
+        }
+        Update: {
+          active?: boolean
+          key?: string
+          updated_at?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           active: boolean
