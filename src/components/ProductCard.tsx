@@ -17,12 +17,19 @@ interface ProductCardProduct {
   tenant_slug: string;
 }
 
+interface BadgeTag {
+  emoji: string;
+  name: string;
+  slug: string;
+}
+
 interface ProductCardProps {
   product: ProductCardProduct;
   index: number;
+  badgeTag?: BadgeTag | null;
 }
 
-const ProductCard = ({ product, index }: ProductCardProps) => {
+const ProductCard = ({ product, index, badgeTag }: ProductCardProps) => {
   const navigate = useNavigate();
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -73,6 +80,13 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
         {product.has_discount && product.promo_price && (
           <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-destructive text-destructive-foreground text-xs font-semibold">
             -{Math.round(((product.price - product.promo_price) / product.price) * 100)}%
+          </div>
+        )}
+
+        {/* Tag badge */}
+        {badgeTag && !product.has_discount && (
+          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+            {badgeTag.emoji} {badgeTag.name}
           </div>
         )}
 

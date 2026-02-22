@@ -16,6 +16,7 @@ import TenantFormPage from "./pages/admin/TenantFormPage";
 import UsersListPage from "./pages/admin/UsersListPage";
 import UserFormPage from "./pages/admin/UserFormPage";
 import TenantEditPage from "./pages/admin/TenantEditPage";
+import TagsPage from "./pages/admin/TagsPage";
 import RestaurantPage from "./pages/RestaurantPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import NotFound from "./pages/NotFound";
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="tenants" element={<TenantsListPage />} />
               <Route path="tenants/novo" element={<TenantFormPage />} />
               <Route path="tenants/:id" element={<TenantFormPage />} />
+              <Route path="tags" element={<TagsPage />} />
             </Route>
             <Route path="/restaurante/:slug" element={<RestaurantPage />} />
             <Route path="/:tenantSlug/:productSlug" element={<ProductDetailPage />} />
