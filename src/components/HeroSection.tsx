@@ -10,10 +10,6 @@ const HeroSection = () => {
       <div className="container mx-auto px-4 relative z-10">
         <div className="flex items-end justify-between gap-4 md:gap-8">
           <div className="text-left max-w-2xl flex-1 pb-4 md:pb-8">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-white/80 backdrop-blur-sm text-primary text-xs md:text-sm font-semibold mb-3 md:mb-4 animate-fade-in border border-white/30 shadow-sm">
-              <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              Mais de 150 restaurantes
-            </div>
             
             <h1 className="text-xl md:text-4xl lg:text-5xl font-extrabold mb-2 md:mb-4 animate-fade-in leading-tight" style={{ animationDelay: "100ms" }}>
               <span className="text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">A melhor comida da cidade,{" "}</span>
