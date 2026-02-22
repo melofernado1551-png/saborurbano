@@ -482,7 +482,7 @@ const RestaurantPage = () => {
       </header>
 
       {/* Restaurant header with cover - NOT CHANGED */}
-      <section className="relative">
+      <section className="relative z-0">
         <div className="w-full h-56 md:h-72 overflow-hidden">
           {(tenant as any).cover_url ? (
             <img src={(tenant as any).cover_url} alt="Capa" className="w-full h-full object-cover" />
