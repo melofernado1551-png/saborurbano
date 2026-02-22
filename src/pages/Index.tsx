@@ -24,6 +24,7 @@ const Index = () => {
   const [showCityModal, setShowCityModal] = useState(!selectedCity);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("products");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const handleCitySelect = (city: string) => {
     setSelectedCity(city);
@@ -141,6 +142,7 @@ const Index = () => {
   });
 
   const filteredRestaurants = restaurants.filter((r) => {
+    if (selectedCategory && !r.tags.some((tag) => tag.toLowerCase() === selectedCategory.toLowerCase())) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -180,7 +182,7 @@ const Index = () => {
             </div>
 
             {/* View mode toggle */}
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-2 mt-4 justify-center">
               <Button
                 variant={viewMode === "products" ? "default" : "outline"}
                 size="sm"
@@ -199,6 +201,34 @@ const Index = () => {
                 <Store className="w-4 h-4" />
                 Restaurantes
               </Button>
+            </div>
+
+            {/* Category filters */}
+            <div className="flex flex-wrap gap-2 mt-4 justify-center">
+              {[
+                { name: "Lanchonete", emoji: "🍔" },
+                { name: "Pizzaria", emoji: "🍕" },
+                { name: "Restaurante", emoji: "🍽️" },
+                { name: "Hamburgueria", emoji: "🍔" },
+                { name: "Açaí", emoji: "🍇" },
+                { name: "Doceria", emoji: "🍰" },
+                { name: "Sorveteria", emoji: "🍦" },
+                { name: "Padaria", emoji: "🥖" },
+                { name: "Cafeteria", emoji: "☕" },
+                { name: "Bar", emoji: "🍻" },
+                { name: "Outro", emoji: "🏪" },
+              ].map((cat) => (
+                <Button
+                  key={cat.name}
+                  variant={selectedCategory === cat.name ? "default" : "outline"}
+                  size="sm"
+                  className="gap-1.5 rounded-xl text-xs"
+                  onClick={() => setSelectedCategory(selectedCategory === cat.name ? null : cat.name)}
+                >
+                  <span>{cat.emoji}</span>
+                  {cat.name}
+                </Button>
+              ))}
             </div>
           </div>
         </section>
