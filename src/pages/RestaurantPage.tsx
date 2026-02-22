@@ -491,11 +491,11 @@ const RestaurantPage = () => {
           )}
         </div>
         <div className="container mx-auto px-4 flex flex-col items-center text-center -mt-32 relative z-10">
-          <div className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-card border-4 border-card shadow-xl overflow-hidden">
+          <div className="w-36 h-36 md:w-40 md:h-40 rounded-full bg-card border-4 border-card shadow-xl overflow-hidden">
             {tenant.logo_url ? (
               <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-4xl md:text-5xl bg-secondary">
+              <div className="w-full h-full flex items-center justify-center text-5xl md:text-6xl bg-secondary">
                 {tenant.name.charAt(0)}
               </div>
             )}
