@@ -471,7 +471,7 @@ const RestaurantPage = () => {
       {/* Top navigation bar - NOT CHANGED */}
       <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => window.history.length > 1 ? navigate(-1) : navigate("/")}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="font-semibold text-foreground truncate">{tenant.name}</h1>
