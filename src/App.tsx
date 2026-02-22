@@ -17,6 +17,8 @@ import UsersListPage from "./pages/admin/UsersListPage";
 import UserFormPage from "./pages/admin/UserFormPage";
 import TenantEditPage from "./pages/admin/TenantEditPage";
 import TagsPage from "./pages/admin/TagsPage";
+import ProductsListPage from "./pages/admin/ProductsListPage";
+import ProductFormPage from "./pages/admin/ProductFormPage";
 import RestaurantPage from "./pages/RestaurantPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import NotFound from "./pages/NotFound";
@@ -38,7 +40,9 @@ const App = () => (
               <Route index element={<DashboardPage />} />
               <Route path="vendas" element={<SalesPageNew />} />
               <Route path="pedidos" element={<PlaceholderPage title="Pedidos" />} />
-              <Route path="produtos" element={<PlaceholderPage title="Produtos" />} />
+              <Route path="produtos" element={<ProductsListPage />} />
+              <Route path="produtos/novo" element={<ProductFormPage />} />
+              <Route path="produtos/:id" element={<ProductFormPage />} />
               <Route path="usuarios" element={<UsersListPage />} />
               <Route path="usuarios/novo" element={<UserFormPage />} />
               <Route path="usuarios/:id" element={<UserFormPage />} />
