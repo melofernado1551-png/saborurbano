@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ProductCardProduct } from "@/components/ProductCard";
+import { useWeather } from "@/hooks/useWeather";
 
 const CITY_STORAGE_KEY = "sabor_urbano_city";
 
@@ -57,6 +58,7 @@ const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<TagData | null>(null);
   const productsRef = useRef<HTMLDivElement>(null);
+  const weatherCondition = useWeather(selectedCity);
 
   const handleCitySelect = (city: string) => {
     setSelectedCity(city);
@@ -368,7 +370,7 @@ const Index = () => {
       <CitySelectionModal open={showCityModal} onCitySelect={handleCitySelect} />
 
       <main>
-        <HeroSection />
+        <HeroSection weatherCondition={weatherCondition} />
 
         {/* Search section */}
         <section className="container mx-auto px-4 -mt-4 relative z-10">
