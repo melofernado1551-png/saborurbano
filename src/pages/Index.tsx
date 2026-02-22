@@ -447,7 +447,7 @@ const Index = () => {
                 ))}
               </div>
             ) : tagsWithProducts.length > 0 ? (
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide justify-center">
                 {tagsWithProducts.map((tag) => (
                   <button
                     key={tag.id}
