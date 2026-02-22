@@ -1,127 +1,138 @@
 
 
-# Sistema Centralizado de Tags de Produtos
+# Banner Inteligente com Condicoes Climaticas
 
 ## Resumo
 
-Implementar um sistema completo de tags de produtos, gerenciado exclusivamente pelo superadmin, com slugs gerados automaticamente. As tags serao usadas para filtrar e organizar produtos na home e nas paginas de restaurantes.
+Implementar um sistema de banner climatico que enriquece o banner existente (CityScapeBackground) com dados de clima em tempo real, controlado por uma flag de ativacao global. Quando desativado, tudo funciona exatamente como hoje.
 
 ---
 
-## Etapa 1: Banco de Dados
+## 1. Configuracao Global no Banco de Dados
 
-Criar duas tabelas via migracao:
+Criar uma tabela `app_settings` para armazenar configuracoes globais:
 
-**Tabela `tags`**
-- `id` (uuid, PK)
-- `name` (text, not null)
-- `emoji` (text, not null)
-- `slug` (text, unique, not null) -- gerado automaticamente via trigger
-- `active` (boolean, default true)
-- `created_at` (timestamptz, default now())
+```sql
+CREATE TABLE public.app_settings (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL DEFAULT 'false',
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
-**Tabela `product_tags`**
-- `id` (uuid, PK)
-- `product_id` (uuid, FK -> products.id)
-- `tag_id` (uuid, FK -> tags.id)
-- `active` (boolean, default true)
+ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
 
-**Trigger para slug automatico**: criar funcao `generate_tag_slug()` que gera o slug a partir do `name` (lowercase, sem acentos, espacos vira hifen) e garante unicidade com sufixo incremental. Executado em INSERT e UPDATE do campo name.
+-- Leitura publica
+CREATE POLICY "Public read settings" ON app_settings FOR SELECT USING (true);
 
-**RLS**:
-- `tags`: SELECT publico (active=true), INSERT/UPDATE/DELETE apenas superadmin (`is_superadmin(auth.uid())`)
-- `product_tags`: SELECT publico (active=true), INSERT/DELETE para membros do tenant (via produto), UPDATE para membros do tenant
+-- Apenas superadmin altera
+CREATE POLICY "Superadmin update settings" ON app_settings FOR UPDATE USING (is_superadmin(auth.uid()));
+CREATE POLICY "Superadmin insert settings" ON app_settings FOR INSERT WITH CHECK (is_superadmin(auth.uid()));
 
-**Dados iniciais** (inseridos na migracao):
-- 🔥 Mais pedido
-- ⭐ Destaque
-- 💥 Promocao
-- 🆕 Novidade
-- ⚡ Entrega rapida
-- 🎁 Combo
-- ❤️ Favorito
-- 🌱 Vegetariano
+INSERT INTO app_settings (key, value) VALUES ('weather_banner_active', 'false');
+```
 
 ---
 
-## Etapa 2: Painel Admin - Gerenciamento de Tags
+## 2. Edge Function: `get-weather`
 
-**Rota**: `/admin/tags` (visivel apenas para superadmin)
+Criar uma edge function que:
+- Recebe a cidade como parametro
+- Chama a API OpenWeatherMap com timeout de 2 segundos
+- Retorna condicao climatica simplificada (clear, clouds, rain, storm)
+- Cacheia internamente por cidade/15 minutos (em memoria da funcao)
 
-**Arquivo**: `src/pages/admin/TagsPage.tsx`
+Requer a secret `OPENWEATHER_API_KEY` - sera solicitada ao usuario.
 
-Tela com:
-- Listagem em tabela: emoji, nome, slug (somente leitura), status (badge ativo/inativo), acoes (editar, ativar/desativar)
-- Botao "+ Nova Tag" abre dialog com formulario: Nome, Emoji, Status ativo
-- Campo slug NAO aparece no formulario (gerado pelo trigger no banco)
-- Edicao via dialog: mesmos campos
-- Ativar/desativar via toggle
+Retorno:
+```json
+{
+  "condition": "rain",
+  "intensity": "light",
+  "description": "chuva leve"
+}
+```
 
-**Sidebar**: Adicionar item "Tags" no `AdminSidebarNew.tsx`, visivel apenas para superadmin, com icone `Tag`.
-
-**App.tsx**: Adicionar rota `<Route path="tags" element={<TagsPage />} />` dentro do bloco admin.
-
----
-
-## Etapa 3: Integracao com Produtos (Cadastro/Edicao)
-
-Nao ha pagina de cadastro de produto implementada ainda (apenas placeholder). Este passo sera documentado para implementacao futura: no formulario de produto, adicionar campo multi-select de tags com chips (emoji + nome), buscando apenas tags ativas.
-
----
-
-## Etapa 4: Tags na Pagina Inicial
-
-**Arquivo**: `src/pages/Index.tsx`
-
-Modificacoes:
-
-1. **Buscar tags e product_tags** do banco:
-   - Tags ativas que tenham ao menos 1 produto ativo (via join com product_tags e products)
-   - Limitar a 6 tags, priorizadas pela ordem: Promocao > Mais pedido > Destaque > Entrega rapida > Novidade > Vegetariano > outros
-
-2. **Trilho de tags** (scroll horizontal):
-   - Inserir abaixo do bloco de busca/filtros existente
-   - Chips arredondados com emoji + nome
-   - Ao clicar, filtrar produtos que possuam a tag selecionada
-   - Exibir "Mostrando produtos {emoji} {nome}" e botao "Limpar filtro"
-
-3. **Badge no card de produto**:
-   - Mostrar a tag de maior prioridade como badge no card (max 1)
-   - Prioridade: Promocao > Destaque > Mais pedido
-
-4. **Blocos curados por tag**:
-   - Apos cada 6 produtos na listagem, inserir um bloco curado
-   - Titulo amigavel (ex: "Destaques da galera", "O que todo mundo esta pedindo")
-   - Max 4 produtos por bloco, cards maiores
-   - Max 3 blocos curados na home
-   - Nao repetir produto em blocos seguidos
-
-5. **Comportamento**:
-   - Filtros sem reload
-   - Skeleton loading durante busca
-   - Mensagem amigavel quando vazio
+Em caso de falha, retorna:
+```json
+{ "condition": "unknown" }
+```
 
 ---
 
-## Etapa 5: Substituir categorias hardcoded
+## 3. Hook: `useWeather`
 
-As categorias hardcoded (Lanchonete, Pizzaria, etc.) na home continuam para filtrar restaurantes. As tags sao um sistema separado para filtrar produtos. Ambos coexistem.
+Novo hook `src/hooks/useWeather.ts`:
+- Busca `weather_banner_active` da tabela `app_settings`
+- Se `false`, retorna `null` sem chamar nada
+- Se `true` e cidade selecionada, chama a edge function `get-weather`
+- Cache de 15 min via React Query (`staleTime: 900000`)
+- Timeout e fallback silencioso integrados
+- Retorna: `{ condition, intensity } | null`
+
+---
+
+## 4. Adaptacao do CityScapeBackground
+
+O componente recebe uma prop opcional `weatherCondition`:
+
+```typescript
+interface Props {
+  weatherCondition?: "clear" | "clouds_light" | "clouds_heavy" | "rain_light" | "rain_heavy" | "storm" | null;
+}
+```
+
+Quando `weatherCondition` e `null` ou `undefined`: comportamento atual (sem mudanca).
+
+Quando ativo, aplica **overlays adicionais sobre o fundo existente** (nao substitui):
+
+- **clear**: Sem mudanca (o banner por horario ja cobre)
+- **clouds_light**: Overlay com 2-3 nuvens SVG animadas lentas, opacidade baixa
+- **clouds_heavy**: Overlay cinza translucido + nuvens mais densas
+- **rain_light**: Nuvens densas + gotas SVG animadas (linhas finas descendo)
+- **rain_heavy**: Ceu mais escuro via overlay + gotas mais densas
+- **storm**: Overlay escuro + flash sutil de relampago (opacity pulse a cada 8-12s)
+
+Todas as animacoes usam CSS transitions/animations, sem biblioteca extra.
+
+---
+
+## 5. Alerta Contextual
+
+No `HeroSection`, quando condicao e `rain_heavy` ou `storm`:
+- Exibir um banner fino translucido abaixo do texto do hero
+- Mensagem: "Chuvas fortes podem afetar o tempo de entrega dos pedidos"
+- Controlado por `sessionStorage` para mostrar apenas 1 vez por sessao
+- Nao bloqueante, com botao de fechar
+
+---
+
+## 6. Integracao no Index.tsx
+
+- O `Index.tsx` usa o hook `useWeather(selectedCity)`
+- Passa o resultado para `HeroSection` como prop
+- `HeroSection` passa para `CityScapeBackground`
+
+---
+
+## 7. Arquivos a Criar/Modificar
+
+| Arquivo | Acao |
+|---|---|
+| `app_settings` (tabela) | Criar via migracao |
+| `supabase/functions/get-weather/index.ts` | Criar |
+| `src/hooks/useWeather.ts` | Criar |
+| `src/components/CityScapeBackground.tsx` | Modificar - adicionar overlay climatico |
+| `src/components/HeroSection.tsx` | Modificar - receber props + alerta |
+| `src/pages/Index.tsx` | Modificar - usar hook e passar props |
 
 ---
 
 ## Detalhes Tecnicos
 
-```text
-Arquivos a criar:
-  src/pages/admin/TagsPage.tsx
-
-Arquivos a modificar:
-  - Migracao SQL (via ferramenta de migracao)
-  - src/App.tsx (adicionar rota /admin/tags)
-  - src/components/admin/AdminSidebarNew.tsx (adicionar item Tags)
-  - src/pages/Index.tsx (trilho de tags, blocos curados, filtro por tag)
-  - src/components/ProductCard.tsx (badge de tag)
-```
-
-Dependencias: nenhuma nova necessaria.
+- A API OpenWeatherMap sera chamada via edge function (chave no servidor, nunca exposta)
+- O cache em memoria da edge function usa um `Map<string, {data, timestamp}>` simples
+- React Query no frontend com `staleTime: 900000` (15 min) evita chamadas redundantes
+- Todos os overlays climaticos usam `pointer-events-none` para nao interferir na interacao
+- Transicoes suaves de 2s entre estados climaticos
+- Zero impacto no bundle quando desativado (condicional no hook impede fetch)
 
