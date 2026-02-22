@@ -31,6 +31,14 @@ function mapToWeatherCondition(data: WeatherApiResponse): WeatherCondition {
 }
 
 export function useWeather(city: string | null): WeatherCondition {
+  // DEV: allow override via ?weather=storm|rain_heavy|rain_light|clouds_heavy|clouds_light|clear
+  const urlOverride = typeof window !== "undefined"
+    ? new URLSearchParams(window.location.search).get("weather") as WeatherCondition
+    : null;
+  if (urlOverride && ["clear", "clouds_light", "clouds_heavy", "rain_light", "rain_heavy", "storm"].includes(urlOverride)) {
+    return urlOverride;
+  }
+
   // Check if feature is active
   const { data: isActive } = useQuery({
     queryKey: ["app-setting", "weather_banner_active"],
@@ -42,14 +50,14 @@ export function useWeather(city: string | null): WeatherCondition {
         .maybeSingle();
       return data?.value === true || data?.value === "true";
     },
-    staleTime: 5 * 60 * 1000, // 5 min
+    staleTime: 5 * 60 * 1000,
   });
 
   // Fetch weather only if active AND city selected
   const { data: weatherCondition } = useQuery({
     queryKey: ["weather", city],
     enabled: !!isActive && !!city,
-    staleTime: 15 * 60 * 1000, // 15 min
+    staleTime: 15 * 60 * 1000,
     retry: false,
     queryFn: async () => {
       try {
