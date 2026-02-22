@@ -500,18 +500,18 @@ const RestaurantPage = () => {
               </div>
             )}
           </div>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-foreground mt-3">{tenant.name}</h2>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-foreground mt-2">{tenant.name}</h2>
           {tenant.category && (
-            <p className="text-sm text-muted-foreground mt-1">{tenant.category}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">{tenant.category}</p>
           )}
           {tenant.address && (
-            <p className="text-xs text-muted-foreground mt-1">{tenant.address}{tenant.city ? `, ${tenant.city}` : ""}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{tenant.address}{tenant.city ? `, ${tenant.city}` : ""}</p>
           )}
         </div>
       </section>
 
       {/* Search bar */}
-      <section className="container mx-auto px-4 mt-6">
+      <section className="container mx-auto px-4 mt-3">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <input
