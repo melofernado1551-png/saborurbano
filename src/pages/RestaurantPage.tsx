@@ -490,7 +490,7 @@ const RestaurantPage = () => {
             <div className="w-full h-full bg-gradient-to-br from-primary/20 via-primary/10 to-secondary" />
           )}
         </div>
-        <div className="container mx-auto px-4 flex flex-col items-center text-center -mt-24 relative z-10">
+        <div className="container mx-auto px-4 flex flex-col items-center text-center -mt-32 relative z-10">
           <div className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-card border-4 border-card shadow-xl overflow-hidden">
             {tenant.logo_url ? (
               <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
