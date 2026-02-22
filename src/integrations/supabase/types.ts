@@ -384,6 +384,42 @@ export type Database = {
           },
         ]
       }
+      product_tags: {
+        Row: {
+          active: boolean
+          id: string
+          product_id: string
+          tag_id: string
+        }
+        Insert: {
+          active?: boolean
+          id?: string
+          product_id: string
+          tag_id: string
+        }
+        Update: {
+          active?: boolean
+          id?: string
+          product_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_tags_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           active: boolean
@@ -633,6 +669,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tags: {
+        Row: {
+          active: boolean
+          created_at: string
+          emoji: string
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          emoji: string
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          emoji?: string
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
       }
       tenant_layouts: {
         Row: {

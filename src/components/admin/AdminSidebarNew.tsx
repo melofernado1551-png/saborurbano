@@ -10,6 +10,7 @@ import {
   LogOut,
   Store,
   Pencil,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -55,6 +56,9 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       : []),
     ...(isSuperAdmin
       ? [{ label: "Restaurantes", icon: Store, path: "/admin/tenants" }]
+      : []),
+    ...(isSuperAdmin
+      ? [{ label: "Tags", icon: Tag, path: "/admin/tags" }]
       : []),
     ...(isSuperAdmin || isAdminTenant
       ? [{ label: "Usuários", icon: Users, path: "/admin/usuarios" }]
