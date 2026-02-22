@@ -240,7 +240,94 @@ const bokehBubbles = Array.from({ length: 12 }, (_, i) => ({
   duration: 6 + (i % 4) * 2,
 }));
 
-const CityScapeBackground = () => {
+export type WeatherOverlay = "clear" | "clouds_light" | "clouds_heavy" | "rain_light" | "rain_heavy" | "storm" | null;
+
+interface CityScapeBackgroundProps {
+  weatherCondition?: WeatherOverlay;
+}
+
+// Rain drops component
+const RainOverlay = ({ intensity }: { intensity: "light" | "heavy" }) => {
+  const count = intensity === "heavy" ? 60 : 25;
+  const drops = useMemo(
+    () =>
+      Array.from({ length: count }, (_, i) => ({
+        x: (i * 17 + 5) % 100,
+        delay: (i * 0.13) % 2,
+        duration: intensity === "heavy" ? 0.5 + (i % 3) * 0.15 : 0.8 + (i % 4) * 0.2,
+        height: intensity === "heavy" ? 12 + (i % 5) * 3 : 8 + (i % 4) * 2,
+        opacity: intensity === "heavy" ? 0.25 + (i % 3) * 0.1 : 0.15 + (i % 3) * 0.05,
+      })),
+    [count, intensity]
+  );
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-[1]">
+      {drops.map((d, i) => (
+        <div
+          key={i}
+          className="absolute animate-rain-drop"
+          style={{
+            left: `${d.x}%`,
+            top: "-5%",
+            width: "1px",
+            height: `${d.height}px`,
+            background: `linear-gradient(to bottom, transparent, rgba(180,200,230,${d.opacity}))`,
+            animationDelay: `${d.delay}s`,
+            animationDuration: `${d.duration}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// Cloud overlay component
+const CloudOverlay = ({ density }: { density: "light" | "heavy" }) => {
+  const clouds = useMemo(
+    () =>
+      density === "heavy"
+        ? [
+            { x: -5, y: 5, w: 120, h: 30, opacity: 0.25, dur: 45 },
+            { x: 20, y: 15, w: 100, h: 25, opacity: 0.2, dur: 55 },
+            { x: 50, y: 2, w: 90, h: 28, opacity: 0.3, dur: 40 },
+          ]
+        : [
+            { x: 10, y: 8, w: 80, h: 20, opacity: 0.12, dur: 60 },
+            { x: 50, y: 15, w: 70, h: 18, opacity: 0.1, dur: 50 },
+          ],
+    [density]
+  );
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-[1]">
+      {clouds.map((c, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full animate-cloud-drift"
+          style={{
+            left: `${c.x}%`,
+            top: `${c.y}%`,
+            width: `${c.w}%`,
+            height: `${c.h}%`,
+            background: `radial-gradient(ellipse, rgba(160,170,185,${c.opacity}) 0%, transparent 70%)`,
+            animationDuration: `${c.dur}s`,
+            animationDelay: `${i * 5}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// Lightning flash for storm
+const LightningOverlay = () => {
+  return (
+    <div className="absolute inset-0 pointer-events-none z-[1] animate-lightning-flash" />
+  );
+};
+
+const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => {
   const [hour, setHour] = useState(getBrasiliaHour);
 
   useEffect(() => {
@@ -250,6 +337,18 @@ const CityScapeBackground = () => {
 
   const colors = useMemo(() => getInterpolatedColors(hour), [hour]);
   const isNight = colors.stars > 0.3;
+
+  // Compute dark overlay opacity based on weather
+  const darkOverlayOpacity = useMemo(() => {
+    if (!weatherCondition) return 0;
+    switch (weatherCondition) {
+      case "clouds_heavy": return 0.15;
+      case "rain_light": return 0.2;
+      case "rain_heavy": return 0.35;
+      case "storm": return 0.45;
+      default: return 0;
+    }
+  }, [weatherCondition]);
 
   return (
     <div className="absolute inset-0 z-0 overflow-hidden">
@@ -503,6 +602,41 @@ const CityScapeBackground = () => {
           background: `linear-gradient(to bottom, ${colors.skyTop}99, transparent)`,
         }}
       />
+
+      {/* Weather overlays — only rendered when weatherCondition is set */}
+      {weatherCondition && weatherCondition !== "clear" && (
+        <>
+          {/* Dark overlay for rain/storm */}
+          {darkOverlayOpacity > 0 && (
+            <div
+              className="absolute inset-0 pointer-events-none z-[1] transition-opacity duration-[2000ms]"
+              style={{ backgroundColor: `rgba(30,35,50,${darkOverlayOpacity})` }}
+            />
+          )}
+
+          {/* Clouds */}
+          {(weatherCondition === "clouds_light" || weatherCondition === "clouds_heavy" ||
+            weatherCondition === "rain_light" || weatherCondition === "rain_heavy" ||
+            weatherCondition === "storm") && (
+            <CloudOverlay
+              density={
+                weatherCondition === "clouds_light" ? "light" : "heavy"
+              }
+            />
+          )}
+
+          {/* Rain */}
+          {(weatherCondition === "rain_light" || weatherCondition === "rain_heavy" ||
+            weatherCondition === "storm") && (
+            <RainOverlay
+              intensity={weatherCondition === "rain_light" ? "light" : "heavy"}
+            />
+          )}
+
+          {/* Lightning */}
+          {weatherCondition === "storm" && <LightningOverlay />}
+        </>
+      )}
     </div>
   );
 };
