@@ -20,6 +20,7 @@ import UsersListPage from "./pages/admin/UsersListPage";
 import UserFormPage from "./pages/admin/UserFormPage";
 import TenantEditPage from "./pages/admin/TenantEditPage";
 import TagsPage from "./pages/admin/TagsPage";
+import ConfigsAdminPage from "./pages/admin/ConfigsAdminPage";
 import ProductsListPage from "./pages/admin/ProductsListPage";
 import ProductFormPage from "./pages/admin/ProductFormPage";
 import RestaurantPage from "./pages/RestaurantPage";
@@ -63,6 +64,7 @@ const App = () => (
                 <Route path="tenants/novo" element={<TenantFormPage />} />
                 <Route path="tenants/:id" element={<TenantFormPage />} />
                 <Route path="tags" element={<TagsPage />} />
+                <Route path="configs-admin" element={<ConfigsAdminPage />} />
               </Route>
               <Route path="/loja/:slug" element={<RestaurantPage />} />
               <Route path="/chat/:chatId" element={<CustomerChatPage />} />
