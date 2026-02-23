@@ -16,7 +16,7 @@ const SearchBar = ({ value, onChange, onFilterClick }: SearchBarProps) => {
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Buscar restaurantes ou pratos..."
+          placeholder="Buscar lojas ou pratos..."
           className="w-full h-12 pl-12 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-card"
         />
       </div>

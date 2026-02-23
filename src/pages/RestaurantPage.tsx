@@ -297,7 +297,7 @@ const RestaurantPage = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="text-5xl animate-pulse mb-4">🍽️</div>
-          <p className="text-muted-foreground">Carregando restaurante...</p>
+          <p className="text-muted-foreground">Carregando loja...</p>
         </div>
       </div>
     );
@@ -308,8 +308,8 @@ const RestaurantPage = () => {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="text-5xl mb-4">😕</div>
-          <h2 className="text-xl font-bold mb-2">Restaurante não encontrado</h2>
-          <p className="text-muted-foreground mb-4">O restaurante que você procura não existe ou está inativo.</p>
+          <h2 className="text-xl font-bold mb-2">Loja não encontrada</h2>
+          <p className="text-muted-foreground mb-4">A loja que você procura não existe ou está inativa.</p>
           <Button onClick={() => navigate("/")} variant="outline">Voltar ao início</Button>
         </div>
       </div>
@@ -646,7 +646,7 @@ const RestaurantPage = () => {
             {featuredProducts.length > 0 && !activeCategory && !showFeaturedOnly && !searchQuery && (
               <section>
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  ⭐ Destaques do Restaurante
+                  ⭐ Destaques da Loja
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {featuredProducts.map((p) => (
@@ -660,7 +660,7 @@ const RestaurantPage = () => {
             {showFeaturedOnly && (
               <section>
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                  ⭐ Destaques do Restaurante
+                  ⭐ Destaques da Loja
                 </h3>
                 {filteredProducts.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

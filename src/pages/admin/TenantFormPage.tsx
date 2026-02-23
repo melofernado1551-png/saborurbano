@@ -270,7 +270,7 @@ const TenantFormPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-tenants-full"] });
       queryClient.invalidateQueries({ queryKey: ["admin-tenants"] });
-      toast.success(isEditing ? "Restaurante atualizado!" : "Restaurante criado!");
+      toast.success(isEditing ? "Loja atualizada!" : "Loja criada!");
       if (!isEditing) navigate("/admin/tenants");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao salvar"),
@@ -347,7 +347,7 @@ const TenantFormPage = () => {
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">{isEditing ? "Editar Restaurante" : "Novo Restaurante"}</h1>
+          <h1 className="text-2xl font-bold">{isEditing ? "Editar Loja" : "Nova Loja"}</h1>
           <p className="text-sm text-muted-foreground">
             {isEditing ? `Editando: ${tenant?.name}` : "Preencha os dados do novo estabelecimento"}
           </p>
@@ -360,7 +360,7 @@ const TenantFormPage = () => {
         <CardContent className="grid gap-4 sm:grid-cols-2">
           {/* Logo upload */}
           <div className="space-y-2 sm:col-span-2">
-            <Label>Logo do Restaurante</Label>
+            <Label>Logo da Loja</Label>
             <div className="flex items-center gap-4">
               <div className="w-20 h-20 rounded-xl bg-secondary overflow-hidden flex-shrink-0 border border-border">
                 {logoUrl ? (
@@ -410,7 +410,7 @@ const TenantFormPage = () => {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Nome do restaurante *</Label>
+            <Label>Nome da loja *</Label>
             <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex: Burger King" />
           </div>
           <div className="space-y-2">
@@ -465,7 +465,7 @@ const TenantFormPage = () => {
           </div>
           <div className="flex items-center gap-3 sm:col-span-2">
             <Switch checked={form.active} onCheckedChange={(v) => set("active", v)} />
-            <Label>Restaurante ativo</Label>
+            <Label>Loja ativa</Label>
           </div>
         </CardContent>
       </Card>
@@ -526,7 +526,7 @@ const TenantFormPage = () => {
           onClick={() => saveMutation.mutate()}
           disabled={!form.name || !form.city || !!cnpjError || saveMutation.isPending}
         >
-          {saveMutation.isPending ? "Salvando..." : isEditing ? "Salvar Alterações" : "Criar Restaurante"}
+          {saveMutation.isPending ? "Salvando..." : isEditing ? "Salvar Alterações" : "Criar Loja"}
         </Button>
       </div>
 
@@ -537,7 +537,7 @@ const TenantFormPage = () => {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Colaboradores do Restaurante</CardTitle>
+                <CardTitle className="text-lg">Colaboradores da Loja</CardTitle>
                 <Dialog open={showNewUser} onOpenChange={setShowNewUser}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-2">
