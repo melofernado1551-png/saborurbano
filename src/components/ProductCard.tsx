@@ -136,7 +136,7 @@ const ProductCard = ({ product, index, badgeTag }: ProductCardProps) => {
           className="flex items-center gap-2 pt-2 border-t border-border cursor-pointer hover:opacity-80 transition-opacity"
           onClick={(e) => {
             e.stopPropagation();
-            navigate(`/restaurante/${product.tenant_slug}`);
+            navigate(`/loja/${product.tenant_slug}`);
           }}
         >
           <div className="w-6 h-6 rounded-full bg-secondary overflow-hidden flex-shrink-0">

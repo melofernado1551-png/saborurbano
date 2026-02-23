@@ -126,7 +126,7 @@ const ProductDetailPage = () => {
           </Button>
           <div
             className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
-            onClick={() => navigate(`/restaurante/${tenant.slug}`)}
+            onClick={() => navigate(`/loja/${tenant.slug}`)}
           >
             <div className="w-7 h-7 rounded-full bg-secondary overflow-hidden flex-shrink-0">
               {tenant.logo_url ? (
