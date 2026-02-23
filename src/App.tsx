@@ -3,9 +3,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { useAutoTheme } from "@/hooks/useAutoTheme";
 import CartDrawer from "@/components/cart/CartDrawer";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -33,8 +35,15 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const AutoThemeHandler = () => {
+  useAutoTheme();
+  return null;
+};
+
 const App = () => (
+  <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
   <QueryClientProvider client={queryClient}>
+    <AutoThemeHandler />
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -79,6 +88,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;
