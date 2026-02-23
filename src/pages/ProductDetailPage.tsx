@@ -5,11 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Share2, ShoppingBag, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useCart } from "@/contexts/CartContext";
 
 const ProductDetailPage = () => {
   const { tenantSlug, productSlug } = useParams<{ tenantSlug: string; productSlug: string }>();
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
+  const { addItem, totalItems, setIsOpen: setCartOpen } = useCart();
 
   // Fetch tenant by slug
   const { data: tenant, isLoading: tenantLoading } = useQuery({
@@ -208,7 +210,25 @@ const ProductDetailPage = () => {
               </Button>
             </div>
 
-            <Button className="flex-1 h-12 gap-2 rounded-xl text-base font-bold" disabled={outOfStock}>
+            <Button
+              className="flex-1 h-12 gap-2 rounded-xl text-base font-bold"
+              disabled={outOfStock}
+              onClick={() => {
+                addItem(
+                  {
+                    productId: product.id,
+                    name: product.name,
+                    price: Number(product.price),
+                    promoPrice: product.promo_price ? Number(product.promo_price) : null,
+                    imageUrl: mainImage,
+                    quantity,
+                  },
+                  { id: tenant.id, slug: tenant.slug, name: tenant.name }
+                );
+                toast.success(`${product.name} adicionado ao carrinho!`);
+                setQuantity(1);
+              }}
+            >
               <ShoppingBag className="w-5 h-5" />
               Adicionar · R$ {(finalPrice * quantity).toFixed(2)}
             </Button>

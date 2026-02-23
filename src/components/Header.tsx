@@ -1,9 +1,9 @@
 import { MapPin, ShoppingBag, User, Menu, Settings } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { Button } from "./ui/button";
-import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useCart } from "@/contexts/CartContext";
 
 interface HeaderProps {
   location: string;
@@ -11,9 +11,9 @@ interface HeaderProps {
 }
 
 const Header = ({ location, onLocationClick }: HeaderProps) => {
-  const [cartCount] = useState(3);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { totalItems, setIsOpen: setCartOpen } = useCart();
 
   return (
     <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border">
@@ -49,11 +49,11 @@ const Header = ({ location, onLocationClick }: HeaderProps) => {
                 <span className="hidden sm:inline">Administração</span>
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative" onClick={() => setCartOpen(true)}>
               <ShoppingBag className="w-5 h-5" />
-              {cartCount > 0 && (
+              {totalItems > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-semibold">
-                  {cartCount}
+                  {totalItems}
                 </span>
               )}
             </Button>
