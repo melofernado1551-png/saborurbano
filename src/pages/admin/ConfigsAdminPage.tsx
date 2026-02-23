@@ -18,6 +18,7 @@ interface FeaturedProduct {
   position: number;
   product_name?: string;
   tenant_name?: string;
+  image_url?: string | null;
 }
 
 const ConfigsAdminPage = () => {
@@ -89,15 +90,31 @@ const ConfigsAdminPage = () => {
         .eq("tenant_id", featuredTenantId)
         .order("name");
       if (error) throw error;
+      const productIds = (data || []).map((p) => p.id);
+      let imageMap: Record<string, string> = {};
+      if (productIds.length > 0) {
+        const { data: images } = await supabase
+          .from("product_images")
+          .select("product_id, image_url, position")
+          .eq("active", true)
+          .in("product_id", productIds)
+          .order("position");
+        if (images) {
+          for (const img of images) {
+            if (!imageMap[img.product_id]) imageMap[img.product_id] = img.image_url;
+          }
+        }
+      }
       return (data || []).map((p) => ({
         id: p.id,
         name: p.name,
         tenant_name: tenantsList.find((t) => t.id === featuredTenantId)?.name || "",
+        image_url: imageMap[p.id] || null,
       }));
     },
   });
 
-  // Fetch product names for already-featured products (may span multiple tenants)
+  // Fetch product names + images for already-featured products (may span multiple tenants)
   const { data: featuredProductDetails = [] } = useQuery({
     queryKey: ["featured-product-details", existingFeatured],
     enabled: existingFeatured.length > 0,
@@ -113,10 +130,26 @@ const ConfigsAdminPage = () => {
         const { data: tenants } = await supabase.from("tenants").select("id, name").in("id", tenantIds);
         if (tenants) tenantMap = Object.fromEntries(tenants.map((t) => [t.id, t.name]));
       }
+      // Fetch first image per product
+      let imageMap: Record<string, string> = {};
+      if (ids.length > 0) {
+        const { data: images } = await supabase
+          .from("product_images")
+          .select("product_id, image_url, position")
+          .eq("active", true)
+          .in("product_id", ids)
+          .order("position");
+        if (images) {
+          for (const img of images) {
+            if (!imageMap[img.product_id]) imageMap[img.product_id] = img.image_url;
+          }
+        }
+      }
       return (prods || []).map((p) => ({
         id: p.id,
         name: p.name,
         tenant_name: tenantMap[p.tenant_id] || "",
+        image_url: imageMap[p.id] || null,
       }));
     },
   });
@@ -156,6 +189,7 @@ const ConfigsAdminPage = () => {
           position: f.position ?? 0,
           product_name: prod?.name || "Produto não encontrado",
           tenant_name: prod?.tenant_name || "",
+          image_url: prod?.image_url || null,
         };
       });
       setFeaturedProducts(mapped);
@@ -191,6 +225,7 @@ const ConfigsAdminPage = () => {
         position: prev.length,
         product_name: prod?.name || "",
         tenant_name: prod?.tenant_name || "",
+        image_url: prod?.image_url || null,
       },
     ]);
     setProductSearch("");
@@ -402,9 +437,9 @@ const ConfigsAdminPage = () => {
             Selecione até 8 produtos para exibir na página inicial. Arraste para reordenar.
           </p>
 
-          {/* Selected products */}
+          {/* Selected products - grid 4 columns */}
           {featuredProducts.length > 0 && (
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {featuredProducts.map((fp, idx) => (
                 <div
                   key={fp.product_id}
@@ -412,23 +447,35 @@ const ConfigsAdminPage = () => {
                   onDragStart={() => handleDragStart(idx)}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDragEnd={handleDragEnd}
-                  className={`flex items-center gap-3 p-3 rounded-lg border bg-card cursor-grab active:cursor-grabbing transition-shadow ${
+                  className={`relative rounded-lg border bg-card cursor-grab active:cursor-grabbing transition-shadow overflow-hidden ${
                     dragIdx === idx ? "ring-2 ring-primary shadow-lg" : "border-border"
                   }`}
                 >
-                  <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <span className="text-xs font-mono text-muted-foreground w-5">{idx + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{fp.product_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{fp.tenant_name}</p>
+                  {/* Image */}
+                  <div className="h-24 bg-secondary flex items-center justify-center overflow-hidden">
+                    {fp.image_url ? (
+                      <img src={fp.image_url} alt={fp.product_name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-3xl">🍔</span>
+                    )}
                   </div>
+                  {/* Position badge */}
+                  <span className="absolute top-1 left-1 bg-foreground/70 text-background text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                    {idx + 1}
+                  </span>
+                  {/* Remove button */}
                   <button
                     type="button"
                     onClick={() => removeFeaturedProduct(fp.product_id)}
-                    className="p-1 rounded-full hover:bg-destructive/10 text-destructive transition-colors"
+                    className="absolute top-1 right-1 p-0.5 rounded-full bg-card/80 hover:bg-destructive/10 text-destructive transition-colors"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
+                  {/* Info */}
+                  <div className="p-2">
+                    <p className="text-xs font-medium truncate">{fp.product_name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{fp.tenant_name}</p>
+                  </div>
                 </div>
               ))}
             </div>
