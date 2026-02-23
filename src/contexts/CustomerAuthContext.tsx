@@ -14,6 +14,7 @@ interface CustomerAuthContextType {
   customer: Customer | null;
   session: any;
   loading: boolean;
+  isInactive: boolean;
   signUp: (email: string, password: string, name: string, tenantId: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signInWithGoogle: (tenantId: string) => Promise<void>;
@@ -33,21 +34,31 @@ export const CustomerAuthProvider = ({ children }: { children: ReactNode }) => {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [inactiveCustomer, setInactiveCustomer] = useState(false);
 
   const fetchCustomer = async (authUid: string) => {
     try {
-      const { data, error } = await supabase
+      // First check if any customer exists (active or not)
+      const { data: anyCustomer } = await supabase
         .from("customers" as any)
         .select("id, name, email, phone, tenant_id, active")
         .eq("auth_id", authUid)
-        .eq("active", true)
         .limit(1)
         .maybeSingle();
 
-      if (data && !error) {
-        setCustomer(data as any);
-        return data as any;
+      if (anyCustomer && !(anyCustomer as any).active) {
+        // Customer is deactivated
+        setCustomer(null);
+        setInactiveCustomer(true);
+        return null;
       }
+
+      if (anyCustomer) {
+        setCustomer(anyCustomer as any);
+        setInactiveCustomer(false);
+        return anyCustomer as any;
+      }
+      setInactiveCustomer(false);
       return null;
     } catch {
       return null;
@@ -181,7 +192,7 @@ export const CustomerAuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <CustomerAuthContext.Provider value={{ customer, session, loading, signUp, signIn, signInWithGoogle, logout, getOrCreateCustomerForTenant }}>
+    <CustomerAuthContext.Provider value={{ customer, session, loading, isInactive: inactiveCustomer, signUp, signIn, signInWithGoogle, logout, getOrCreateCustomerForTenant }}>
       {children}
     </CustomerAuthContext.Provider>
   );

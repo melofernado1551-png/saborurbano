@@ -30,7 +30,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 const CustomerChatPage = () => {
   const { chatId } = useParams<{ chatId: string }>();
   const navigate = useNavigate();
-  const { customer, session } = useCustomerAuth();
+  const { customer, session, isInactive } = useCustomerAuth();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -196,12 +196,14 @@ const CustomerChatPage = () => {
   const operationalStatus = sale ? STATUS_LABELS[sale.operational_status] || { label: sale.operational_status, emoji: "📋" } : null;
   const financialStatus = sale ? FINANCIAL_LABELS[sale.financial_status] || FINANCIAL_LABELS.pending : null;
 
-  if (!session?.user) {
+  if (!session?.user || isInactive) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="text-5xl mb-4">🔒</div>
-          <p className="text-muted-foreground">Faça login para acessar o chat</p>
+          <div className="text-5xl mb-4">{isInactive ? "🚫" : "🔒"}</div>
+          <p className="text-muted-foreground">
+            {isInactive ? "Seu acesso está indisponível. Entre em contato com o estabelecimento." : "Faça login para acessar o chat"}
+          </p>
           <Button onClick={() => navigate("/")} variant="outline" className="mt-4">Voltar</Button>
         </div>
       </div>
