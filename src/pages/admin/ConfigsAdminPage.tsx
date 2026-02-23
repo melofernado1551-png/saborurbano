@@ -372,12 +372,12 @@ const ConfigsAdminPage = () => {
         </p>
       </div>
 
-      {/* Identidade Visual */}
+      {/* Identidade e Textos */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
             <Image className="w-5 h-5" />
-            Identidade Visual
+            Identidade e Textos
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -397,18 +397,6 @@ const ConfigsAdminPage = () => {
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Textos Globais */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Type className="w-5 h-5" />
-            Textos Globais
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
           <div>
             <Label htmlFor="site-title">Título do site</Label>
             <Input id="site-title" value={siteTitle} onChange={(e) => setSiteTitle(e.target.value)} placeholder="Ex: Sabor Urbano" />
