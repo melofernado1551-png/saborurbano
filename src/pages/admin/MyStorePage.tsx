@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useBlocker } from "react-router-dom";
+
 
 const MAX_SECTION_PRODUCTS = 12;
 
@@ -216,8 +216,17 @@ const MyStorePage = () => {
     return currentSections !== originalSections || currentFeatured !== originalFeatured;
   }, [draftSections, draftFeatured, remoteSections, remoteFeatured, initialized]);
 
-  // Navigation blocker
-  const blocker = useBlocker(isDirty);
+  // Navigation blocker via beforeunload
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
 
   // ── Draft actions: Featured ──
   const addFeaturedDraft = (productId: string) => {
@@ -902,21 +911,6 @@ const MyStorePage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Navigation blocker */}
-      <AlertDialog open={blocker.state === "blocked"}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Alterações não salvas</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você tem alterações que ainda não foram salvas. Deseja sair mesmo assim?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => blocker.reset?.()}>Continuar editando</AlertDialogCancel>
-            <AlertDialogAction onClick={() => blocker.proceed?.()}>Sair sem salvar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
