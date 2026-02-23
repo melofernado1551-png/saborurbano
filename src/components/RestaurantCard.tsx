@@ -16,7 +16,7 @@ const RestaurantCard = ({ restaurant, index }: RestaurantCardProps) => {
     <div
       className="group relative bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer animate-fade-in"
       style={{ animationDelay: `${index * 50}ms` }}
-      onClick={() => restaurant.slug && navigate(`/restaurante/${restaurant.slug}`)}
+      onClick={() => restaurant.slug && navigate(`/loja/${restaurant.slug}`)}
     >
       {/* Image */}
       <div className="relative h-44 overflow-hidden">
