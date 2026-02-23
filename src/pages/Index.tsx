@@ -186,13 +186,12 @@ const Index = () => {
         };
       });
 
-      // Prioritize featured products, then the rest, limit to 8
-      const featuredSet = new Set(featuredProductIds);
+      // Only show featured products (selected by superadmin)
+      if (featuredProductIds.length === 0) return [];
       const featured = featuredProductIds
         .map((fid) => allMapped.find((p) => p.id === fid))
         .filter(Boolean) as ProductCardProduct[];
-      const rest = allMapped.filter((p) => !featuredSet.has(p.id));
-      return [...featured, ...rest].slice(0, 8);
+      return featured;
     },
   });
 
