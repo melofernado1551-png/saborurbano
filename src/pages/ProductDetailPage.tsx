@@ -124,7 +124,21 @@ const ProductDetailPage = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="font-semibold text-foreground truncate text-sm">{tenant.name}</h1>
+          <div
+            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={() => navigate(`/restaurante/${tenant.slug}`)}
+          >
+            <div className="w-7 h-7 rounded-full bg-secondary overflow-hidden flex-shrink-0">
+              {tenant.logo_url ? (
+                <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-xs font-bold text-muted-foreground">
+                  {tenant.name.charAt(0)}
+                </div>
+              )}
+            </div>
+            <h1 className="font-semibold text-foreground truncate text-sm">{tenant.name}</h1>
+          </div>
           <Button variant="ghost" size="icon" onClick={handleShare}>
             <Share2 className="w-5 h-5" />
           </Button>
@@ -152,23 +166,6 @@ const ProductDetailPage = () => {
 
       {/* Product info */}
       <div className="container mx-auto px-4 py-6 max-w-2xl">
-        {/* Tenant info */}
-        <div
-          className="flex items-center gap-2 mb-4 cursor-pointer hover:opacity-80 transition-opacity"
-          onClick={() => navigate(`/restaurante/${tenant.slug}`)}
-        >
-          <div className="w-8 h-8 rounded-full bg-secondary overflow-hidden flex-shrink-0">
-            {tenant.logo_url ? (
-              <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-sm font-bold text-muted-foreground">
-                {tenant.name.charAt(0)}
-              </div>
-            )}
-          </div>
-          <span className="text-sm text-muted-foreground">{tenant.name}</span>
-        </div>
-
         <h2 className="text-2xl md:text-3xl font-extrabold text-foreground">{product.name}</h2>
 
         {product.description && (
