@@ -333,7 +333,7 @@ const Index = () => {
           elements.push(
             <div key={`curated-${block.tag.slug}`} className="col-span-full">
               <div className="py-6">
-                <h3 className="text-lg font-bold mb-4">
+                <h3 className="text-lg font-bold mb-4 text-center">
                   {CURATED_TITLES[block.tag.slug] || `${block.tag.emoji} ${block.tag.name}`}
                 </h3>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -489,10 +489,7 @@ const Index = () => {
         <section ref={productsRef} className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl md:text-2xl font-bold">
-              {viewMode === "products" ? "Produtos" : "Restaurantes"}{" "}
-              <span className="text-muted-foreground font-normal text-base">
-                ({itemCount})
-              </span>
+              {viewMode === "products" ? "Produtos" : "Restaurantes"}
             </h2>
           </div>
 
