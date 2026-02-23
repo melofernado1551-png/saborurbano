@@ -437,50 +437,6 @@ const ConfigsAdminPage = () => {
             Selecione até 8 produtos para exibir na página inicial. Arraste para reordenar.
           </p>
 
-          {/* Selected products - grid 4 columns */}
-          {featuredProducts.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {featuredProducts.map((fp, idx) => (
-                <div
-                  key={fp.product_id}
-                  draggable
-                  onDragStart={() => handleDragStart(idx)}
-                  onDragOver={(e) => handleDragOver(e, idx)}
-                  onDragEnd={handleDragEnd}
-                  className={`relative rounded-lg border bg-card cursor-grab active:cursor-grabbing transition-shadow overflow-hidden ${
-                    dragIdx === idx ? "ring-2 ring-primary shadow-lg" : "border-border"
-                  }`}
-                >
-                  {/* Image */}
-                  <div className="h-24 bg-secondary flex items-center justify-center overflow-hidden">
-                    {fp.image_url ? (
-                      <img src={fp.image_url} alt={fp.product_name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-3xl">🍔</span>
-                    )}
-                  </div>
-                  {/* Position badge */}
-                  <span className="absolute top-1 left-1 bg-foreground/70 text-background text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                    {idx + 1}
-                  </span>
-                  {/* Remove button */}
-                  <button
-                    type="button"
-                    onClick={() => removeFeaturedProduct(fp.product_id)}
-                    className="absolute top-1 right-1 p-0.5 rounded-full bg-card/80 hover:bg-destructive/10 text-destructive transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                  {/* Info */}
-                  <div className="p-2">
-                    <p className="text-xs font-medium truncate">{fp.product_name}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{fp.tenant_name}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* Tenant selector + Search to add */}
           {featuredProducts.length < 8 && (
             <div className="space-y-3">
@@ -534,6 +490,46 @@ const ConfigsAdminPage = () => {
           <p className="text-xs text-muted-foreground">
             {featuredProducts.length}/8 produtos selecionados
           </p>
+
+          {/* Selected products - grid 4 columns */}
+          {featuredProducts.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {featuredProducts.map((fp, idx) => (
+                <div
+                  key={fp.product_id}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  className={`relative rounded-lg border bg-card cursor-grab active:cursor-grabbing transition-shadow overflow-hidden ${
+                    dragIdx === idx ? "ring-2 ring-primary shadow-lg" : "border-border"
+                  }`}
+                >
+                  <div className="h-24 bg-secondary flex items-center justify-center overflow-hidden">
+                    {fp.image_url ? (
+                      <img src={fp.image_url} alt={fp.product_name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-3xl">🍔</span>
+                    )}
+                  </div>
+                  <span className="absolute top-1 left-1 bg-foreground/70 text-background text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                    {idx + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeFeaturedProduct(fp.product_id)}
+                    className="absolute top-1 right-1 p-0.5 rounded-full bg-card/80 hover:bg-destructive/10 text-destructive transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <div className="p-2">
+                    <p className="text-xs font-medium truncate">{fp.product_name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{fp.tenant_name}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
