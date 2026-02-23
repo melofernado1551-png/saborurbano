@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, MapPin, ChevronDown } from "lucide-react";
+import { ArrowLeft, Send, MapPin, ChevronDown, Receipt } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
@@ -20,6 +20,13 @@ const FINANCIAL_LABELS: Record<string, { label: string; color: string; emoji: st
   paid: { label: "Pago / Quitado", color: "bg-green-600 text-white", emoji: "🟢" },
 };
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  pix: "Pix",
+  dinheiro: "Dinheiro",
+  cartao_credito: "Cartão Crédito",
+  cartao_debito: "Cartão Débito",
+};
+
 const CustomerChatPage = () => {
   const { chatId } = useParams<{ chatId: string }>();
   const navigate = useNavigate();
@@ -28,6 +35,7 @@ const CustomerChatPage = () => {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [showAddresses, setShowAddresses] = useState(false);
+  const [showPayments, setShowPayments] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch chat
@@ -35,26 +43,18 @@ const CustomerChatPage = () => {
     queryKey: ["customer-chat", chatId],
     enabled: !!chatId && !!session?.user,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("chats")
-        .select("*")
-        .eq("id", chatId!)
-        .single();
+      const { data, error } = await supabase.from("chats").select("*").eq("id", chatId!).single();
       if (error) throw error;
       return data;
     },
   });
 
-  // Fetch sale linked to chat
+  // Fetch sale
   const { data: sale } = useQuery({
     queryKey: ["customer-sale", chat?.sale_id],
     enabled: !!chat?.sale_id,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sales")
-        .select("*")
-        .eq("id", chat!.sale_id!)
-        .single();
+      const { data, error } = await supabase.from("sales").select("*").eq("id", chat!.sale_id!).single();
       if (error) throw error;
       return data;
     },
@@ -65,11 +65,7 @@ const CustomerChatPage = () => {
     queryKey: ["chat-tenant", chat?.tenant_id],
     enabled: !!chat?.tenant_id,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tenants")
-        .select("id, name, logo_url, slug")
-        .eq("id", chat!.tenant_id)
-        .single();
+      const { data, error } = await supabase.from("tenants").select("id, name, logo_url, slug").eq("id", chat!.tenant_id).single();
       if (error) throw error;
       return data;
     },
@@ -106,32 +102,41 @@ const CustomerChatPage = () => {
     },
   });
 
-  // Realtime subscription
+  // Fetch payments
+  const { data: payments = [] } = useQuery({
+    queryKey: ["customer-sale-payments", sale?.id],
+    enabled: !!sale?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sale_payments")
+        .select("*")
+        .eq("sale_id", sale!.id)
+        .eq("active", true)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Realtime
   useEffect(() => {
     if (!chatId) return;
-
     const channel = supabase
       .channel(`chat-${chatId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages", filter: `chat_id=eq.${chatId}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "sales", filter: `chat_id=eq.${chatId}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["customer-sale", chat?.sale_id] });
-        }
-      )
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `chat_id=eq.${chatId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "sales", filter: `chat_id=eq.${chatId}` }, () => {
+        queryClient.invalidateQueries({ queryKey: ["customer-sale", chat?.sale_id] });
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "sale_payments" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["customer-sale-payments", sale?.id] });
+        queryClient.invalidateQueries({ queryKey: ["customer-sale", chat?.sale_id] });
+      })
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
-  }, [chatId, chat?.sale_id, queryClient]);
+  }, [chatId, chat?.sale_id, sale?.id, queryClient]);
 
-  // Auto scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -159,7 +164,6 @@ const CustomerChatPage = () => {
   const handleSelectAddress = async (addr: any) => {
     if (!chatId || !customer || !sale) return;
     try {
-      // Update sale with delivery address
       const addressData = {
         label: addr.label,
         street: addr.street,
@@ -169,12 +173,8 @@ const CustomerChatPage = () => {
         city: addr.city,
         reference: addr.reference,
       };
-
       await supabase.from("sales").update({ delivery_address: addressData }).eq("id", sale.id);
-
-      // Send address confirmation message
       const addrText = `${addr.street}, ${addr.number}${addr.complement ? ` - ${addr.complement}` : ""} — ${addr.neighborhood}, ${addr.city}${addr.reference ? ` (Ref: ${addr.reference})` : ""}`;
-
       await supabase.from("chat_messages").insert({
         chat_id: chatId,
         sender_id: customer.id,
@@ -182,7 +182,6 @@ const CustomerChatPage = () => {
         content: `📍 **Endereço de entrega:**\n${addr.label}: ${addrText}`,
         message_type: "address_confirmation",
       });
-
       setShowAddresses(false);
       toast.success("Endereço confirmado!");
       queryClient.invalidateQueries({ queryKey: ["customer-sale", sale.id] });
@@ -190,6 +189,9 @@ const CustomerChatPage = () => {
       toast.error("Erro ao selecionar endereço");
     }
   };
+
+  const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const remaining = sale ? Number(sale.valor_total) - totalPaid : 0;
 
   const operationalStatus = sale ? STATUS_LABELS[sale.operational_status] || { label: sale.operational_status, emoji: "📋" } : null;
   const financialStatus = sale ? FINANCIAL_LABELS[sale.financial_status] || FINANCIAL_LABELS.pending : null;
@@ -235,16 +237,51 @@ const CustomerChatPage = () => {
 
         {/* Status bar */}
         {sale && (
-          <div className="px-4 pb-2 flex gap-2 flex-wrap">
-            {operationalStatus && (
-              <span className="px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-medium">
-                {operationalStatus.emoji} {operationalStatus.label}
-              </span>
+          <div className="px-4 pb-2 space-y-2">
+            <div className="flex gap-2 flex-wrap">
+              {operationalStatus && (
+                <span className="px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-medium">
+                  {operationalStatus.emoji} {operationalStatus.label}
+                </span>
+              )}
+              {financialStatus && (
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${financialStatus.color}`}>
+                  {financialStatus.emoji} {financialStatus.label}
+                </span>
+              )}
+              {payments.length > 0 && (
+                <button
+                  onClick={() => setShowPayments(!showPayments)}
+                  className="px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-medium flex items-center gap-1"
+                >
+                  <Receipt className="w-3 h-3" />
+                  Pagamentos ({payments.length})
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showPayments ? "rotate-180" : ""}`} />
+                </button>
+              )}
+            </div>
+
+            {/* Financial summary */}
+            {totalPaid > 0 && (
+              <div className="text-xs text-muted-foreground px-1">
+                💰 Total: R$ {Number(sale.valor_total).toFixed(2)} · Pago: <span className="text-green-600 font-medium">R$ {totalPaid.toFixed(2)}</span>
+                {remaining > 0 && <span className="text-destructive ml-1">· Falta: R$ {remaining.toFixed(2)}</span>}
+              </div>
             )}
-            {financialStatus && (
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${financialStatus.color}`}>
-                {financialStatus.emoji} {financialStatus.label}
-              </span>
+
+            {/* Payment history dropdown */}
+            {showPayments && payments.length > 0 && (
+              <div className="space-y-1.5 px-1">
+                {payments.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between text-xs px-3 py-2 rounded-lg bg-secondary/50 border border-border">
+                    <span className="font-medium text-foreground">R$ {Number(p.amount).toFixed(2)}</span>
+                    <span className="text-muted-foreground">{PAYMENT_METHOD_LABELS[p.payment_method] || p.payment_method}</span>
+                    <span className="text-muted-foreground">
+                      {new Date(p.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -254,7 +291,7 @@ const CustomerChatPage = () => {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.map((msg) => {
           const isCustomer = msg.sender_type === "customer";
-          const isSystem = msg.message_type === "order_summary" || msg.message_type === "address_confirmation" || msg.message_type === "status_update";
+          const isSystem = ["order_summary", "address_confirmation", "status_update", "payment_registered"].includes(msg.message_type);
 
           return (
             <div key={msg.id} className={`flex ${isCustomer ? "justify-end" : "justify-start"}`}>

@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Send, ArrowLeft, ChevronDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Send, ArrowLeft, ChevronDown, DollarSign, CreditCard, Banknote, QrCode, X } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -20,6 +21,13 @@ const FINANCIAL_LABELS: Record<string, { label: string; color: string; emoji: st
   paid: { label: "Pago", color: "bg-green-600 text-white", emoji: "🟢" },
 };
 
+const PAYMENT_METHODS = [
+  { value: "pix", label: "Pix", icon: QrCode },
+  { value: "dinheiro", label: "Dinheiro", icon: Banknote },
+  { value: "cartao_credito", label: "Cartão Crédito", icon: CreditCard },
+  { value: "cartao_debito", label: "Cartão Débito", icon: CreditCard },
+];
+
 const OP_STATUSES = [
   { value: "received", label: "Pedido recebido", emoji: "📥" },
   { value: "preparing", label: "Em preparo", emoji: "👨‍🍳" },
@@ -35,6 +43,10 @@ const AdminChatPage = () => {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [registeringPayment, setRegisteringPayment] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch chat
@@ -86,6 +98,22 @@ const AdminChatPage = () => {
     },
   });
 
+  // Fetch payments
+  const { data: payments = [] } = useQuery({
+    queryKey: ["sale-payments", sale?.id],
+    enabled: !!sale?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sale_payments")
+        .select("*")
+        .eq("sale_id", sale!.id)
+        .eq("active", true)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Realtime
   useEffect(() => {
     if (!chatId) return;
@@ -97,9 +125,13 @@ const AdminChatPage = () => {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "sales" }, () => {
         queryClient.invalidateQueries({ queryKey: ["admin-sale", chat?.sale_id] });
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "sale_payments" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["sale-payments", sale?.id] });
+        queryClient.invalidateQueries({ queryKey: ["admin-sale", chat?.sale_id] });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [chatId, chat?.sale_id, queryClient]);
+  }, [chatId, chat?.sale_id, sale?.id, queryClient]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -145,6 +177,48 @@ const AdminChatPage = () => {
       toast.error("Erro ao atualizar status");
     }
   };
+
+  const handleRegisterPayment = async () => {
+    if (!sale || !paymentMethod || !paymentAmount) return;
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Valor inválido");
+      return;
+    }
+
+    setRegisteringPayment(true);
+    try {
+      const { error } = await supabase.from("sale_payments").insert({
+        sale_id: sale.id,
+        tenant_id: sale.tenant_id,
+        amount,
+        payment_method: paymentMethod,
+        registered_by: user?.id || null,
+      });
+      if (error) throw error;
+
+      const methodLabel = PAYMENT_METHODS.find((m) => m.value === paymentMethod)?.label || paymentMethod;
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: user?.id || null,
+        sender_type: "system",
+        content: `💳 **Pagamento registrado**\nR$ ${amount.toFixed(2)} via ${methodLabel}`,
+        message_type: "payment_registered",
+      });
+
+      setPaymentMethod("");
+      setPaymentAmount("");
+      setShowPaymentForm(false);
+      toast.success("Pagamento registrado!");
+    } catch {
+      toast.error("Erro ao registrar pagamento");
+    } finally {
+      setRegisteringPayment(false);
+    }
+  };
+
+  const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const remaining = sale ? Number(sale.valor_total) - totalPaid : 0;
 
   const operationalStatus = sale ? STATUS_LABELS[sale.operational_status] || { label: sale.operational_status, emoji: "📋" } : null;
   const financialStatus = sale ? FINANCIAL_LABELS[sale.financial_status] || FINANCIAL_LABELS.pending : null;
@@ -203,8 +277,100 @@ const AdminChatPage = () => {
         )}
 
         {sale && (
-          <div className="mt-2 text-xs text-muted-foreground">
-            💰 Total: R$ {Number(sale.valor_total).toFixed(2)}
+          <div className="mt-2 flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              💰 Total: R$ {Number(sale.valor_total).toFixed(2)}
+              {totalPaid > 0 && (
+                <span className="ml-2">
+                  · Pago: <span className="text-green-600 font-medium">R$ {totalPaid.toFixed(2)}</span>
+                  {remaining > 0 && <span className="ml-1 text-destructive">· Falta: R$ {remaining.toFixed(2)}</span>}
+                </span>
+              )}
+            </div>
+            {sale.financial_status !== "paid" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setShowPaymentForm(!showPaymentForm)}
+              >
+                <DollarSign className="w-3 h-3" />
+                Registrar Pagamento
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Payment form */}
+        {showPaymentForm && sale && (
+          <div className="mt-3 p-3 rounded-xl bg-secondary/50 border border-border space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-foreground">Registrar Pagamento</p>
+              <button onClick={() => setShowPaymentForm(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {PAYMENT_METHODS.map((m) => {
+                const Icon = m.icon;
+                return (
+                  <button
+                    key={m.value}
+                    onClick={() => setPaymentMethod(m.value)}
+                    className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border text-xs font-medium transition-all ${
+                      paymentMethod === m.value
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-card text-foreground hover:border-primary/30"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder={`Valor (máx R$ ${remaining.toFixed(2)})`}
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <Button
+                size="sm"
+                className="h-9"
+                disabled={!paymentMethod || !paymentAmount || registeringPayment}
+                onClick={handleRegisterPayment}
+              >
+                {registeringPayment ? "..." : "Confirmar"}
+              </Button>
+            </div>
+
+            {/* Payment history */}
+            {payments.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-border">
+                <p className="text-xs font-medium text-muted-foreground">Histórico de Pagamentos</p>
+                {payments.map((p) => {
+                  const methodLabel = PAYMENT_METHODS.find((m) => m.value === p.payment_method)?.label || p.payment_method;
+                  return (
+                    <div key={p.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg bg-card">
+                      <span className="text-foreground font-medium">R$ {Number(p.amount).toFixed(2)}</span>
+                      <span className="text-muted-foreground capitalize">{methodLabel}</span>
+                      <span className="text-muted-foreground">
+                        {new Date(p.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -213,7 +379,7 @@ const AdminChatPage = () => {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         {messages.map((msg) => {
           const isCustomer = msg.sender_type === "customer";
-          const isSystem = msg.message_type === "order_summary" || msg.message_type === "address_confirmation" || msg.message_type === "status_update";
+          const isSystem = ["order_summary", "address_confirmation", "status_update", "payment_registered"].includes(msg.message_type);
 
           return (
             <div key={msg.id} className={`flex ${isCustomer ? "justify-start" : "justify-end"}`}>
