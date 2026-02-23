@@ -11,6 +11,7 @@ import {
   Store,
   Pencil,
   Tag,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -68,6 +69,9 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       : []),
     ...(!isContador
       ? [{ label: "Configurações", icon: Settings, path: "/admin/configuracoes" }]
+      : []),
+    ...(isSuperAdmin
+      ? [{ label: "Configs Admin", icon: SlidersHorizontal, path: "/admin/configs-admin" }]
       : []),
   ];
 

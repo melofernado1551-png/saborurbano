@@ -890,6 +890,33 @@ export type Database = {
           },
         ]
       }
+      system_configs: {
+        Row: {
+          active: boolean
+          favicon_url: string | null
+          id: string
+          site_subtitle: string
+          site_title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          favicon_url?: string | null
+          id?: string
+          site_subtitle?: string
+          site_title?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          favicon_url?: string | null
+          id?: string
+          site_subtitle?: string
+          site_title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_users: {
         Row: {
           active: boolean
