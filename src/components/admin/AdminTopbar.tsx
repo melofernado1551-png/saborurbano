@@ -26,7 +26,7 @@ const AdminTopbar = () => {
           <Building2 className="w-4 h-4 text-muted-foreground" />
           <Select value={selectedTenantId || "none"} onValueChange={(v) => setSelectedTenantId(v === "none" ? "" : v)}>
             <SelectTrigger className="w-48 lg:w-64 h-9">
-              <SelectValue placeholder="Selecione um restaurante" />
+              <SelectValue placeholder="Selecione uma loja" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Nenhum</SelectItem>

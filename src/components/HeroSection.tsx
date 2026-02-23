@@ -38,7 +38,7 @@ const HeroSection = ({ weatherCondition }: HeroSectionProps) => {
             </h1>
             
             <p className="text-white/90 text-sm md:text-lg max-w-lg animate-fade-in drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]" style={{ animationDelay: "200ms" }}>
-              Descubra os melhores restaurantes perto de você.
+              Descubra as melhores lojas perto de você.
             </p>
 
             {/* Weather alert */}

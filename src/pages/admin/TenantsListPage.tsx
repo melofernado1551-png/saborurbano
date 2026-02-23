@@ -70,19 +70,19 @@ const TenantsListPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Restaurantes</h1>
+          <h1 className="text-2xl font-bold">Lojas</h1>
           <p className="text-sm text-muted-foreground">Gerencie todos os estabelecimentos da plataforma</p>
         </div>
         <Button onClick={() => navigate("/admin/tenants/novo")} className="gap-2">
           <Plus className="w-4 h-4" />
-          Novo Restaurante
+          Nova Loja
         </Button>
       </div>
 
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Carregando...</div>
       ) : tenants.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">Nenhum restaurante cadastrado</div>
+        <div className="text-center py-12 text-muted-foreground">Nenhuma loja cadastrada</div>
       ) : (
         <div className="border rounded-lg overflow-hidden">
           <Table>

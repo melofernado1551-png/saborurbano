@@ -55,7 +55,7 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       ? [{ label: "Produtos", icon: Package, path: "/admin/produtos" }]
       : []),
     ...(isSuperAdmin
-      ? [{ label: "Restaurantes", icon: Store, path: "/admin/tenants" }]
+      ? [{ label: "Lojas", icon: Store, path: "/admin/tenants" }]
       : []),
     ...(isSuperAdmin
       ? [{ label: "Tags", icon: Tag, path: "/admin/tags" }]

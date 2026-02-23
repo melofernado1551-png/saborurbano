@@ -89,7 +89,7 @@ const CitySelectionModal = ({ open, onCitySelect }: CitySelectionModalProps) => 
             Onde você está?
           </DialogTitle>
           <DialogDescription>
-            Selecione sua cidade para ver os restaurantes disponíveis na sua região.
+            Selecione sua cidade para ver as lojas disponíveis na sua região.
           </DialogDescription>
         </DialogHeader>
 
@@ -128,7 +128,7 @@ const CitySelectionModal = ({ open, onCitySelect }: CitySelectionModalProps) => 
                 </Button>
               ) : (
                 <p className="text-sm text-destructive">
-                  Ainda não temos restaurantes nessa cidade. Selecione outra abaixo.
+                  Ainda não temos lojas nessa cidade. Selecione outra abaixo.
                 </p>
               )}
             </div>
