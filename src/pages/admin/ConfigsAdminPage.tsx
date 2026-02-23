@@ -9,6 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ShieldAlert, Upload, Image, Type, Save, Loader2, Star, Search, X, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 interface FeaturedProduct {
   product_id: string;
@@ -29,6 +32,7 @@ const ConfigsAdminPage = () => {
   const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>([]);
   const [productSearch, setProductSearch] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [featuredTenantId, setFeaturedTenantId] = useState<string>("");
 
   const { data: config, isLoading } = useQuery({
     queryKey: ["system-configs"],
@@ -58,29 +62,56 @@ const ConfigsAdminPage = () => {
     },
   });
 
-  // Fetch all products with tenant info for search
-  const { data: allProducts = [] } = useQuery({
-    queryKey: ["all-products-for-featured"],
+  // Fetch tenants for selector
+  const { data: tenantsList = [] } = useQuery({
+    queryKey: ["tenants-for-featured"],
     queryFn: async () => {
-      const { data: prods, error } = await supabase
-        .from("products")
-        .select("id, name, tenant_id")
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("id, name")
         .eq("active", true)
         .order("name");
       if (error) throw error;
+      return data || [];
+    },
+  });
 
+  // Fetch products only for selected tenant
+  const { data: tenantProducts = [] } = useQuery({
+    queryKey: ["tenant-products-for-featured", featuredTenantId],
+    enabled: !!featuredTenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id, name")
+        .eq("active", true)
+        .eq("tenant_id", featuredTenantId)
+        .order("name");
+      if (error) throw error;
+      return (data || []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        tenant_name: tenantsList.find((t) => t.id === featuredTenantId)?.name || "",
+      }));
+    },
+  });
+
+  // Fetch product names for already-featured products (may span multiple tenants)
+  const { data: featuredProductDetails = [] } = useQuery({
+    queryKey: ["featured-product-details", existingFeatured],
+    enabled: existingFeatured.length > 0,
+    queryFn: async () => {
+      const ids = existingFeatured.map((f) => f.product_id);
+      const { data: prods } = await supabase
+        .from("products")
+        .select("id, name, tenant_id")
+        .in("id", ids);
       const tenantIds = [...new Set((prods || []).map((p) => p.tenant_id))];
       let tenantMap: Record<string, string> = {};
       if (tenantIds.length > 0) {
-        const { data: tenants } = await supabase
-          .from("tenants")
-          .select("id, name")
-          .in("id", tenantIds);
-        if (tenants) {
-          tenantMap = Object.fromEntries(tenants.map((t) => [t.id, t.name]));
-        }
+        const { data: tenants } = await supabase.from("tenants").select("id, name").in("id", tenantIds);
+        if (tenants) tenantMap = Object.fromEntries(tenants.map((t) => [t.id, t.name]));
       }
-
       return (prods || []).map((p) => ({
         id: p.id,
         name: p.name,
@@ -98,9 +129,9 @@ const ConfigsAdminPage = () => {
   }, [config]);
 
   useEffect(() => {
-    if (existingFeatured.length > 0 && allProducts.length > 0) {
+    if (existingFeatured.length > 0 && featuredProductDetails.length > 0) {
       const mapped = existingFeatured.map((f) => {
-        const prod = allProducts.find((p) => p.id === f.product_id);
+        const prod = featuredProductDetails.find((p) => p.id === f.product_id);
         return {
           product_id: f.product_id,
           position: f.position ?? 0,
@@ -110,7 +141,7 @@ const ConfigsAdminPage = () => {
       });
       setFeaturedProducts(mapped);
     }
-  }, [existingFeatured, allProducts]);
+  }, [existingFeatured, featuredProductDetails]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -133,7 +164,7 @@ const ConfigsAdminPage = () => {
       toast.error("Produto já está em destaque");
       return;
     }
-    const prod = allProducts.find((p) => p.id === productId);
+    const prod = tenantProducts.find((p) => p.id === productId);
     setFeaturedProducts((prev) => [
       ...prev,
       {
@@ -167,13 +198,12 @@ const ConfigsAdminPage = () => {
   };
   const handleDragEnd = () => setDragIdx(null);
 
-  const filteredSearchProducts = productSearch.trim()
-    ? allProducts
+  const filteredSearchProducts = productSearch.trim() && featuredTenantId
+    ? tenantProducts
         .filter(
           (p) =>
             !featuredProducts.some((f) => f.product_id === p.id) &&
-            (p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-              p.tenant_name.toLowerCase().includes(productSearch.toLowerCase()))
+            p.name.toLowerCase().includes(productSearch.toLowerCase())
         )
         .slice(0, 8)
     : [];
@@ -369,32 +399,51 @@ const ConfigsAdminPage = () => {
             </div>
           )}
 
-          {/* Search to add */}
+          {/* Tenant selector + Search to add */}
           {featuredProducts.length < 8 && (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                placeholder="Buscar produto para adicionar..."
-                className="pl-9"
-              />
-              {filteredSearchProducts.length > 0 && (
-                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {filteredSearchProducts.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => addFeaturedProduct(p.id)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-accent transition-colors flex items-center justify-between"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">{p.name}</p>
-                        <p className="text-xs text-muted-foreground">{p.tenant_name}</p>
-                      </div>
-                      <Badge variant="outline" className="text-xs">Adicionar</Badge>
-                    </button>
-                  ))}
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm">Selecione a loja</Label>
+                <Select value={featuredTenantId || "none"} onValueChange={(v) => { setFeaturedTenantId(v === "none" ? "" : v); setProductSearch(""); }}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Escolha uma loja..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Selecione...</SelectItem>
+                    {tenantsList.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {featuredTenantId && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Buscar produto para adicionar..."
+                    className="pl-9"
+                  />
+                  {filteredSearchProducts.length > 0 && (
+                    <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {filteredSearchProducts.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => addFeaturedProduct(p.id)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-accent transition-colors flex items-center justify-between"
+                        >
+                          <div>
+                            <p className="text-sm font-medium">{p.name}</p>
+                            <p className="text-xs text-muted-foreground">{p.tenant_name}</p>
+                          </div>
+                          <Badge variant="outline" className="text-xs">Adicionar</Badge>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
