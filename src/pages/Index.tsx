@@ -381,7 +381,7 @@ const Index = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={viewMode === "products" ? "Buscar produtos..." : "Buscar restaurantes..."}
+                placeholder={viewMode === "products" ? "Buscar produtos..." : "Buscar lojas..."}
                 className="w-full h-12 pl-12 pr-4 rounded-xl bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-card"
               />
             </div>
@@ -403,7 +403,7 @@ const Index = () => {
                 onClick={() => setViewMode("restaurants")}
               >
                 <Store className="w-4 h-4" />
-                Restaurantes
+                Lojas
               </Button>
             </div>
 
@@ -489,7 +489,7 @@ const Index = () => {
         <section ref={productsRef} className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl md:text-2xl font-bold">
-              {viewMode === "products" ? "Produtos" : "Restaurantes"}
+              {viewMode === "products" ? "Produtos" : "Lojas"}
             </h2>
           </div>
 
