@@ -12,7 +12,7 @@ import {
   Pencil,
   Tag,
   SlidersHorizontal,
-  FolderOpen,
+  
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -54,10 +54,7 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       ? [{ label: "Pedidos", icon: ClipboardList, path: "/admin/pedidos" }]
       : []),
     ...(!isContador
-      ? [{ label: "Produtos", icon: Package, path: "/admin/produtos" }]
-      : []),
-    ...(!isContador
-      ? [{ label: "Categorias", icon: FolderOpen, path: "/admin/categorias" }]
+      ? [{ label: "Produtos e Categorias", icon: Package, path: "/admin/produtos" }]
       : []),
     ...(isSuperAdmin
       ? [{ label: "Lojas", icon: Store, path: "/admin/tenants" }]
