@@ -7,7 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { ShieldAlert, Upload, Image, Type, Save, Loader2 } from "lucide-react";
+import { ShieldAlert, Upload, Image, Type, Save, Loader2, Star, Search, X, GripVertical } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+
+interface FeaturedProduct {
+  product_id: string;
+  position: number;
+  product_name?: string;
+  tenant_name?: string;
+}
 
 const ConfigsAdminPage = () => {
   const { isSuperAdmin } = useAdmin();
@@ -18,6 +26,9 @@ const ConfigsAdminPage = () => {
   const [siteSubtitle, setSiteSubtitle] = useState("");
   const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
   const [faviconFile, setFaviconFile] = useState<File | null>(null);
+  const [featuredProducts, setFeaturedProducts] = useState<FeaturedProduct[]>([]);
+  const [productSearch, setProductSearch] = useState("");
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   const { data: config, isLoading } = useQuery({
     queryKey: ["system-configs"],
@@ -33,6 +44,51 @@ const ConfigsAdminPage = () => {
     },
   });
 
+  // Fetch existing featured products
+  const { data: existingFeatured = [] } = useQuery({
+    queryKey: ["featured-products-admin"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("featured_products")
+        .select("product_id, position")
+        .eq("active", true)
+        .order("position");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch all products with tenant info for search
+  const { data: allProducts = [] } = useQuery({
+    queryKey: ["all-products-for-featured"],
+    queryFn: async () => {
+      const { data: prods, error } = await supabase
+        .from("products")
+        .select("id, name, tenant_id")
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+
+      const tenantIds = [...new Set((prods || []).map((p) => p.tenant_id))];
+      let tenantMap: Record<string, string> = {};
+      if (tenantIds.length > 0) {
+        const { data: tenants } = await supabase
+          .from("tenants")
+          .select("id, name")
+          .in("id", tenantIds);
+        if (tenants) {
+          tenantMap = Object.fromEntries(tenants.map((t) => [t.id, t.name]));
+        }
+      }
+
+      return (prods || []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        tenant_name: tenantMap[p.tenant_id] || "",
+      }));
+    },
+  });
+
   useEffect(() => {
     if (config) {
       setSiteTitle(config.site_title || "");
@@ -41,39 +97,101 @@ const ConfigsAdminPage = () => {
     }
   }, [config]);
 
+  useEffect(() => {
+    if (existingFeatured.length > 0 && allProducts.length > 0) {
+      const mapped = existingFeatured.map((f) => {
+        const prod = allProducts.find((p) => p.id === f.product_id);
+        return {
+          product_id: f.product_id,
+          position: f.position ?? 0,
+          product_name: prod?.name || "Produto não encontrado",
+          tenant_name: prod?.tenant_name || "",
+        };
+      });
+      setFeaturedProducts(mapped);
+    }
+  }, [existingFeatured, allProducts]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const allowed = ["image/png", "image/svg+xml", "image/x-icon", "image/vnd.microsoft.icon"];
     if (!allowed.includes(file.type)) {
       toast.error("Formato inválido. Use PNG, SVG ou ICO.");
       return;
     }
-
     setFaviconFile(file);
     setFaviconPreview(URL.createObjectURL(file));
   };
+
+  const addFeaturedProduct = (productId: string) => {
+    if (featuredProducts.length >= 8) {
+      toast.error("Máximo de 8 produtos em destaque");
+      return;
+    }
+    if (featuredProducts.some((f) => f.product_id === productId)) {
+      toast.error("Produto já está em destaque");
+      return;
+    }
+    const prod = allProducts.find((p) => p.id === productId);
+    setFeaturedProducts((prev) => [
+      ...prev,
+      {
+        product_id: productId,
+        position: prev.length,
+        product_name: prod?.name || "",
+        tenant_name: prod?.tenant_name || "",
+      },
+    ]);
+    setProductSearch("");
+  };
+
+  const removeFeaturedProduct = (productId: string) => {
+    setFeaturedProducts((prev) =>
+      prev.filter((f) => f.product_id !== productId).map((f, i) => ({ ...f, position: i }))
+    );
+  };
+
+  // Drag reorder
+  const handleDragStart = (idx: number) => setDragIdx(idx);
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    setFeaturedProducts((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(dragIdx, 1);
+      next.splice(idx, 0, moved);
+      return next.map((f, i) => ({ ...f, position: i }));
+    });
+    setDragIdx(idx);
+  };
+  const handleDragEnd = () => setDragIdx(null);
+
+  const filteredSearchProducts = productSearch.trim()
+    ? allProducts
+        .filter(
+          (p) =>
+            !featuredProducts.some((f) => f.product_id === p.id) &&
+            (p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+              p.tenant_name.toLowerCase().includes(productSearch.toLowerCase()))
+        )
+        .slice(0, 8)
+    : [];
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       let faviconUrl = config?.favicon_url || null;
 
-      // Upload favicon if changed
       if (faviconFile) {
         const ext = faviconFile.name.split(".").pop();
         const path = `favicon.${ext}`;
-
         const { error: uploadError } = await supabase.storage
           .from("system-assets")
           .upload(path, faviconFile, { upsert: true });
-
         if (uploadError) throw uploadError;
-
         const { data: urlData } = supabase.storage
           .from("system-assets")
           .getPublicUrl(path);
-
         faviconUrl = urlData.publicUrl;
       }
 
@@ -86,13 +204,26 @@ const ConfigsAdminPage = () => {
           updated_at: new Date().toISOString(),
         })
         .eq("id", config!.id);
-
       if (error) throw error;
 
-      // Update browser tab title immediately
-      document.title = siteTitle;
+      // Save featured products
+      // Delete all existing
+      await supabase.from("featured_products").delete().neq("product_id", "00000000-0000-0000-0000-000000000000");
 
-      // Update favicon immediately
+      // Insert new ones
+      if (featuredProducts.length > 0) {
+        const { error: fpError } = await supabase.from("featured_products").insert(
+          featuredProducts.map((f, i) => ({
+            product_id: f.product_id,
+            position: i,
+            active: true,
+          }))
+        );
+        if (fpError) throw fpError;
+      }
+
+      // Update browser
+      document.title = siteTitle;
       if (faviconUrl) {
         const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
         if (link) {
@@ -107,6 +238,7 @@ const ConfigsAdminPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["system-configs"] });
+      queryClient.invalidateQueries({ queryKey: ["featured-products-admin"] });
       toast.success("Configurações salvas com sucesso!");
       setFaviconFile(null);
     },
@@ -155,31 +287,15 @@ const ConfigsAdminPage = () => {
         <CardContent className="space-y-4">
           <div>
             <Label>Favicon</Label>
-            <p className="text-xs text-muted-foreground mb-3">
-              Aceita PNG, SVG e ICO
-            </p>
+            <p className="text-xs text-muted-foreground mb-3">Aceita PNG, SVG e ICO</p>
             <div className="flex items-center gap-4">
               {faviconPreview && (
                 <div className="w-12 h-12 rounded-lg border bg-muted flex items-center justify-center overflow-hidden">
-                  <img
-                    src={faviconPreview}
-                    alt="Favicon preview"
-                    className="w-8 h-8 object-contain"
-                  />
+                  <img src={faviconPreview} alt="Favicon preview" className="w-8 h-8 object-contain" />
                 </div>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".png,.svg,.ico"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-              >
+              <input ref={fileInputRef} type="file" accept=".png,.svg,.ico" onChange={handleFileChange} className="hidden" />
+              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                 <Upload className="w-4 h-4 mr-2" />
                 {faviconPreview ? "Trocar favicon" : "Enviar favicon"}
               </Button>
@@ -199,22 +315,94 @@ const ConfigsAdminPage = () => {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="site-title">Título do site</Label>
-            <Input
-              id="site-title"
-              value={siteTitle}
-              onChange={(e) => setSiteTitle(e.target.value)}
-              placeholder="Ex: Sabor Urbano"
-            />
+            <Input id="site-title" value={siteTitle} onChange={(e) => setSiteTitle(e.target.value)} placeholder="Ex: Sabor Urbano" />
           </div>
           <div>
             <Label htmlFor="site-subtitle">Subtítulo do site</Label>
-            <Input
-              id="site-subtitle"
-              value={siteSubtitle}
-              onChange={(e) => setSiteSubtitle(e.target.value)}
-              placeholder="Ex: Descubra os melhores sabores"
-            />
+            <Input id="site-subtitle" value={siteSubtitle} onChange={(e) => setSiteSubtitle(e.target.value)} placeholder="Ex: Descubra os melhores sabores" />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Produtos em Destaque */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Star className="w-5 h-5" />
+            Produtos em Destaque
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Selecione até 8 produtos para exibir na página inicial. Arraste para reordenar.
+          </p>
+
+          {/* Selected products */}
+          {featuredProducts.length > 0 && (
+            <div className="space-y-2">
+              {featuredProducts.map((fp, idx) => (
+                <div
+                  key={fp.product_id}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center gap-3 p-3 rounded-lg border bg-card cursor-grab active:cursor-grabbing transition-shadow ${
+                    dragIdx === idx ? "ring-2 ring-primary shadow-lg" : "border-border"
+                  }`}
+                >
+                  <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-xs font-mono text-muted-foreground w-5">{idx + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{fp.product_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{fp.tenant_name}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeFeaturedProduct(fp.product_id)}
+                    className="p-1 rounded-full hover:bg-destructive/10 text-destructive transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Search to add */}
+          {featuredProducts.length < 8 && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                placeholder="Buscar produto para adicionar..."
+                className="pl-9"
+              />
+              {filteredSearchProducts.length > 0 && (
+                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredSearchProducts.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => addFeaturedProduct(p.id)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-accent transition-colors flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{p.tenant_name}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">Adicionar</Badge>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            {featuredProducts.length}/8 produtos selecionados
+          </p>
         </CardContent>
       </Card>
 

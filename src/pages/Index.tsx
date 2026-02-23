@@ -117,9 +117,22 @@ const Index = () => {
     },
   });
 
+  // Fetch featured product IDs
+  const { data: featuredProductIds = [] } = useQuery({
+    queryKey: ["featured-product-ids"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("featured_products")
+        .select("product_id, position")
+        .eq("active", true)
+        .order("position");
+      return (data || []).map((f) => f.product_id);
+    },
+  });
+
   // Fetch products with tenant info
   const { data: products = [], isLoading: productsLoading } = useQuery({
-    queryKey: ["products-by-city", selectedCity],
+    queryKey: ["products-by-city", selectedCity, featuredProductIds],
     enabled: !!selectedCity && viewMode === "products",
     queryFn: async () => {
       const { data: cityTenants, error: tErr } = await supabase
@@ -145,9 +158,10 @@ const Index = () => {
       if (productIds.length > 0) {
         const { data: images } = await supabase
           .from("product_images")
-          .select("product_id, image_url")
+          .select("product_id, image_url, position")
           .eq("active", true)
-          .in("product_id", productIds);
+          .in("product_id", productIds)
+          .order("position");
         if (images) {
           for (const img of images) {
             if (!imageMap[img.product_id]) imageMap[img.product_id] = img.image_url;
@@ -155,7 +169,7 @@ const Index = () => {
         }
       }
 
-      return (prods || []).map((p): ProductCardProduct => {
+      const allMapped = (prods || []).map((p): ProductCardProduct => {
         const tenant = tenantMap[p.tenant_id];
         return {
           id: p.id,
@@ -171,6 +185,14 @@ const Index = () => {
           tenant_slug: tenant?.slug || "",
         };
       });
+
+      // Prioritize featured products, then the rest, limit to 8
+      const featuredSet = new Set(featuredProductIds);
+      const featured = featuredProductIds
+        .map((fid) => allMapped.find((p) => p.id === fid))
+        .filter(Boolean) as ProductCardProduct[];
+      const rest = allMapped.filter((p) => !featuredSet.has(p.id));
+      return [...featured, ...rest].slice(0, 8);
     },
   });
 
