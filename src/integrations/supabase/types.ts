@@ -188,6 +188,7 @@ export type Database = {
           name: string
           phone: string | null
           tenant_id: string
+          updated_at: string
         }
         Insert: {
           active?: boolean
@@ -199,6 +200,7 @@ export type Database = {
           name: string
           phone?: string | null
           tenant_id: string
+          updated_at?: string
         }
         Update: {
           active?: boolean
@@ -210,6 +212,7 @@ export type Database = {
           name?: string
           phone?: string | null
           tenant_id?: string
+          updated_at?: string
         }
         Relationships: [
           {

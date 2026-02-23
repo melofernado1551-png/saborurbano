@@ -24,12 +24,16 @@ const CartDrawer = () => {
     isOpen,
     setIsOpen,
   } = useCart();
-  const { customer, session, getOrCreateCustomerForTenant } = useCustomerAuth();
+  const { customer, session, getOrCreateCustomerForTenant, isInactive } = useCustomerAuth();
   const navigate = useNavigate();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const handleCheckout = async () => {
+    if (isInactive) {
+      toast.error("Seu acesso está indisponível. Entre em contato com o estabelecimento.");
+      return;
+    }
     if (!session?.user) {
       setShowAuthModal(true);
       return;
