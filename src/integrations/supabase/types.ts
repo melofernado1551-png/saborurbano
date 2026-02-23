@@ -253,6 +253,48 @@ export type Database = {
           },
         ]
       }
+      featured_products_tenant: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          position: number | null
+          product_id: string
+          tenant_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          position?: number | null
+          product_id: string
+          tenant_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          position?: number | null
+          product_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "featured_products_tenant_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "featured_products_tenant_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       home_categories: {
         Row: {
           active: boolean
@@ -1019,6 +1061,90 @@ export type Database = {
             foreignKeyName: "tenant_layouts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_section_products: {
+        Row: {
+          active: boolean
+          id: string
+          position: number
+          product_id: string
+          tenant_section_id: string
+        }
+        Insert: {
+          active?: boolean
+          id?: string
+          position?: number
+          product_id: string
+          tenant_section_id: string
+        }
+        Update: {
+          active?: boolean
+          id?: string
+          position?: number
+          product_id?: string
+          tenant_section_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_section_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_section_products_tenant_section_id_fkey"
+            columns: ["tenant_section_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_sections: {
+        Row: {
+          active: boolean
+          category_id: string | null
+          created_at: string
+          id: string
+          position: number
+          tenant_id: string
+          title: string
+        }
+        Insert: {
+          active?: boolean
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          tenant_id: string
+          title: string
+        }
+        Update: {
+          active?: boolean
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          tenant_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_sections_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_sections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
