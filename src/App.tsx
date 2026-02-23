@@ -25,6 +25,7 @@ import TagsPage from "./pages/admin/TagsPage";
 import ConfigsAdminPage from "./pages/admin/ConfigsAdminPage";
 import ProductsListPage from "./pages/admin/ProductsListPage";
 import ProductFormPage from "./pages/admin/ProductFormPage";
+import MyStorePage from "./pages/admin/MyStorePage";
 
 import RestaurantPage from "./pages/RestaurantPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
@@ -71,6 +72,7 @@ const App = () => (
                 <Route path="usuarios/:id" element={<UserFormPage />} />
                 <Route path="configuracoes" element={<PlaceholderPage title="Configurações" />} />
                 <Route path="tenant/editar" element={<TenantEditPage />} />
+                <Route path="meu-perfil" element={<MyStorePage />} />
                 <Route path="tenants" element={<TenantsListPage />} />
                 <Route path="tenants/novo" element={<TenantFormPage />} />
                 <Route path="tenants/:id" element={<TenantFormPage />} />

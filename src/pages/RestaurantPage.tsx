@@ -75,17 +75,35 @@ const RestaurantPage = () => {
     },
   });
 
-  // Fetch featured products
-  const { data: featuredIds = [] } = useQuery({
-    queryKey: ["featured-products", tenant?.id],
+  // Fetch tenant-level featured products
+  const { data: tenantFeaturedIds = [] } = useQuery({
+    queryKey: ["featured-products-tenant-store", tenant?.id],
     enabled: !!tenant?.id,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("featured_products")
+        .from("featured_products_tenant")
         .select("product_id")
-        .eq("active", true);
+        .eq("tenant_id", tenant!.id)
+        .eq("active", true)
+        .order("position");
       if (error) throw error;
-      return data.map((f) => f.product_id);
+      return data.map((f: any) => f.product_id);
+    },
+  });
+
+  // Fetch tenant sections (vitrine)
+  const { data: tenantSections = [] } = useQuery({
+    queryKey: ["tenant-sections-store", tenant?.id],
+    enabled: !!tenant?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenant_sections")
+        .select("id, title, position, active, category_id, tenant_section_products(id, product_id, position, active)")
+        .eq("tenant_id", tenant!.id)
+        .eq("active", true)
+        .order("position");
+      if (error) throw error;
+      return data as any[];
     },
   });
 
@@ -188,7 +206,7 @@ const RestaurantPage = () => {
         if (!matchesName && !matchesDesc && !matchesCat) return false;
       }
       if (showFeaturedOnly) {
-        if (!featuredIds.includes(p.id)) return false;
+        if (!tenantFeaturedIds.includes(p.id)) return false;
       }
       if (activeCategories.length > 0) {
         const cats = categoryMap[p.id] || [];
@@ -196,9 +214,9 @@ const RestaurantPage = () => {
       }
       return true;
     });
-  }, [products, searchQuery, activeCategories, categoryMap, categories, showFeaturedOnly, featuredIds]);
+  }, [products, searchQuery, activeCategories, categoryMap, categories, showFeaturedOnly, tenantFeaturedIds]);
 
-  const featuredProducts = filteredProducts.filter((p) => featuredIds.includes(p.id));
+  const featuredProducts = filteredProducts.filter((p) => tenantFeaturedIds.includes(p.id));
   const generalProducts = filteredProducts;
 
   // Group by category for general list
@@ -232,6 +250,30 @@ const RestaurantPage = () => {
     }
     return result;
   }, [generalProducts, categoryMap, categoriesWithProducts]);
+
+  // Build sections from tenant_sections if configured, otherwise fallback to category grouping
+  const hasTenantSections = tenantSections.length > 0;
+  const sectionedDisplay = useMemo(() => {
+    if (!hasTenantSections) return null;
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    return tenantSections
+      .filter((s: any) => s.active)
+      .map((section: any) => {
+        const sectionProducts = (section.tenant_section_products || [])
+          .filter((sp: any) => sp.active)
+          .sort((a: any, b: any) => a.position - b.position)
+          .map((sp: any) => productMap.get(sp.product_id))
+          .filter(Boolean) as typeof products;
+        // Apply search filter
+        const filtered = sectionProducts.filter((p) => {
+          if (!searchQuery.trim()) return true;
+          const q = searchQuery.toLowerCase();
+          return p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q);
+        });
+        return { title: section.title, products: filtered };
+      })
+      .filter((s) => s.products.length > 0);
+  }, [hasTenantSections, tenantSections, products, searchQuery]);
 
   const handleShareRestaurant = async () => {
     const url = window.location.href;
@@ -564,7 +606,7 @@ const RestaurantPage = () => {
             🍽️ Todos
           </button>
           {/* Featured button */}
-          {featuredIds.length > 0 && (
+          {tenantFeaturedIds.length > 0 && (
             <button
               onClick={() => { setShowFeaturedOnly(!showFeaturedOnly); setActiveCategories([]); }}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-1.5 shadow-sm ${
@@ -668,34 +710,57 @@ const RestaurantPage = () => {
               </section>
             )}
 
-            {/* Products by category */}
+            {/* Products: sections or category fallback */}
             {!showFeaturedOnly && (
               <>
-                {productsByCategory.length > 0 ? (
-                  productsByCategory.map((group) => (
-                    <section key={group.name}>
-                      <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                        {group.emoji} {group.name}
-                      </h3>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {group.products.map((p) => (
-                          <ProductGridCard key={p.id} product={p} />
-                        ))}
-                      </div>
-                    </section>
-                  ))
+                {sectionedDisplay ? (
+                  sectionedDisplay.length > 0 ? (
+                    sectionedDisplay.map((group) => (
+                      <section key={group.title}>
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                          {group.title}
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {group.products.map((p) => (
+                            <ProductGridCard key={p.id} product={p} />
+                          ))}
+                        </div>
+                      </section>
+                    ))
+                  ) : (
+                    <div className="text-center py-16">
+                      <div className="text-5xl mb-4">😢</div>
+                      <h3 className="text-xl font-semibold mb-2">Nenhum produto encontrado</h3>
+                      <p className="text-muted-foreground mb-4">Tente ajustar a busca ou os filtros</p>
+                      <Button variant="outline" onClick={() => { setSearchQuery(""); setActiveCategories([]); setShowFeaturedOnly(false); }}>
+                        Limpar filtros
+                      </Button>
+                    </div>
+                  )
                 ) : (
-                  <div className="text-center py-16">
-                    <div className="text-5xl mb-4">😢</div>
-                    <h3 className="text-xl font-semibold mb-2">Nenhum produto encontrado</h3>
-                    <p className="text-muted-foreground mb-4">Tente ajustar a busca ou os filtros</p>
-                    <Button
-                      variant="outline"
-                      onClick={() => { setSearchQuery(""); setActiveCategories([]); setShowFeaturedOnly(false); }}
-                    >
-                      Limpar filtros
-                    </Button>
-                  </div>
+                  productsByCategory.length > 0 ? (
+                    productsByCategory.map((group) => (
+                      <section key={group.name}>
+                        <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                          {group.emoji} {group.name}
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {group.products.map((p) => (
+                            <ProductGridCard key={p.id} product={p} />
+                          ))}
+                        </div>
+                      </section>
+                    ))
+                  ) : (
+                    <div className="text-center py-16">
+                      <div className="text-5xl mb-4">😢</div>
+                      <h3 className="text-xl font-semibold mb-2">Nenhum produto encontrado</h3>
+                      <p className="text-muted-foreground mb-4">Tente ajustar a busca ou os filtros</p>
+                      <Button variant="outline" onClick={() => { setSearchQuery(""); setActiveCategories([]); setShowFeaturedOnly(false); }}>
+                        Limpar filtros
+                      </Button>
+                    </div>
+                  )
                 )}
               </>
             )}

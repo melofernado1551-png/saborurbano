@@ -12,7 +12,7 @@ import {
   Pencil,
   Tag,
   SlidersHorizontal,
-  
+  LayoutGrid,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -67,6 +67,9 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       : []),
     ...(isAdminTenant
       ? [{ label: "Dados do Estabelecimento", icon: Pencil, path: "/admin/tenant/editar" }]
+      : []),
+    ...(isSuperAdmin || isAdminTenant
+      ? [{ label: "Minha Vitrine", icon: LayoutGrid, path: "/admin/meu-perfil" }]
       : []),
     ...(!isContador
       ? [{ label: "Configurações", icon: Settings, path: "/admin/configuracoes" }]
