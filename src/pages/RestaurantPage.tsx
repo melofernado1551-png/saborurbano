@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,6 +6,8 @@ import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame }
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import CustomerMenu from "@/components/customer/CustomerMenu";
+import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 
 const CATEGORY_EMOJIS: Record<string, string> = {
   "hambúrguer": "🍔", "hamburger": "🍔", "burger": "🍔",
@@ -32,6 +34,7 @@ const RestaurantPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
+  const { session, getOrCreateCustomerForTenant } = useCustomerAuth();
 
   // Fetch tenant
   const { data: tenant, isLoading: tenantLoading } = useQuery({
@@ -48,6 +51,13 @@ const RestaurantPage = () => {
       return data;
     },
   });
+
+  // Auto-link customer to tenant on login
+  useEffect(() => {
+    if (session?.user && tenant?.id) {
+      getOrCreateCustomerForTenant(tenant.id);
+    }
+  }, [session?.user?.id, tenant?.id]);
 
   // Fetch products
   const { data: products = [], isLoading: productsLoading } = useQuery({
@@ -475,9 +485,12 @@ const RestaurantPage = () => {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="font-semibold text-foreground truncate">{tenant.name}</h1>
-          <Button variant="ghost" size="icon" onClick={handleShareRestaurant}>
-            <Share2 className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={handleShareRestaurant}>
+              <Share2 className="w-5 h-5" />
+            </Button>
+            <CustomerMenu tenantId={tenant.id} />
+          </div>
         </div>
       </header>
 

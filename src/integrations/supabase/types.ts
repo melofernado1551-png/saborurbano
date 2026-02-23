@@ -35,11 +35,155 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          active: boolean
+          chat_id: string
+          content: string
+          created_at: string
+          id: string
+          message_type: string
+          metadata: Json | null
+          sender_id: string | null
+          sender_type: string
+        }
+        Insert: {
+          active?: boolean
+          chat_id: string
+          content: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          metadata?: Json | null
+          sender_id?: string | null
+          sender_type: string
+        }
+        Update: {
+          active?: boolean
+          chat_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          metadata?: Json | null
+          sender_id?: string | null
+          sender_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chats: {
+        Row: {
+          active: boolean
+          created_at: string
+          customer_id: string
+          id: string
+          sale_id: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          customer_id: string
+          id?: string
+          sale_id?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          customer_id?: string
+          id?: string
+          sale_id?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chats_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chats_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_addresses: {
+        Row: {
+          active: boolean
+          city: string
+          complement: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          label: string
+          neighborhood: string
+          number: string
+          reference: string | null
+          street: string
+        }
+        Insert: {
+          active?: boolean
+          city: string
+          complement?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          label: string
+          neighborhood: string
+          number: string
+          reference?: string | null
+          street: string
+        }
+        Update: {
+          active?: boolean
+          city?: string
+          complement?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          label?: string
+          neighborhood?: string
+          number?: string
+          reference?: string | null
+          street?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_addresses_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           active: boolean
           address: string | null
+          auth_id: string | null
           created_at: string
+          email: string | null
           id: string
           name: string
           phone: string | null
@@ -48,7 +192,9 @@ export type Database = {
         Insert: {
           active?: boolean
           address?: string | null
+          auth_id?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           name: string
           phone?: string | null
@@ -57,7 +203,9 @@ export type Database = {
         Update: {
           active?: boolean
           address?: string | null
+          auth_id?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           name?: string
           phone?: string | null
@@ -576,35 +724,115 @@ export type Database = {
           },
         ]
       }
+      sale_payments: {
+        Row: {
+          active: boolean
+          amount: number
+          created_at: string
+          id: string
+          payment_method: string
+          registered_by: string | null
+          sale_id: string
+          tenant_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_method: string
+          registered_by?: string | null
+          sale_id: string
+          tenant_id: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_method?: string
+          registered_by?: string | null
+          sale_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_payments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           active: boolean
+          chat_id: string | null
           created_at: string
+          customer_id: string | null
+          delivery_address: Json | null
+          financial_status: string
           forma_pagamento: string | null
           id: string
           observacao: string | null
+          operational_status: string
+          sale_number: number | null
           tenant_id: string
           valor_total: number
         }
         Insert: {
           active?: boolean
+          chat_id?: string | null
           created_at?: string
+          customer_id?: string | null
+          delivery_address?: Json | null
+          financial_status?: string
           forma_pagamento?: string | null
           id?: string
           observacao?: string | null
+          operational_status?: string
+          sale_number?: number | null
           tenant_id: string
           valor_total?: number
         }
         Update: {
           active?: boolean
+          chat_id?: string | null
           created_at?: string
+          customer_id?: string | null
+          delivery_address?: Json | null
+          financial_status?: string
           forma_pagamento?: string | null
           id?: string
           observacao?: string | null
+          operational_status?: string
+          sale_number?: number | null
           tenant_id?: string
           valor_total?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "sales_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -931,6 +1159,7 @@ export type Database = {
           }
       get_app_user_role: { Args: { _auth_id: string }; Returns: string }
       get_app_user_tenant_id: { Args: { _auth_id: string }; Returns: string }
+      get_customer_by_auth_id: { Args: { _auth_id: string }; Returns: string }
       get_user_tenant_id: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -944,6 +1173,7 @@ export type Database = {
         Args: { _tenant_id: string; _user_id: string }
         Returns: boolean
       }
+      next_sale_number: { Args: { _tenant_id: string }; Returns: number }
       update_app_user_password: {
         Args: { _password: string; _user_id: string }
         Returns: undefined
