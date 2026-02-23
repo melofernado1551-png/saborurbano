@@ -11,9 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+// Select removed - categories now use Badge multi-select
 import { ArrowLeft, Loader2, X, ImagePlus, GripVertical, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,7 +22,7 @@ interface ProductForm {
   promo_price: string;
   has_discount: boolean;
   active: boolean;
-  category_id: string;
+  category_ids: string[];
   tag_ids: string[];
   is_featured: boolean;
 }
@@ -42,7 +40,7 @@ const emptyForm: ProductForm = {
   promo_price: "",
   has_discount: false,
   active: true,
-  category_id: "",
+  category_ids: [],
   tag_ids: [],
   is_featured: false,
 };
@@ -83,7 +81,7 @@ const ProductFormPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_categories")
-        .select("id, name")
+        .select("id, name, emoji")
         .eq("tenant_id", tenantId!)
         .eq("active", true)
         .order("name");
@@ -183,8 +181,8 @@ const ProductFormPage = () => {
   }, [product]);
 
   useEffect(() => {
-    if (existingCatRel && existingCatRel.length > 0) {
-      setForm((prev) => ({ ...prev, category_id: existingCatRel[0].category_id }));
+    if (existingCatRel) {
+      setForm((prev) => ({ ...prev, category_ids: existingCatRel.map((r) => r.category_id) }));
     }
   }, [existingCatRel]);
 
@@ -215,6 +213,15 @@ const ProductFormPage = () => {
       tag_ids: prev.tag_ids.includes(tagId)
         ? prev.tag_ids.filter((t) => t !== tagId)
         : [...prev.tag_ids, tagId],
+    }));
+  };
+
+  const toggleCategory = (catId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      category_ids: prev.category_ids.includes(catId)
+        ? prev.category_ids.filter((c) => c !== catId)
+        : [...prev.category_ids, catId],
     }));
   };
 
@@ -314,17 +321,19 @@ const ProductFormPage = () => {
         productId = data.id;
       }
 
-      // --- Category relation ---
+      // --- Category relations ---
       if (isEditing) {
         await supabase
           .from("product_category_relations")
           .delete()
           .eq("product_id", productId!);
       }
-      if (form.category_id) {
+      if (form.category_ids.length > 0) {
         await supabase
           .from("product_category_relations")
-          .insert({ product_id: productId!, category_id: form.category_id });
+          .insert(
+            form.category_ids.map((category_id) => ({ product_id: productId!, category_id }))
+          );
       }
 
       // --- Tag relations ---
@@ -467,18 +476,45 @@ const ProductFormPage = () => {
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label>Categoria</Label>
-            <Select value={form.category_id} onValueChange={(v) => set("category_id", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((c: any) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Categorias</Label>
+            {form.category_ids.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {form.category_ids.map((catId) => {
+                  const cat = categories.find((c: any) => c.id === catId);
+                  if (!cat) return null;
+                  return (
+                    <Badge key={catId} variant="secondary" className="gap-1 pr-1 text-sm">
+                      {(cat as any).emoji || "🍽️"} {(cat as any).name}
+                      <button
+                        type="button"
+                        onClick={() => toggleCategory(catId)}
+                        className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {categories
+                .filter((c: any) => !form.category_ids.includes(c.id))
+                .map((cat: any) => (
+                  <Badge
+                    key={cat.id}
+                    variant="outline"
+                    className="cursor-pointer hover:bg-secondary transition-colors text-sm gap-1"
+                    onClick={() => toggleCategory(cat.id)}
+                  >
+                    {cat.emoji || "🍽️"} {cat.name}
+                  </Badge>
                 ))}
-              </SelectContent>
-            </Select>
+            </div>
+            {categories.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhuma categoria disponível</p>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -10,30 +10,13 @@ import CustomerMenu from "@/components/customer/CustomerMenu";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { useCart } from "@/contexts/CartContext";
 
-const CATEGORY_EMOJIS: Record<string, string> = {
-  "hambúrguer": "🍔", "hamburger": "🍔", "burger": "🍔",
-  "pizza": "🍕", "pizzas": "🍕",
-  "lanche": "🌭", "lanches": "🌭",
-  "porção": "🍟", "porções": "🍟", "porcao": "🍟", "porcoes": "🍟",
-  "bebida": "🥤", "bebidas": "🥤", "refrigerante": "🥤",
-  "sobremesa": "🍰", "sobremesas": "🍰", "doce": "🍰", "doces": "🍰",
-  "suco": "🧃", "sucos": "🧃",
-  "batata": "🍟",
-};
-
-const getCategoryEmoji = (name: string) => {
-  const lower = name.toLowerCase();
-  for (const [key, emoji] of Object.entries(CATEGORY_EMOJIS)) {
-    if (lower.includes(key)) return emoji;
-  }
-  return "🍽️";
-};
+// No longer needed - emoji comes from DB
 
 const RestaurantPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
   const { session, getOrCreateCustomerForTenant } = useCustomerAuth();
   const { addItem, totalItems, setIsOpen: setCartOpen } = useCart();
@@ -106,14 +89,14 @@ const RestaurantPage = () => {
     },
   });
 
-  // Fetch product categories for this tenant
+  // Fetch product categories for this tenant (with emoji)
   const { data: categories = [] } = useQuery({
     queryKey: ["tenant-product-categories", tenant?.id],
     enabled: !!tenant?.id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_categories")
-        .select("id, name")
+        .select("id, name, emoji")
         .eq("tenant_id", tenant!.id)
         .eq("active", true);
       if (error) throw error;
@@ -207,13 +190,13 @@ const RestaurantPage = () => {
       if (showFeaturedOnly) {
         if (!featuredIds.includes(p.id)) return false;
       }
-      if (activeCategory) {
+      if (activeCategories.length > 0) {
         const cats = categoryMap[p.id] || [];
-        if (!cats.includes(activeCategory)) return false;
+        if (!activeCategories.some((ac) => cats.includes(ac))) return false;
       }
       return true;
     });
-  }, [products, searchQuery, activeCategory, categoryMap, categories, showFeaturedOnly, featuredIds]);
+  }, [products, searchQuery, activeCategories, categoryMap, categories, showFeaturedOnly, featuredIds]);
 
   const featuredProducts = filteredProducts.filter((p) => featuredIds.includes(p.id));
   const generalProducts = filteredProducts;
@@ -235,17 +218,17 @@ const RestaurantPage = () => {
       }
     }
 
-    const result: { name: string; products: typeof products }[] = [];
+    const result: { name: string; emoji: string; products: typeof products }[] = [];
     for (const cat of categoriesWithProducts) {
       if (groups[cat.id] && groups[cat.id].length > 0) {
-        result.push({ name: cat.name, products: groups[cat.id] });
+        result.push({ name: cat.name, emoji: (cat as any).emoji || "🍽️", products: groups[cat.id] });
       }
     }
     if (uncategorized.length > 0) {
-      result.push({ name: "Outros", products: uncategorized });
+      result.push({ name: "Outros", emoji: "📦", products: uncategorized });
     }
     if (result.length === 0 && generalProducts.length > 0) {
-      result.push({ name: "Todos os Produtos", products: generalProducts });
+      result.push({ name: "Todos os Produtos", emoji: "🍽️", products: generalProducts });
     }
     return result;
   }, [generalProducts, categoryMap, categoriesWithProducts]);
@@ -487,7 +470,7 @@ const RestaurantPage = () => {
     );
   };
 
-  const hasActiveFilters = searchQuery.trim() || activeCategory || showFeaturedOnly;
+  const hasActiveFilters = searchQuery.trim() || activeCategories.length > 0 || showFeaturedOnly;
 
   return (
     <div className="min-h-screen bg-background">
@@ -571,9 +554,9 @@ const RestaurantPage = () => {
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
           {/* All button */}
           <button
-            onClick={() => { setActiveCategory(null); setShowFeaturedOnly(false); }}
+            onClick={() => { setActiveCategories([]); setShowFeaturedOnly(false); }}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-1.5 shadow-sm ${
-              !activeCategory && !showFeaturedOnly
+              activeCategories.length === 0 && !showFeaturedOnly
                 ? "bg-primary text-primary-foreground shadow-md scale-105"
                 : "bg-card text-foreground border border-border hover:bg-secondary"
             }`}
@@ -583,7 +566,7 @@ const RestaurantPage = () => {
           {/* Featured button */}
           {featuredIds.length > 0 && (
             <button
-              onClick={() => { setShowFeaturedOnly(!showFeaturedOnly); setActiveCategory(null); }}
+              onClick={() => { setShowFeaturedOnly(!showFeaturedOnly); setActiveCategories([]); }}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-1.5 shadow-sm ${
                 showFeaturedOnly
                   ? "bg-primary text-primary-foreground shadow-md scale-105"
@@ -594,19 +577,27 @@ const RestaurantPage = () => {
             </button>
           )}
           {/* Category buttons */}
-          {categoriesWithProducts.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => { setActiveCategory(activeCategory === cat.id ? null : cat.id); setShowFeaturedOnly(false); }}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-1.5 shadow-sm ${
-                activeCategory === cat.id
-                  ? "bg-primary text-primary-foreground shadow-md scale-105"
-                  : "bg-card text-foreground border border-border hover:bg-secondary"
-              }`}
-            >
-              {getCategoryEmoji(cat.name)} {cat.name}
-            </button>
-          ))}
+          {categoriesWithProducts.map((cat) => {
+            const isActive = activeCategories.includes(cat.id);
+            return (
+              <button
+                key={cat.id}
+                onClick={() => {
+                  setActiveCategories((prev) =>
+                    isActive ? prev.filter((c) => c !== cat.id) : [...prev, cat.id]
+                  );
+                  setShowFeaturedOnly(false);
+                }}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 flex items-center gap-1.5 shadow-sm ${
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-md scale-105"
+                    : "bg-card text-foreground border border-border hover:bg-secondary"
+                }`}
+              >
+                {(cat as any).emoji || "🍽️"} {cat.name}
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -618,7 +609,7 @@ const RestaurantPage = () => {
               {filteredProducts.length} produto{filteredProducts.length !== 1 ? "s" : ""} encontrado{filteredProducts.length !== 1 ? "s" : ""}
             </span>
             <button
-              onClick={() => { setSearchQuery(""); setActiveCategory(null); setShowFeaturedOnly(false); }}
+              onClick={() => { setSearchQuery(""); setActiveCategories([]); setShowFeaturedOnly(false); }}
               className="text-primary font-medium hover:underline"
             >
               Limpar filtros
@@ -643,7 +634,7 @@ const RestaurantPage = () => {
         ) : (
           <>
             {/* Featured products section */}
-            {featuredProducts.length > 0 && !activeCategory && !showFeaturedOnly && !searchQuery && (
+            {featuredProducts.length > 0 && activeCategories.length === 0 && !showFeaturedOnly && !searchQuery && (
               <section>
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                   ⭐ Destaques da Loja
@@ -684,7 +675,7 @@ const RestaurantPage = () => {
                   productsByCategory.map((group) => (
                     <section key={group.name}>
                       <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                        {getCategoryEmoji(group.name)} {group.name}
+                        {group.emoji} {group.name}
                       </h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                         {group.products.map((p) => (
@@ -700,7 +691,7 @@ const RestaurantPage = () => {
                     <p className="text-muted-foreground mb-4">Tente ajustar a busca ou os filtros</p>
                     <Button
                       variant="outline"
-                      onClick={() => { setSearchQuery(""); setActiveCategory(null); setShowFeaturedOnly(false); }}
+                      onClick={() => { setSearchQuery(""); setActiveCategories([]); setShowFeaturedOnly(false); }}
                     >
                       Limpar filtros
                     </Button>
