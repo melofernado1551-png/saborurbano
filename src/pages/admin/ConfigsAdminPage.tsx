@@ -33,6 +33,7 @@ const ConfigsAdminPage = () => {
   const [productSearch, setProductSearch] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [featuredTenantId, setFeaturedTenantId] = useState<string>("");
+  const [productsSectionTitle, setProductsSectionTitle] = useState("Produtos");
 
   const { data: config, isLoading } = useQuery({
     queryKey: ["system-configs"],
@@ -120,6 +121,20 @@ const ConfigsAdminPage = () => {
     },
   });
 
+  // Fetch products section title from app_settings
+  const { data: productsTitleSetting } = useQuery({
+    queryKey: ["app-setting-products-section-title"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "products_section_title")
+        .eq("active", true)
+        .maybeSingle();
+      return data?.value as string | null;
+    },
+  });
+
   useEffect(() => {
     if (config) {
       setSiteTitle(config.site_title || "");
@@ -127,6 +142,10 @@ const ConfigsAdminPage = () => {
       if (config.favicon_url) setFaviconPreview(config.favicon_url);
     }
   }, [config]);
+
+  useEffect(() => {
+    if (productsTitleSetting) setProductsSectionTitle(productsTitleSetting);
+  }, [productsTitleSetting]);
 
   useEffect(() => {
     if (existingFeatured.length > 0 && featuredProductDetails.length > 0) {
@@ -252,6 +271,18 @@ const ConfigsAdminPage = () => {
         if (fpError) throw fpError;
       }
 
+      // Save products section title
+      const { data: existingSetting } = await supabase
+        .from("app_settings")
+        .select("key")
+        .eq("key", "products_section_title")
+        .maybeSingle();
+      if (existingSetting) {
+        await supabase.from("app_settings").update({ value: JSON.parse(JSON.stringify(productsSectionTitle)), updated_at: new Date().toISOString() }).eq("key", "products_section_title");
+      } else {
+        await supabase.from("app_settings").insert({ key: "products_section_title", value: JSON.parse(JSON.stringify(productsSectionTitle)), active: true });
+      }
+
       // Update browser
       document.title = siteTitle;
       if (faviconUrl) {
@@ -350,6 +381,10 @@ const ConfigsAdminPage = () => {
           <div>
             <Label htmlFor="site-subtitle">Subtítulo do site</Label>
             <Input id="site-subtitle" value={siteSubtitle} onChange={(e) => setSiteSubtitle(e.target.value)} placeholder="Ex: Descubra os melhores sabores" />
+          </div>
+          <div>
+            <Label htmlFor="products-section-title">Título da seção de produtos (página inicial)</Label>
+            <Input id="products-section-title" value={productsSectionTitle} onChange={(e) => setProductsSectionTitle(e.target.value)} placeholder="Ex: Produtos" />
           </div>
         </CardContent>
       </Card>
