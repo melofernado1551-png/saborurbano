@@ -25,7 +25,7 @@ import TagsPage from "./pages/admin/TagsPage";
 import ConfigsAdminPage from "./pages/admin/ConfigsAdminPage";
 import ProductsListPage from "./pages/admin/ProductsListPage";
 import ProductFormPage from "./pages/admin/ProductFormPage";
-import ProductCategoriesPage from "./pages/admin/ProductCategoriesPage";
+
 import RestaurantPage from "./pages/RestaurantPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
 import CustomerChatPage from "./pages/CustomerChatPage";
@@ -65,7 +65,7 @@ const App = () => (
                 <Route path="produtos" element={<ProductsListPage />} />
                 <Route path="produtos/novo" element={<ProductFormPage />} />
                 <Route path="produtos/:id" element={<ProductFormPage />} />
-                <Route path="categorias" element={<ProductCategoriesPage />} />
+                
                 <Route path="usuarios" element={<UsersListPage />} />
                 <Route path="usuarios/novo" element={<UserFormPage />} />
                 <Route path="usuarios/:id" element={<UserFormPage />} />
