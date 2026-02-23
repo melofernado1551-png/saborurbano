@@ -130,6 +130,20 @@ const Index = () => {
     },
   });
 
+  // Fetch products section title
+  const { data: productsSectionTitle } = useQuery({
+    queryKey: ["products-section-title"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "products_section_title")
+        .eq("active", true)
+        .maybeSingle();
+      return (data?.value as string) || "Produtos";
+    },
+  });
+
   // Fetch products with tenant info
   const { data: products = [], isLoading: productsLoading } = useQuery({
     queryKey: ["products-by-city", selectedCity, featuredProductIds],
@@ -510,7 +524,7 @@ const Index = () => {
         <section ref={productsRef} className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl md:text-2xl font-bold">
-              {viewMode === "products" ? "Produtos" : "Lojas"}
+              {viewMode === "products" ? (productsSectionTitle || "Produtos") : "Lojas"}
             </h2>
           </div>
 
