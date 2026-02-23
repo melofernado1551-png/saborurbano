@@ -24,6 +24,10 @@ import ProductsListPage from "./pages/admin/ProductsListPage";
 import ProductFormPage from "./pages/admin/ProductFormPage";
 import RestaurantPage from "./pages/RestaurantPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
+import CustomerChatPage from "./pages/CustomerChatPage";
+import CustomerOrdersPage from "./pages/CustomerOrdersPage";
+import AdminChatsListPage from "./pages/admin/AdminChatsListPage";
+import AdminChatPage from "./pages/admin/AdminChatPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,7 +49,8 @@ const App = () => (
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<DashboardPage />} />
                 <Route path="vendas" element={<SalesPageNew />} />
-                <Route path="pedidos" element={<PlaceholderPage title="Pedidos" />} />
+                <Route path="pedidos" element={<AdminChatsListPage />} />
+                <Route path="pedidos/:chatId" element={<AdminChatPage />} />
                 <Route path="produtos" element={<ProductsListPage />} />
                 <Route path="produtos/novo" element={<ProductFormPage />} />
                 <Route path="produtos/:id" element={<ProductFormPage />} />
@@ -60,6 +65,8 @@ const App = () => (
                 <Route path="tags" element={<TagsPage />} />
               </Route>
               <Route path="/restaurante/:slug" element={<RestaurantPage />} />
+              <Route path="/chat/:chatId" element={<CustomerChatPage />} />
+              <Route path="/meus-pedidos" element={<CustomerOrdersPage />} />
               <Route path="/:tenantSlug/:productSlug" element={<ProductDetailPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

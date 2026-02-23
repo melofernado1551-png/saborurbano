@@ -4,7 +4,9 @@ import { useCart } from "@/contexts/CartContext";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { Minus, Plus, Trash2, ShoppingBag, MessageCircle } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import CustomerAuthModal from "@/components/customer/CustomerAuthModal";
 
 const CartDrawer = () => {
@@ -22,7 +24,8 @@ const CartDrawer = () => {
     isOpen,
     setIsOpen,
   } = useCart();
-  const { customer, session } = useCustomerAuth();
+  const { customer, session, getOrCreateCustomerForTenant } = useCustomerAuth();
+  const navigate = useNavigate();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
@@ -32,14 +35,52 @@ const CartDrawer = () => {
       return;
     }
 
-    if (!customer) {
-      toast.error("Você precisa estar logado como cliente para finalizar o pedido.");
+    if (!tenantId) return;
+
+    // Ensure customer exists for this tenant
+    let cust = customer;
+    if (!cust || cust.tenant_id !== tenantId) {
+      cust = await getOrCreateCustomerForTenant(tenantId);
+    }
+
+    if (!cust) {
+      toast.error("Erro ao vincular cliente ao estabelecimento.");
       return;
     }
 
-    // TODO: Phase 3 - Create chat + sale
-    toast.info("Funcionalidade de chat será implementada na próxima fase!");
-    setCheckoutLoading(false);
+    setCheckoutLoading(true);
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession?.access_token) throw new Error("Sessão expirada");
+
+      const response = await supabase.functions.invoke("create-checkout", {
+        body: {
+          tenant_id: tenantId,
+          items: items.map((i) => ({
+            productId: i.productId,
+            name: i.name,
+            price: i.price,
+            promoPrice: i.promoPrice,
+            quantity: i.quantity,
+            observation: i.observation,
+          })),
+        },
+      });
+
+      if (response.error) throw new Error(response.error.message || "Erro no checkout");
+      const result = response.data;
+
+      if (!result?.success) throw new Error(result?.error || "Erro ao criar pedido");
+
+      clearCart();
+      setIsOpen(false);
+      toast.success(`Pedido #${result.sale_number} criado!`);
+      navigate(`/chat/${result.chat_id}`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao finalizar pedido");
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   if (items.length === 0 && !isOpen) return null;

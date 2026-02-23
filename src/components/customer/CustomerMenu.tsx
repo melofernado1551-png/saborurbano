@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, MapPin, LogOut, LogIn } from "lucide-react";
+import { User, MapPin, LogOut, LogIn, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import CustomerAuthModal from "./CustomerAuthModal";
 import CustomerAddressesModal from "./CustomerAddressesModal";
+import { useNavigate } from "react-router-dom";
 
 interface CustomerMenuProps {
   tenantId: string;
@@ -20,6 +21,7 @@ const CustomerMenu = ({ tenantId }: CustomerMenuProps) => {
   const { customer, session, logout } = useCustomerAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const [addressesOpen, setAddressesOpen] = useState(false);
+  const navigate = useNavigate();
 
   const isLoggedIn = !!session?.user && !!customer;
 
@@ -52,6 +54,9 @@ const CustomerMenu = ({ tenantId }: CustomerMenuProps) => {
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setAddressesOpen(true)} className="gap-2 cursor-pointer">
             <MapPin className="w-4 h-4" /> Meus Endereços
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate("/meus-pedidos")} className="gap-2 cursor-pointer">
+            <ShoppingBag className="w-4 h-4" /> Meus Pedidos
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout} className="gap-2 cursor-pointer text-destructive">
