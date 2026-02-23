@@ -2,12 +2,13 @@ import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame } from "lucide-react";
+import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import CustomerMenu from "@/components/customer/CustomerMenu";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
+import { useCart } from "@/contexts/CartContext";
 
 const CATEGORY_EMOJIS: Record<string, string> = {
   "hambúrguer": "🍔", "hamburger": "🍔", "burger": "🍔",
@@ -35,6 +36,7 @@ const RestaurantPage = () => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
   const { session, getOrCreateCustomerForTenant } = useCustomerAuth();
+  const { addItem, totalItems, setIsOpen: setCartOpen } = useCart();
 
   // Fetch tenant
   const { data: tenant, isLoading: tenantLoading } = useQuery({
@@ -326,6 +328,23 @@ const RestaurantPage = () => {
     </div>
   );
 
+  const handleAddToCart = (product: typeof products[0], e: React.MouseEvent) => {
+    e.stopPropagation();
+    const outOfStock = stockMap[product.id] !== undefined && stockMap[product.id] <= 0;
+    if (outOfStock) return;
+    addItem(
+      {
+        productId: product.id,
+        name: product.name,
+        price: Number(product.price),
+        promoPrice: product.promo_price ? Number(product.promo_price) : null,
+        imageUrl: imageMap[product.id] || null,
+      },
+      { id: tenant.id, slug: tenant.slug, name: tenant.name }
+    );
+    toast.success(`${product.name} adicionado!`);
+  };
+
   const ProductGridCard = ({ product }: { product: typeof products[0] }) => {
     const outOfStock = stockMap[product.id] !== undefined && stockMap[product.id] <= 0;
 
@@ -384,10 +403,7 @@ const RestaurantPage = () => {
               )}
             </div>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toast.success(`${product.name} adicionado!`);
-              }}
+              onClick={(e) => handleAddToCart(product, e)}
               className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-110 transition-transform shadow-md"
             >
               <Plus className="w-4 h-4" />
@@ -460,10 +476,7 @@ const RestaurantPage = () => {
               )}
             </div>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toast.success(`${product.name} adicionado!`);
-              }}
+              onClick={(e) => handleAddToCart(product, e)}
               className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-110 transition-transform shadow-md"
             >
               <Plus className="w-4 h-4" />
@@ -486,6 +499,14 @@ const RestaurantPage = () => {
           </Button>
           <h1 className="font-semibold text-foreground truncate">{tenant.name}</h1>
           <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="relative" onClick={() => setCartOpen(true)}>
+              <ShoppingBag className="w-5 h-5" />
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-semibold">
+                  {totalItems}
+                </span>
+              )}
+            </Button>
             <Button variant="ghost" size="icon" onClick={handleShareRestaurant}>
               <Share2 className="w-5 h-5" />
             </Button>
