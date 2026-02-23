@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAdmin } from "@/contexts/AdminContext";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const PAGE_SIZE = 15;
 
 const ProductsListPage = () => {
-  const { user } = useAuth();
+  const { effectiveTenantId } = useAdmin();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -28,7 +28,7 @@ const ProductsListPage = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
 
-  const tenantId = user?.tenant_id;
+  const tenantId = effectiveTenantId;
 
   // Fetch categories for filter
   const { data: categories = [] } = useQuery({
