@@ -493,18 +493,21 @@ export type Database = {
           active: boolean
           id: string
           image_url: string
+          position: number
           product_id: string
         }
         Insert: {
           active?: boolean
           id?: string
           image_url: string
+          position?: number
           product_id: string
         }
         Update: {
           active?: boolean
           id?: string
           image_url?: string
+          position?: number
           product_id?: string
         }
         Relationships: [
