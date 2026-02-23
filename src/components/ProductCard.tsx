@@ -63,12 +63,12 @@ const ProductCard = ({ product, index, badgeTag }: ProductCardProps) => {
       style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Image */}
-      <div className="relative h-44 overflow-hidden bg-secondary">
+      <div className="relative h-44 overflow-hidden bg-white">
         {product.image_url ? (
           <img
             src={product.image_url}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-5xl">
