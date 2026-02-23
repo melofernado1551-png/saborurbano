@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Share2, ShoppingBag, Minus, Plus } from "lucide-react";
+import { ArrowLeft, Share2, ShoppingBag, Minus, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useCart } from "@/contexts/CartContext";
@@ -11,6 +11,7 @@ const ProductDetailPage = () => {
   const { tenantSlug, productSlug } = useParams<{ tenantSlug: string; productSlug: string }>();
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { addItem, totalItems, setIsOpen: setCartOpen } = useCart();
 
   // Fetch tenant by slug
@@ -53,9 +54,10 @@ const ProductDetailPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_images")
-        .select("image_url")
+        .select("image_url, position")
         .eq("product_id", product!.id)
-        .eq("active", true);
+        .eq("active", true)
+        .order("position", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -146,9 +148,44 @@ const ProductDetailPage = () => {
       </header>
 
       {/* Product image */}
-      <div className="relative w-full h-64 md:h-80 bg-secondary overflow-hidden">
-        {mainImage ? (
-          <img src={mainImage} alt={product.name} className="w-full h-full object-cover" />
+      <div className="relative w-full h-72 md:h-96 bg-white overflow-hidden">
+        {images.length > 0 ? (
+          <>
+            <img
+              src={images[currentImageIndex]?.image_url}
+              alt={product.name}
+              className="w-full h-full object-contain"
+            />
+            {images.length > 1 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-card/80 backdrop-blur-sm hover:bg-card shadow-md"
+                  onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-card/80 backdrop-blur-sm hover:bg-card shadow-md"
+                  onClick={() => setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
+                  {images.map((_, i) => (
+                    <button
+                      key={i}
+                      className={`w-2 h-2 rounded-full transition-all ${i === currentImageIndex ? "bg-primary w-4" : "bg-card/70"}`}
+                      onClick={() => setCurrentImageIndex(i)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center text-7xl">🍔</div>
         )}
