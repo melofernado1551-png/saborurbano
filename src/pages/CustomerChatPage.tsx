@@ -292,12 +292,9 @@ const CustomerChatPage = () => {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Status bar */}
-        {sale && (
-          <div className="px-4 pb-2 space-y-2">
-            <div className="flex gap-2 flex-wrap">
+          {/* Status badges inline with header */}
+          {sale && (
+            <div className="flex items-center gap-2 flex-shrink-0">
               {operationalStatus && (
                 <span className="px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-medium">
                   {operationalStatus.emoji} {operationalStatus.label}
@@ -319,7 +316,12 @@ const CustomerChatPage = () => {
                 </button>
               )}
             </div>
+          )}
+        </div>
 
+        {/* Expandable payment details & total */}
+        {sale && (totalPaid > 0 || (showPayments && payments.length > 0)) && (
+          <div className="px-4 pb-2 space-y-2">
             {totalPaid > 0 && (
               <div className="text-xs text-muted-foreground px-1">
                 💰 Total: R$ {Number(sale.valor_total).toFixed(2)} · Pago: <span className="text-green-600 font-medium">R$ {totalPaid.toFixed(2)}</span>
