@@ -421,9 +421,10 @@ const MyStorePage = () => {
       }
       const newFeatured = activeFeatured.filter((f) => !f.id);
       if (newFeatured.length > 0) {
-        await supabase.from("featured_products_tenant").insert(
+        const { error: featErr } = await supabase.from("featured_products_tenant").insert(
           newFeatured.map((f, i) => ({ tenant_id: tenantId!, product_id: f.product_id, position: i }))
         );
+        if (featErr) throw featErr;
       }
       for (let i = 0; i < activeFeatured.length; i++) {
         const f = activeFeatured[i];
