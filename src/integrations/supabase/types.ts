@@ -1160,6 +1160,7 @@ export type Database = {
           cnpj: string | null
           cover_url: string | null
           created_at: string
+          free_shipping: boolean | null
           id: string
           latitude: number | null
           layout_id: string | null
@@ -1172,6 +1173,7 @@ export type Database = {
           owner_phone: string | null
           primary_color: string | null
           secondary_color: string | null
+          shipping_fee: number | null
           slug: string
           state: string | null
           whatsapp_number: string | null
@@ -1186,6 +1188,7 @@ export type Database = {
           cnpj?: string | null
           cover_url?: string | null
           created_at?: string
+          free_shipping?: boolean | null
           id?: string
           latitude?: number | null
           layout_id?: string | null
@@ -1198,6 +1201,7 @@ export type Database = {
           owner_phone?: string | null
           primary_color?: string | null
           secondary_color?: string | null
+          shipping_fee?: number | null
           slug: string
           state?: string | null
           whatsapp_number?: string | null
@@ -1212,6 +1216,7 @@ export type Database = {
           cnpj?: string | null
           cover_url?: string | null
           created_at?: string
+          free_shipping?: boolean | null
           id?: string
           latitude?: number | null
           layout_id?: string | null
@@ -1224,6 +1229,7 @@ export type Database = {
           owner_phone?: string | null
           primary_color?: string | null
           secondary_color?: string | null
+          shipping_fee?: number | null
           slug?: string
           state?: string | null
           whatsapp_number?: string | null
