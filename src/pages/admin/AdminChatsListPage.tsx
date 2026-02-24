@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -21,9 +22,25 @@ const FINANCIAL_LABELS: Record<string, { label: string; color: string; emoji: st
 const AdminChatsListPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const tenantId = user?.tenant_id;
 
+  // Realtime: invalidate query when chats change
+  useEffect(() => {
+    if (!tenantId) return;
+    const channel = supabase
+      .channel("admin-chats-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "chats", filter: `tenant_id=eq.${tenantId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["admin-chats", tenantId] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [tenantId, queryClient]);
   const { data: chats = [], isLoading } = useQuery({
     queryKey: ["admin-chats", tenantId],
     enabled: !!tenantId,
