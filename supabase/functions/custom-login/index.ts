@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
     // Create or get auth user
     const fakeEmail = `${login}@app.internal`;
     let authId = user.auth_id;
+    let signInEmail = fakeEmail;
 
     if (!authId) {
       const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -100,8 +101,12 @@ Deno.serve(async (req) => {
       authId = authUser.user.id;
       await supabaseAdmin.from("profiles").update({ auth_id: authId }).eq("id", user.id);
     } else {
-      // Sync password to auth
+      // Get the actual auth user email and sync password
       try {
+        const { data: authUserData } = await supabaseAdmin.auth.admin.getUserById(authId);
+        if (authUserData?.user?.email) {
+          signInEmail = authUserData.user.email;
+        }
         const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(authId, { password });
         if (updateErr) console.error("Update user password error:", updateErr.message);
       } catch (e) {
@@ -114,7 +119,7 @@ Deno.serve(async (req) => {
     const supabaseClient = createClient(supabaseUrl, anonKey);
 
     const { data: signInData, error: signInErr } = await supabaseClient.auth.signInWithPassword({
-      email: fakeEmail,
+      email: signInEmail,
       password: password,
     });
 
