@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/contexts/AdminContext";
@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -15,7 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus, Pencil, Trash2, Star, Sparkles, Loader2, Save, Eye, Flame, GripVertical, ChevronDown, ChevronUp, X,
+  Plus, Pencil, Trash2, Star, Sparkles, Loader2, Save, Flame, GripVertical, X, Undo2, Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -58,7 +57,7 @@ const MyStorePage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("id, name, description, price, promo_price, has_discount, active")
+        .select("id, name, description, price, promo_price, has_discount, active, slug")
         .eq("tenant_id", tenantId!)
         .eq("active", true)
         .order("name");
@@ -138,7 +137,7 @@ const MyStorePage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tenants")
-        .select("name, logo_url, cover_url, category, address, city")
+        .select("name, logo_url, cover_url, category, address, city, slug")
         .eq("id", tenantId!)
         .single();
       if (error) throw error;
@@ -152,9 +151,7 @@ const MyStorePage = () => {
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (sectionsLoading || featuredLoading) return;
-    if (initialized) return;
+  const initDraft = useCallback(() => {
     setDraftSections(
       remoteSections.map((s: any) => ({
         id: s.id, title: s.title, category_id: s.category_id,
@@ -167,8 +164,14 @@ const MyStorePage = () => {
     setDraftFeatured(
       remoteFeatured.map((f: any) => ({ id: f.id, product_id: f.product_id, position: f.position }))
     );
+  }, [remoteSections, remoteFeatured]);
+
+  useEffect(() => {
+    if (sectionsLoading || featuredLoading) return;
+    if (initialized) return;
+    initDraft();
     setInitialized(true);
-  }, [sectionsLoading, featuredLoading, remoteSections, remoteFeatured, initialized]);
+  }, [sectionsLoading, featuredLoading, initialized, initDraft]);
 
   // ── Dirty detection ──
   const isDirty = useMemo(() => {
@@ -194,6 +197,13 @@ const MyStorePage = () => {
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
+
+  const handleDiscard = () => {
+    if (!isDirty) return;
+    if (confirm("Descartar todas as alterações?")) {
+      initDraft();
+    }
+  };
 
   // ── Product map ──
   const productMap = useMemo(() => {
@@ -271,21 +281,6 @@ const MyStorePage = () => {
     });
   };
 
-  const moveSectionDraft = (index: number, direction: "up" | "down") => {
-    setDraftSections((prev) => {
-      const activeIdx = getActiveIndices(prev);
-      const swapIndex = direction === "up" ? index - 1 : index + 1;
-      if (swapIndex < 0 || swapIndex >= activeIdx.length) return prev;
-      const next = [...prev];
-      const rA = activeIdx[index];
-      const rB = activeIdx[swapIndex];
-      const posA = next[rA].position;
-      next[rA] = { ...next[rA], position: next[rB].position };
-      next[rB] = { ...next[rB], position: posA };
-      return next;
-    });
-  };
-
   const addProductToSectionDraft = (sectionIndex: number, productId: string) => {
     setDraftSections((prev) => {
       const activeIdx = getActiveIndices(prev);
@@ -318,28 +313,14 @@ const MyStorePage = () => {
     });
   };
 
-  const getAvailableProducts = (sectionIndex: number) => {
-    const section = activeSections[sectionIndex];
-    if (!section) return tenantProducts;
-    const usedIds = section.products.map((p) => p.product_id);
-    return tenantProducts.filter((p) => !usedIds.includes(p.id));
-  };
-
   // ── Drag & Drop for Featured ──
   const [dragFeaturedIdx, setDragFeaturedIdx] = useState<number | null>(null);
   const [dragOverFeaturedIdx, setDragOverFeaturedIdx] = useState<number | null>(null);
 
   const handleFeaturedDragStart = (idx: number) => setDragFeaturedIdx(idx);
-  const handleFeaturedDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault();
-    setDragOverFeaturedIdx(idx);
-  };
+  const handleFeaturedDragOver = (e: React.DragEvent, idx: number) => { e.preventDefault(); setDragOverFeaturedIdx(idx); };
   const handleFeaturedDrop = (idx: number) => {
-    if (dragFeaturedIdx === null || dragFeaturedIdx === idx) {
-      setDragFeaturedIdx(null);
-      setDragOverFeaturedIdx(null);
-      return;
-    }
+    if (dragFeaturedIdx === null || dragFeaturedIdx === idx) { setDragFeaturedIdx(null); setDragOverFeaturedIdx(null); return; }
     setDraftFeatured((prev) => {
       const active = prev.filter((f) => !f._deleted);
       const item = active[dragFeaturedIdx];
@@ -348,33 +329,19 @@ const MyStorePage = () => {
       const deleted = prev.filter((f) => f._deleted);
       return [...without.map((f, i) => ({ ...f, position: i })), ...deleted];
     });
-    setDragFeaturedIdx(null);
-    setDragOverFeaturedIdx(null);
+    setDragFeaturedIdx(null); setDragOverFeaturedIdx(null);
   };
 
   // ── Drag & Drop for Section Products ──
   const [dragSectionProductInfo, setDragSectionProductInfo] = useState<{ sectionIdx: number; productIdx: number } | null>(null);
   const [dragOverSectionProduct, setDragOverSectionProduct] = useState<{ sectionIdx: number; productIdx: number } | null>(null);
 
-  const handleSectionProductDragStart = (sectionIdx: number, productIdx: number) => {
-    setDragSectionProductInfo({ sectionIdx, productIdx });
-  };
-  const handleSectionProductDragOver = (e: React.DragEvent, sectionIdx: number, productIdx: number) => {
-    e.preventDefault();
-    setDragOverSectionProduct({ sectionIdx, productIdx });
-  };
   const handleSectionProductDrop = (sectionIdx: number, productIdx: number) => {
     if (!dragSectionProductInfo || dragSectionProductInfo.sectionIdx !== sectionIdx) {
-      setDragSectionProductInfo(null);
-      setDragOverSectionProduct(null);
-      return;
+      setDragSectionProductInfo(null); setDragOverSectionProduct(null); return;
     }
     const fromIdx = dragSectionProductInfo.productIdx;
-    if (fromIdx === productIdx) {
-      setDragSectionProductInfo(null);
-      setDragOverSectionProduct(null);
-      return;
-    }
+    if (fromIdx === productIdx) { setDragSectionProductInfo(null); setDragOverSectionProduct(null); return; }
     setDraftSections((prev) => {
       const activeIdx = getActiveIndices(prev);
       const realIdx = activeIdx[sectionIdx];
@@ -386,35 +353,20 @@ const MyStorePage = () => {
       next[realIdx] = { ...section, products: prods.map((p, i) => ({ ...p, position: i })) };
       return next;
     });
-    setDragSectionProductInfo(null);
-    setDragOverSectionProduct(null);
+    setDragSectionProductInfo(null); setDragOverSectionProduct(null);
   };
 
   // ── Drag & Drop for Sections ──
   const [dragSectionIdx, setDragSectionIdx] = useState<number | null>(null);
   const [dragOverSectionIdx, setDragOverSectionIdx] = useState<number | null>(null);
 
-  const handleSectionDragStart = (idx: number) => setDragSectionIdx(idx);
-  const handleSectionDragOver = (e: React.DragEvent, idx: number) => {
-    e.preventDefault();
-    setDragOverSectionIdx(idx);
-  };
   const handleSectionDrop = (idx: number) => {
-    if (dragSectionIdx === null || dragSectionIdx === idx) {
-      setDragSectionIdx(null);
-      setDragOverSectionIdx(null);
-      return;
-    }
+    if (dragSectionIdx === null || dragSectionIdx === idx) { setDragSectionIdx(null); setDragOverSectionIdx(null); return; }
     setDraftSections((prev) => {
-      const activeIdx = getActiveIndices(prev);
-      const sorted = [...activeSections].sort((a, b) => a.position - b.position);
-      const [moved] = sorted.splice(dragSectionIdx, 0);
-      // Reorder
-      const arr = activeSections.sort((a, b) => a.position - b.position);
+      const arr = [...activeSections].sort((a, b) => a.position - b.position);
       const item = arr[dragSectionIdx];
       const without = arr.filter((_, i) => i !== dragSectionIdx);
       without.splice(idx, 0, item);
-      // Rebuild with new positions
       const posMap = new Map<DraftSection, number>();
       without.forEach((s, i) => posMap.set(s, i));
       return prev.map((s) => {
@@ -423,8 +375,7 @@ const MyStorePage = () => {
         return newPos !== undefined ? { ...s, position: newPos } : s;
       });
     });
-    setDragSectionIdx(null);
-    setDragOverSectionIdx(null);
+    setDragSectionIdx(null); setDragOverSectionIdx(null);
   };
 
   // ── Save ──
@@ -442,6 +393,7 @@ const MyStorePage = () => {
 
     setSaving(true);
     try {
+      // Featured
       const deletedFeaturedIds = draftFeatured.filter((f) => f._deleted && f.id).map((f) => f.id!);
       if (deletedFeaturedIds.length > 0) {
         await supabase.from("featured_products_tenant").delete().in("id", deletedFeaturedIds);
@@ -452,14 +404,12 @@ const MyStorePage = () => {
           newFeatured.map((f, i) => ({ tenant_id: tenantId!, product_id: f.product_id, position: i }))
         );
       }
-      // Update positions for existing
       for (let i = 0; i < activeFeatured.length; i++) {
         const f = activeFeatured[i];
-        if (f.id) {
-          await supabase.from("featured_products_tenant").update({ position: i }).eq("id", f.id);
-        }
+        if (f.id) await supabase.from("featured_products_tenant").update({ position: i }).eq("id", f.id);
       }
 
+      // Sections
       const deletedSectionIds = draftSections.filter((s) => s._deleted && s.id).map((s) => s.id!);
       if (deletedSectionIds.length > 0) {
         await supabase.from("tenant_section_products").delete().in("tenant_section_id", deletedSectionIds);
@@ -493,7 +443,7 @@ const MyStorePage = () => {
         }
       }
 
-      toast.success("Perfil da loja atualizado com sucesso!");
+      toast.success("Sua loja foi atualizada com sucesso!");
       setInitialized(false);
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar");
@@ -504,13 +454,13 @@ const MyStorePage = () => {
 
   // ── Dialogs ──
   const [featuredDialogOpen, setFeaturedDialogOpen] = useState(false);
-  const [selectedFeaturedProduct, setSelectedFeaturedProduct] = useState("");
+  const [featuredSearch, setFeaturedSearch] = useState("");
   const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
   const [editingSectionIdx, setEditingSectionIdx] = useState<number | null>(null);
   const [sectionForm, setSectionForm] = useState({ title: "", category_id: "" });
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [activeSectionIdx, setActiveSectionIdx] = useState<number | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState("");
+  const [productSearch, setProductSearch] = useState("");
 
   const openCreateSection = () => {
     setEditingSectionIdx(null);
@@ -518,10 +468,10 @@ const MyStorePage = () => {
     setSectionDialogOpen(true);
   };
 
-  const openEditSection = (idx: number) => {
+  const openEditSection = (sortedIdx: number) => {
     const sorted = [...activeSections].sort((a, b) => a.position - b.position);
-    const s = sorted[idx];
-    setEditingSectionIdx(idx);
+    const s = sorted[sortedIdx];
+    setEditingSectionIdx(sortedIdx);
     setSectionForm({ title: s.title, category_id: s.category_id || "" });
     setSectionDialogOpen(true);
   };
@@ -529,7 +479,6 @@ const MyStorePage = () => {
   const handleSaveSection = () => {
     if (!sectionForm.title.trim()) { toast.error("Título é obrigatório"); return; }
     if (editingSectionIdx !== null) {
-      // Find the actual index in activeSections for the sorted position
       const sorted = [...activeSections].sort((a, b) => a.position - b.position);
       const section = sorted[editingSectionIdx];
       const realIdx = activeSections.indexOf(section);
@@ -540,36 +489,23 @@ const MyStorePage = () => {
     setSectionDialogOpen(false);
   };
 
-  const handleAddProduct = () => {
-    if (activeSectionIdx !== null && selectedProductId) {
-      // Find real index from sorted
+  const handleAddProduct = (productId: string) => {
+    if (activeSectionIdx !== null && productId) {
       const sorted = [...activeSections].sort((a, b) => a.position - b.position);
       const section = sorted[activeSectionIdx];
       const realIdx = activeSections.indexOf(section);
-      addProductToSectionDraft(realIdx, selectedProductId);
+      addProductToSectionDraft(realIdx, productId);
     }
-    setProductDialogOpen(false);
-    setSelectedProductId("");
   };
 
   // ── Preview data ──
-  const previewSections = useMemo(() => {
-    return activeSections
-      .filter((s) => s.active)
-      .sort((a, b) => a.position - b.position)
-      .map((s) => ({
-        title: s.title,
-        products: s.products.filter((sp) => sp.active)
-          .sort((a, b) => a.position - b.position)
-          .map((sp) => productMap.get(sp.product_id))
-          .filter(Boolean) as typeof tenantProducts,
-      }))
-      .filter((s) => s.products.length > 0);
-  }, [activeSections, productMap]);
-
   const previewFeatured = useMemo(() => {
     return activeFeatured.map((f) => productMap.get(f.product_id)).filter(Boolean) as typeof tenantProducts;
   }, [activeFeatured, productMap]);
+
+  const sortedActiveSections = useMemo(() =>
+    [...activeSections].sort((a, b) => a.position - b.position),
+  [activeSections]);
 
   // ── Render guards ──
   if (!tenantId) {
@@ -586,114 +522,63 @@ const MyStorePage = () => {
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-64 w-full rounded-2xl" />
         <Skeleton className="h-40 w-full rounded-xl" />
-        <Skeleton className="h-40 w-full rounded-xl" />
       </div>
     );
   }
 
-  const sortedActiveSections = [...activeSections].sort((a, b) => a.position - b.position);
-
   return (
-    <div className="space-y-6 pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Minha Vitrine</h1>
-          <p className="text-sm text-muted-foreground">Organize como sua loja aparece para os clientes</p>
-        </div>
-        <Button onClick={handleSave} disabled={saving || !isDirty} className="gap-2">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Salvar alterações
-        </Button>
+    <div className="pb-28">
+      {/* ── Top bar ── */}
+      <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5 flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+        <span className="text-base">🛠️</span>
+        <span className="font-medium">Modo edição da sua loja</span>
+        <span className="text-xs opacity-70">— alterações só serão salvas ao final</span>
+        {isDirty && (
+          <Badge variant="outline" className="ml-auto border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs">
+            Não salvo
+          </Badge>
+        )}
       </div>
 
-      {isDirty && (
-        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-xl px-4 py-2.5 text-sm flex items-center gap-2">
-          ⚠️ Você tem alterações não salvas.
-        </div>
-      )}
-
-      {/* ═══ PREVIEW SECTION ═══ */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-lg">
-        <div className="bg-muted/50 px-4 py-2 border-b border-border flex items-center gap-2">
-          <Eye className="w-4 h-4 text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground">Pré-visualização da sua loja</span>
-        </div>
-
-        {/* Store header preview */}
-        <div className="relative">
-          <div className="w-full h-32 overflow-hidden bg-gradient-to-br from-primary/20 via-primary/10 to-secondary">
-            {tenant?.cover_url && <img src={tenant.cover_url} alt="" className="w-full h-full object-cover" />}
+      {/* ── Store layout (real layout) ── */}
+      <div className="min-h-screen bg-background">
+        {/* Store header - mirror of RestaurantPage */}
+        <section className="relative z-0">
+          <div className="w-full h-56 md:h-72 overflow-hidden">
+            {tenant?.cover_url ? (
+              <img src={tenant.cover_url} alt="Capa" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-primary/20 via-primary/10 to-secondary" />
+            )}
           </div>
-          <div className="flex flex-col items-center -mt-10 relative z-10 pb-4">
-            <div className="w-20 h-20 rounded-full bg-card border-4 border-card shadow-lg overflow-hidden">
+          <div className="container mx-auto px-4 flex flex-col items-center text-center -mt-32 relative z-10">
+            <div className="w-36 h-36 md:w-40 md:h-40 rounded-full bg-card border-4 border-card shadow-xl overflow-hidden">
               {tenant?.logo_url ? (
-                <img src={tenant.logo_url} alt="" className="w-full h-full object-cover" />
+                <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-2xl bg-secondary">
+                <div className="w-full h-full flex items-center justify-center text-5xl md:text-6xl bg-secondary">
                   {tenant?.name?.charAt(0) || "L"}
                 </div>
               )}
             </div>
-            <h3 className="text-lg font-bold mt-2">{tenant?.name || "Sua Loja"}</h3>
-            {tenant?.category && <span className="text-xs text-muted-foreground">{tenant.category}</span>}
+            <h2 className="text-2xl md:text-3xl font-extrabold text-foreground mt-2">{tenant?.name || "Sua Loja"}</h2>
+            {tenant?.category && <p className="text-sm text-muted-foreground mt-0.5">{tenant.category}</p>}
+            {tenant?.address && <p className="text-xs text-muted-foreground mt-0.5">{tenant.address}{tenant.city ? `, ${tenant.city}` : ""}</p>}
           </div>
-        </div>
+        </section>
 
-        {/* Preview content */}
-        <div className="px-4 pb-6 space-y-6">
-          {previewFeatured.length > 0 && (
-            <div>
-              <h4 className="text-sm font-bold mb-3 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Destaques da Loja
-              </h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {previewFeatured.map((p) => (
-                  <MiniProductCard key={p.id} product={p} imageUrl={imageMap[p.id]} featured />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {previewSections.map((section, i) => (
-            <div key={i}>
-              <h4 className="text-sm font-bold mb-3">{section.title}</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {section.products.map((p) => (
-                  <MiniProductCard key={p.id} product={p} imageUrl={imageMap[p.id]} />
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {previewFeatured.length === 0 && previewSections.length === 0 && (
-            <div className="text-center py-10">
-              <div className="text-4xl mb-3">🏪</div>
-              <p className="text-sm text-muted-foreground">Adicione destaques e seções abaixo para ver a pré-visualização</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ═══ FEATURED PRODUCTS ═══ */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Star className="w-5 h-5 text-amber-500" />
-            ⭐ Destaques da Loja
-          </CardTitle>
-          <Button size="sm" variant="outline" onClick={() => { setSelectedFeaturedProduct(""); setFeaturedDialogOpen(true); }} className="gap-1.5">
-            <Plus className="w-4 h-4" /> Adicionar
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {activeFeatured.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Star className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">Nenhum destaque. Adicione produtos para aparecerem em destaque na loja.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        <main className="container mx-auto px-4 py-6 space-y-8">
+          {/* ═══ FEATURED SECTION ═══ */}
+          <EditableSection
+            title="⭐ Destaques da Loja"
+            icon={<Sparkles className="w-4 h-4 text-amber-500" />}
+            onAdd={() => { setFeaturedSearch(""); setFeaturedDialogOpen(true); }}
+            addLabel="Adicionar destaque"
+            isEmpty={activeFeatured.length === 0}
+            emptyText="Clique em + para adicionar produtos em destaque"
+            emptyIcon="⭐"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {activeFeatured.map((f, idx) => {
                 const product = productMap.get(f.product_id);
                 if (!product) return null;
@@ -706,208 +591,210 @@ const MyStorePage = () => {
                     onDragOver={(e) => handleFeaturedDragOver(e, idx)}
                     onDrop={() => handleFeaturedDrop(idx)}
                     onDragEnd={() => { setDragFeaturedIdx(null); setDragOverFeaturedIdx(null); }}
-                    className={`relative group bg-card border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing transition-all ${
-                      isDragOver ? "border-primary ring-2 ring-primary/30 scale-[1.02]" : "border-border hover:border-primary/40"
-                    } ${dragFeaturedIdx === idx ? "opacity-50" : ""}`}
+                    className={`relative group transition-all ${
+                      isDragOver ? "ring-2 ring-primary/50 rounded-2xl" : ""
+                    } ${dragFeaturedIdx === idx ? "opacity-40 scale-95" : ""}`}
                   >
-                    <div className="absolute top-1.5 left-1.5 z-10">
-                      <div className="w-6 h-6 rounded-md bg-foreground/60 backdrop-blur-sm flex items-center justify-center">
+                    {/* Edit overlay */}
+                    <div className="absolute inset-0 z-10 rounded-2xl border-2 border-dashed border-transparent group-hover:border-primary/40 transition-all pointer-events-none" />
+                    <div className="absolute top-2 left-2 z-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button className="w-7 h-7 rounded-lg bg-foreground/70 backdrop-blur-sm flex items-center justify-center cursor-grab active:cursor-grabbing">
                         <GripVertical className="w-3.5 h-3.5 text-background" />
-                      </div>
+                      </button>
                     </div>
                     <button
                       onClick={() => removeFeaturedDraft(f.product_id)}
-                      className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-md bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 z-20 w-7 h-7 rounded-lg bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
                     >
                       <X className="w-3.5 h-3.5 text-destructive-foreground" />
                     </button>
-                    <div className="h-24 bg-secondary overflow-hidden">
-                      {imageMap[f.product_id] ? (
-                        <img src={imageMap[f.product_id]} alt={product.name} className="w-full h-full object-contain bg-white" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl">🍔</div>
-                      )}
-                    </div>
-                    <div className="p-2">
-                      <p className="text-xs font-semibold line-clamp-1">{product.name}</p>
-                      <p className="text-xs text-primary font-bold mt-0.5">
-                        R$ {Number(product.has_discount && product.promo_price ? product.promo_price : product.price).toFixed(2)}
-                      </p>
-                    </div>
+                    {/* Real featured card */}
+                    <FeaturedProductCard product={product} imageUrl={imageMap[product.id]} />
                   </div>
                 );
               })}
-              {/* Add button card */}
-              <button
-                onClick={() => { setSelectedFeaturedProduct(""); setFeaturedDialogOpen(true); }}
-                className="border-2 border-dashed border-border rounded-xl h-full min-h-[140px] flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
+            </div>
+          </EditableSection>
+
+          {/* ═══ CUSTOM SECTIONS ═══ */}
+          {sortedActiveSections.map((section, sortedIdx) => {
+            const realIdx = activeSections.indexOf(section);
+            const isDragOver = dragOverSectionIdx === sortedIdx;
+
+            return (
+              <div
+                key={sortedIdx}
+                draggable
+                onDragStart={() => setDragSectionIdx(sortedIdx)}
+                onDragOver={(e) => { e.preventDefault(); setDragOverSectionIdx(sortedIdx); }}
+                onDrop={() => handleSectionDrop(sortedIdx)}
+                onDragEnd={() => { setDragSectionIdx(null); setDragOverSectionIdx(null); }}
+                className={`transition-all ${isDragOver ? "ring-2 ring-primary/40 rounded-2xl" : ""} ${dragSectionIdx === sortedIdx ? "opacity-40 scale-[0.98]" : ""} ${!section.active ? "opacity-50" : ""}`}
               >
-                <Plus className="w-6 h-6" />
-                <span className="text-xs font-medium">Adicionar</span>
-              </button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ═══ SECTIONS ═══ */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            🧩 Seções da Vitrine
-          </CardTitle>
-          <Button size="sm" variant="outline" onClick={openCreateSection} className="gap-1.5">
-            <Plus className="w-4 h-4" /> Nova Seção
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {activeSections.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p className="text-sm">Nenhuma seção criada. A loja usará as categorias padrão.</p>
-              <Button variant="outline" className="mt-3 gap-1.5" onClick={openCreateSection}>
-                <Plus className="w-4 h-4" /> Criar primeira seção
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {sortedActiveSections.map((section, sortedIdx) => {
-                const realIdx = activeSections.indexOf(section);
-                const isDragOver = dragOverSectionIdx === sortedIdx;
-                return (
-                  <div
-                    key={sortedIdx}
-                    draggable
-                    onDragStart={() => handleSectionDragStart(sortedIdx)}
-                    onDragOver={(e) => handleSectionDragOver(e, sortedIdx)}
-                    onDrop={() => handleSectionDrop(sortedIdx)}
-                    onDragEnd={() => { setDragSectionIdx(null); setDragOverSectionIdx(null); }}
-                    className={`border rounded-xl overflow-hidden transition-all ${
-                      isDragOver ? "border-primary ring-2 ring-primary/30" : "border-border"
-                    } ${dragSectionIdx === sortedIdx ? "opacity-50" : ""} ${!section.active ? "opacity-60" : ""}`}
-                  >
-                    {/* Section header */}
-                    <div className="flex items-center justify-between bg-muted/50 px-3 py-2.5 cursor-grab active:cursor-grabbing">
-                      <div className="flex items-center gap-2">
-                        <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <div>
-                          <h4 className="font-semibold text-sm">{section.title}</h4>
-                          <span className="text-xs text-muted-foreground">
-                            {section.products.length}/{MAX_SECTION_PRODUCTS} produtos
-                            {!section.active && " • Inativa"}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5">
+                <EditableSection
+                  title={section.title}
+                  onAdd={() => { setActiveSectionIdx(sortedIdx); setProductSearch(""); setProductDialogOpen(true); }}
+                  addLabel="Adicionar produto"
+                  maxItems={MAX_SECTION_PRODUCTS}
+                  currentItems={section.products.length}
+                  isEmpty={section.products.length === 0}
+                  emptyText="Seção vazia — adicione produtos"
+                  emptyIcon="📦"
+                  extraControls={
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 mr-2">
+                        <span className="text-xs text-muted-foreground">{section.active ? "Ativa" : "Inativa"}</span>
                         <Switch checked={section.active} onCheckedChange={() => toggleSectionActiveDraft(realIdx)} />
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSection(sortedIdx)}>
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                          if (confirm("Remover esta seção?")) removeSectionDraft(realIdx);
-                        }}>
-                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                        </Button>
                       </div>
+                      <button
+                        className="w-7 h-7 rounded-lg bg-muted hover:bg-accent flex items-center justify-center transition-colors cursor-grab active:cursor-grabbing"
+                        title="Arrastar para reordenar"
+                      >
+                        <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+                      <button
+                        onClick={() => openEditSection(sortedIdx)}
+                        className="w-7 h-7 rounded-lg bg-muted hover:bg-accent flex items-center justify-center transition-colors"
+                        title="Editar seção"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+                      <button
+                        onClick={() => { if (confirm("Remover esta seção?")) removeSectionDraft(realIdx); }}
+                        className="w-7 h-7 rounded-lg bg-muted hover:bg-destructive/10 flex items-center justify-center transition-colors"
+                        title="Remover seção"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </button>
                     </div>
-
-                    {/* Section products */}
-                    <div className="p-3">
-                      {section.products.length === 0 ? (
-                        <p className="text-xs text-muted-foreground text-center py-4">Nenhum produto nesta seção</p>
-                      ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                          {section.products.map((sp, pi) => {
-                            const product = productMap.get(sp.product_id);
-                            if (!product) return null;
-                            const isOver = dragOverSectionProduct?.sectionIdx === sortedIdx && dragOverSectionProduct?.productIdx === pi;
-                            return (
-                              <div
-                                key={pi}
-                                draggable
-                                onDragStart={(e) => { e.stopPropagation(); handleSectionProductDragStart(sortedIdx, pi); }}
-                                onDragOver={(e) => { e.stopPropagation(); handleSectionProductDragOver(e, sortedIdx, pi); }}
-                                onDrop={(e) => { e.stopPropagation(); handleSectionProductDrop(sortedIdx, pi); }}
-                                onDragEnd={() => { setDragSectionProductInfo(null); setDragOverSectionProduct(null); }}
-                                className={`relative group bg-secondary/50 border rounded-lg overflow-hidden cursor-grab active:cursor-grabbing transition-all ${
-                                  isOver ? "border-primary ring-1 ring-primary/30" : "border-transparent"
-                                }`}
-                              >
-                                <button
-                                  onClick={() => removeProductFromSectionDraft(realIdx, pi)}
-                                  className="absolute top-1 right-1 z-10 w-5 h-5 rounded-full bg-destructive/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <X className="w-3 h-3 text-destructive-foreground" />
-                                </button>
-                                <div className="h-16 bg-white overflow-hidden">
-                                  {imageMap[sp.product_id] ? (
-                                    <img src={imageMap[sp.product_id]} alt="" className="w-full h-full object-contain" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-xl">🍔</div>
-                                  )}
-                                </div>
-                                <div className="p-1.5">
-                                  <p className="text-[10px] font-medium line-clamp-1">{product.name}</p>
-                                </div>
-                              </div>
-                            );
-                          })}
+                  }
+                >
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {section.products.map((sp, pi) => {
+                      const product = productMap.get(sp.product_id);
+                      if (!product) return null;
+                      const isOver = dragOverSectionProduct?.sectionIdx === sortedIdx && dragOverSectionProduct?.productIdx === pi;
+                      return (
+                        <div
+                          key={pi}
+                          draggable
+                          onDragStart={(e) => { e.stopPropagation(); setDragSectionProductInfo({ sectionIdx: sortedIdx, productIdx: pi }); }}
+                          onDragOver={(e) => { e.stopPropagation(); e.preventDefault(); setDragOverSectionProduct({ sectionIdx: sortedIdx, productIdx: pi }); }}
+                          onDrop={(e) => { e.stopPropagation(); handleSectionProductDrop(sortedIdx, pi); }}
+                          onDragEnd={() => { setDragSectionProductInfo(null); setDragOverSectionProduct(null); }}
+                          className={`relative group transition-all ${
+                            isOver ? "ring-2 ring-primary/50 rounded-2xl" : ""
+                          } ${dragSectionProductInfo?.sectionIdx === sortedIdx && dragSectionProductInfo?.productIdx === pi ? "opacity-40 scale-95" : ""}`}
+                        >
+                          {/* Edit overlay */}
+                          <div className="absolute inset-0 z-10 rounded-2xl border-2 border-dashed border-transparent group-hover:border-primary/40 transition-all pointer-events-none" />
+                          <div className="absolute top-2 left-2 z-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button className="w-6 h-6 rounded-md bg-foreground/70 backdrop-blur-sm flex items-center justify-center cursor-grab active:cursor-grabbing">
+                              <GripVertical className="w-3 h-3 text-background" />
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => removeProductFromSectionDraft(realIdx, pi)}
+                            className="absolute top-2 right-2 z-20 w-6 h-6 rounded-md bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
+                          >
+                            <X className="w-3 h-3 text-destructive-foreground" />
+                          </button>
+                          {/* Real product card */}
+                          <StoreProductCard product={product} imageUrl={imageMap[product.id]} />
                         </div>
-                      )}
-                      {section.products.length < MAX_SECTION_PRODUCTS && (
-                        <Button variant="outline" size="sm" className="mt-3 gap-1.5 text-xs"
-                          onClick={() => { setActiveSectionIdx(sortedIdx); setSelectedProductId(""); setProductDialogOpen(true); }}>
-                          <Plus className="w-3 h-3" /> Adicionar Produto
-                        </Button>
-                      )}
-                    </div>
+                      );
+                    })}
+                    {/* Add slot */}
+                    {section.products.length < MAX_SECTION_PRODUCTS && (
+                      <button
+                        onClick={() => { setActiveSectionIdx(sortedIdx); setProductSearch(""); setProductDialogOpen(true); }}
+                        className="border-2 border-dashed border-border rounded-2xl min-h-[200px] flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors bg-card/50"
+                      >
+                        <Plus className="w-8 h-8" />
+                        <span className="text-sm font-medium">Adicionar</span>
+                        <span className="text-xs opacity-60">{section.products.length}/{MAX_SECTION_PRODUCTS}</span>
+                      </button>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                </EditableSection>
+              </div>
+            );
+          })}
 
-      {/* Fixed save on mobile */}
-      {isDirty && (
-        <div className="lg:hidden fixed bottom-4 left-4 right-4 z-50">
-          <Button onClick={handleSave} disabled={saving} className="w-full gap-2 shadow-xl h-12">
+          {/* Add new section */}
+          <button
+            onClick={openCreateSection}
+            className="w-full border-2 border-dashed border-border rounded-2xl py-10 flex flex-col items-center gap-3 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors bg-card/30"
+          >
+            <Plus className="w-10 h-10" />
+            <span className="text-lg font-semibold">Nova Seção</span>
+            <span className="text-sm opacity-60">Crie uma seção para organizar seus produtos</span>
+          </button>
+        </main>
+      </div>
+
+      {/* ── Fixed bottom bar ── */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border p-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+          <Button variant="outline" onClick={handleDiscard} disabled={!isDirty || saving} className="gap-2">
+            <Undo2 className="w-4 h-4" />
+            Descartar
+          </Button>
+          <Button onClick={handleSave} disabled={saving || !isDirty} className="gap-2 px-8">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Salvar alterações
           </Button>
         </div>
-      )}
+      </div>
 
       {/* ═══ DIALOGS ═══ */}
+
+      {/* Add featured dialog */}
       <Dialog open={featuredDialogOpen} onOpenChange={setFeaturedDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader><DialogTitle>Adicionar Destaque</DialogTitle></DialogHeader>
-          <div className="py-2">
-            <Label>Produto</Label>
-            <Select value={selectedFeaturedProduct} onValueChange={setSelectedFeaturedProduct}>
-              <SelectTrigger><SelectValue placeholder="Selecione um produto" /></SelectTrigger>
-              <SelectContent>
-                {availableForFeatured.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    <div className="flex items-center gap-2">
-                      {imageMap[p.id] && <img src={imageMap[p.id]} className="w-6 h-6 rounded object-cover" />}
-                      {p.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={featuredSearch}
+              onChange={(e) => setFeaturedSearch(e.target.value)}
+              placeholder="Buscar produto..."
+              className="pl-9"
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setFeaturedDialogOpen(false)}>Cancelar</Button>
-            <Button disabled={!selectedFeaturedProduct} onClick={() => {
-              addFeaturedDraft(selectedFeaturedProduct);
-              setFeaturedDialogOpen(false);
-            }}>Adicionar</Button>
-          </DialogFooter>
+          <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+            {availableForFeatured
+              .filter((p) => !featuredSearch || p.name.toLowerCase().includes(featuredSearch.toLowerCase()))
+              .map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => { addFeaturedDraft(p.id); setFeaturedDialogOpen(false); }}
+                  className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-accent transition-colors text-left"
+                >
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
+                    {imageMap[p.id] ? (
+                      <img src={imageMap[p.id]} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-lg">🍔</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{p.name}</p>
+                    <p className="text-xs text-primary font-bold">
+                      R$ {Number(p.has_discount && p.promo_price ? p.promo_price : p.price).toFixed(2)}
+                    </p>
+                  </div>
+                  <Plus className="w-5 h-5 text-primary flex-shrink-0" />
+                </button>
+              ))}
+            {availableForFeatured.filter((p) => !featuredSearch || p.name.toLowerCase().includes(featuredSearch.toLowerCase())).length === 0 && (
+              <div className="text-center py-8 text-muted-foreground text-sm">Nenhum produto disponível</div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
+      {/* Section dialog */}
       <Dialog open={sectionDialogOpen} onOpenChange={setSectionDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>{editingSectionIdx !== null ? "Editar Seção" : "Nova Seção"}</DialogTitle></DialogHeader>
@@ -936,75 +823,170 @@ const MyStorePage = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Add product dialog */}
       <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader><DialogTitle>Adicionar Produto à Seção</DialogTitle></DialogHeader>
-          <div className="py-2">
-            <Label>Produto</Label>
-            <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-              <SelectTrigger><SelectValue placeholder="Selecione um produto" /></SelectTrigger>
-              <SelectContent>
-                {activeSectionIdx !== null && (() => {
-                  const sorted = [...activeSections].sort((a, b) => a.position - b.position);
-                  const section = sorted[activeSectionIdx];
-                  if (!section) return [];
-                  const usedIds = section.products.map((p) => p.product_id);
-                  return tenantProducts.filter((p) => !usedIds.includes(p.id));
-                })().map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    <div className="flex items-center gap-2">
-                      {imageMap[p.id] && <img src={imageMap[p.id]} className="w-6 h-6 rounded object-cover" />}
-                      {p.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Buscar produto..."
+              className="pl-9"
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setProductDialogOpen(false)}>Cancelar</Button>
-            <Button disabled={!selectedProductId} onClick={handleAddProduct}>Adicionar</Button>
-          </DialogFooter>
+          <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+            {activeSectionIdx !== null && (() => {
+              const sorted = [...activeSections].sort((a, b) => a.position - b.position);
+              const section = sorted[activeSectionIdx];
+              if (!section) return [];
+              const usedIds = section.products.map((p) => p.product_id);
+              return tenantProducts
+                .filter((p) => !usedIds.includes(p.id))
+                .filter((p) => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()));
+            })().map((p) => (
+              <button
+                key={p.id}
+                onClick={() => { handleAddProduct(p.id); }}
+                className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-accent transition-colors text-left"
+              >
+                <div className="w-12 h-12 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
+                  {imageMap[p.id] ? (
+                    <img src={imageMap[p.id]} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-lg">🍔</div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{p.name}</p>
+                  <p className="text-xs text-primary font-bold">
+                    R$ {Number(p.has_discount && p.promo_price ? p.promo_price : p.price).toFixed(2)}
+                  </p>
+                </div>
+                <Plus className="w-5 h-5 text-primary flex-shrink-0" />
+              </button>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
   );
 };
 
-// ── Mini product card for preview ──
-const MiniProductCard = ({ product, imageUrl, featured }: {
-  product: { id: string; name: string; price: number; promo_price: number | null; has_discount: boolean };
-  imageUrl?: string;
-  featured?: boolean;
+// ═══════════════════════════════════════════════════════
+// SUB-COMPONENTS
+// ═══════════════════════════════════════════════════════
+
+// Editable section wrapper with title and action bar
+const EditableSection = ({
+  title, icon, onAdd, addLabel, maxItems, currentItems, isEmpty, emptyText, emptyIcon, extraControls, children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  onAdd: () => void;
+  addLabel: string;
+  maxItems?: number;
+  currentItems?: number;
+  isEmpty: boolean;
+  emptyText: string;
+  emptyIcon: string;
+  extraControls?: React.ReactNode;
+  children: React.ReactNode;
 }) => (
-  <div className={`bg-card rounded-xl overflow-hidden shadow-sm border ${featured ? "border-primary/30" : "border-border"}`}>
-    <div className="relative h-20 overflow-hidden bg-white">
+  <section>
+    <div className="flex items-center justify-between mb-4">
+      <h3 className="text-lg font-bold flex items-center gap-2">
+        {icon}
+        {title}
+        {maxItems !== undefined && currentItems !== undefined && (
+          <span className="text-xs font-normal text-muted-foreground ml-1">({currentItems}/{maxItems})</span>
+        )}
+      </h3>
+      <div className="flex items-center gap-2">
+        {extraControls}
+        <Button size="sm" variant="outline" onClick={onAdd} className="gap-1.5">
+          <Plus className="w-3.5 h-3.5" /> {addLabel}
+        </Button>
+      </div>
+    </div>
+    {isEmpty ? (
+      <div className="border-2 border-dashed border-border rounded-2xl py-12 text-center">
+        <div className="text-4xl mb-3">{emptyIcon}</div>
+        <p className="text-sm text-muted-foreground">{emptyText}</p>
+      </div>
+    ) : children}
+  </section>
+);
+
+// Store product card - mirrors RestaurantPage ProductGridCard (without buy buttons)
+const StoreProductCard = ({ product, imageUrl }: {
+  product: { id: string; name: string; description: string | null; price: number; promo_price: number | null; has_discount: boolean };
+  imageUrl?: string;
+}) => (
+  <div className="bg-card rounded-2xl overflow-hidden shadow-card transition-all duration-300">
+    <div className="relative h-40 overflow-hidden bg-secondary">
       {imageUrl ? (
-        <img src={imageUrl} alt={product.name} className="w-full h-full object-contain" />
+        <img src={imageUrl} alt={product.name} className="w-full h-full object-cover" />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br from-secondary to-muted">🍔</div>
-      )}
-      {featured && (
-        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground flex items-center gap-0.5 text-[9px]">
-          <Sparkles className="w-2.5 h-2.5" /> Destaque
-        </div>
+        <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-secondary to-muted">🍔</div>
       )}
       {product.has_discount && product.promo_price && (
-        <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground flex items-center gap-0.5 text-[9px]">
-          <Flame className="w-2.5 h-2.5" />
+        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold flex items-center gap-1">
+          <Flame className="w-3 h-3" />
+          Promoção
         </div>
       )}
     </div>
-    <div className="p-2">
-      <p className="text-xs font-semibold line-clamp-1">{product.name}</p>
-      <div className="flex items-center gap-1 mt-0.5">
+    <div className="p-3">
+      <h4 className="font-semibold text-sm text-foreground line-clamp-1">{product.name}</h4>
+      {product.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{product.description}</p>}
+      <div className="flex items-center gap-2 mt-2">
         {product.has_discount && product.promo_price ? (
           <>
-            <span className="text-xs font-bold text-primary">R$ {Number(product.promo_price).toFixed(2)}</span>
-            <span className="text-[10px] text-muted-foreground line-through">R$ {Number(product.price).toFixed(2)}</span>
+            <span className="text-base font-bold text-primary">R$ {Number(product.promo_price).toFixed(2)}</span>
+            <span className="text-xs text-muted-foreground line-through">R$ {Number(product.price).toFixed(2)}</span>
           </>
         ) : (
-          <span className="text-xs font-bold">R$ {Number(product.price).toFixed(2)}</span>
+          <span className="text-base font-bold text-foreground">R$ {Number(product.price).toFixed(2)}</span>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+// Featured product card - mirrors RestaurantPage FeaturedCard (without buy buttons)
+const FeaturedProductCard = ({ product, imageUrl }: {
+  product: { id: string; name: string; description: string | null; price: number; promo_price: number | null; has_discount: boolean };
+  imageUrl?: string;
+}) => (
+  <div className="bg-card rounded-2xl overflow-hidden shadow-card transition-all duration-300 border-2 border-primary/20">
+    <div className="relative h-48 overflow-hidden bg-secondary">
+      {imageUrl ? (
+        <img src={imageUrl} alt={product.name} className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-5xl bg-gradient-to-br from-primary/10 to-secondary">⭐</div>
+      )}
+      <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1 shadow-md">
+        <Sparkles className="w-3 h-3" /> Destaque
+      </div>
+      {product.has_discount && product.promo_price && (
+        <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold flex items-center gap-1">
+          <Flame className="w-3 h-3" /> Promoção
+        </div>
+      )}
+    </div>
+    <div className="p-4">
+      <h4 className="font-bold text-foreground">{product.name}</h4>
+      {product.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{product.description}</p>}
+      <div className="flex items-center gap-2 mt-3">
+        {product.has_discount && product.promo_price ? (
+          <>
+            <span className="text-lg font-bold text-primary">R$ {Number(product.promo_price).toFixed(2)}</span>
+            <span className="text-sm text-muted-foreground line-through">R$ {Number(product.price).toFixed(2)}</span>
+          </>
+        ) : (
+          <span className="text-lg font-bold text-foreground">R$ {Number(product.price).toFixed(2)}</span>
         )}
       </div>
     </div>
