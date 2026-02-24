@@ -28,9 +28,10 @@ const CustomerOrdersPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chats")
-        .select("*, sales(sale_number, valor_total, financial_status, operational_status), tenants(name, logo_url, slug)")
+        .select("*, sales(sale_number, valor_total, financial_status, operational_status), tenants(name, logo_url, slug), chat_messages(content)")
         .eq("customer_id", customer!.id)
         .eq("active", true)
+        .eq("chat_messages.message_type", "order_summary")
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -74,6 +75,23 @@ const CustomerOrdersPage = () => {
             const tenant = chat.tenants;
             const financial = sale ? FINANCIAL_LABELS[sale.financial_status] || FINANCIAL_LABELS.pending : null;
             const operational = sale ? STATUS_LABELS[sale.operational_status] || { label: sale.operational_status, emoji: "📋" } : null;
+            const isPaid = sale?.financial_status === "paid";
+            const valorTotal = sale ? Number(sale.valor_total) : 0;
+
+            // Extract product names from order_summary message
+            const orderMsg = chat.chat_messages?.[0]?.content || "";
+            const productNames = orderMsg
+              .split("\n")
+              .filter((line: string) => line.startsWith("•"))
+              .map((line: string) => {
+                const match = line.match(/•\s*\d+x\s+(.+?)\s*—/);
+                return match ? match[1].trim() : null;
+              })
+              .filter(Boolean);
+
+            const productsSummary = productNames.length > 0
+              ? productNames.join(", ")
+              : null;
 
             return (
               <button
@@ -85,13 +103,22 @@ const CustomerOrdersPage = () => {
                   <div className="min-w-0">
                     <p className="font-semibold text-sm text-foreground">
                       {sale?.sale_number ? `Pedido #${sale.sale_number}` : "Pedido"}
-                      {sale && <span className="font-normal text-muted-foreground"> · R$ {Number(sale.valor_total).toFixed(2)}</span>}
                     </p>
+                    {productsSummary && (
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[280px]">
+                        {productsSummary}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {tenant?.name || "Restaurante"}
                     </p>
                   </div>
-                  <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {sale && (
+                      <span className={`text-sm font-semibold ${isPaid ? "text-green-600" : "text-foreground"}`}>
+                        R$ {valorTotal.toFixed(2)}
+                      </span>
+                    )}
                     {operational && (
                       <span className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-xs">
                         {operational.emoji} {operational.label}
