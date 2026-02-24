@@ -86,7 +86,33 @@ export const CustomerAuthProvider = ({ children }: { children: ReactNode }) => {
             return;
           }
 
-          await fetchCustomer(sess.user.id);
+          const existingCustomer = await fetchCustomer(sess.user.id);
+          
+          // If no customer found, check if we have a pending tenant from Google login
+          if (!existingCustomer) {
+            const pendingTenantId = localStorage.getItem("pending_customer_tenant_id");
+            if (pendingTenantId) {
+              localStorage.removeItem("pending_customer_tenant_id");
+              const userEmail = sess.user.email;
+              const userName = sess.user.user_metadata?.full_name || sess.user.user_metadata?.name || userEmail?.split("@")[0] || "Cliente";
+              
+              const { data: created, error } = await supabase
+                .from("customers" as any)
+                .insert({
+                  name: userName,
+                  email: userEmail,
+                  tenant_id: pendingTenantId,
+                  auth_id: sess.user.id,
+                  active: true,
+                })
+                .select("id, name, email, phone, tenant_id, active")
+                .single();
+              
+              if (!error && created) {
+                setCustomer(created as any);
+              }
+            }
+          }
           setLoading(false);
         }, 0);
       } else {
