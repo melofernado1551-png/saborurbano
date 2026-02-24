@@ -10,6 +10,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { useAutoTheme } from "@/hooks/useAutoTheme";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import CartDrawer from "@/components/cart/CartDrawer";
+import OrderStatusNotifier from "@/components/customer/OrderStatusNotifier";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import ChangePassword from "./pages/ChangePassword";
@@ -58,6 +59,7 @@ const App = () => (
           <CustomerAuthProvider>
           <CartProvider>
             <CartDrawer />
+            <OrderStatusNotifier />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/login" element={<Login />} />
