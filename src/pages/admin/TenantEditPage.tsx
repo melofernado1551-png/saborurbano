@@ -17,10 +17,16 @@ const CATEGORIES = [
   "Doceria", "Sorveteria", "Padaria", "Cafeteria", "Bar", "Outro",
 ];
 
-const STATES = [
-  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
-  "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
-];
+const STATES_CITIES: Record<string, string[]> = {
+  PI: [
+    "Teresina", "Parnaíba", "Picos", "Piripiri", "Floriano", "Campo Maior",
+    "Barras", "União", "Altos", "José de Freitas", "Pedro II", "Oeiras",
+    "Esperantina", "Luís Correia", "Valença do Piauí", "São Raimundo Nonato",
+    "Corrente", "Bom Jesus", "Uruçuí", "Agua Branca", "Regeneração",
+    "Miguel Alves", "Amarante", "Luzilândia", "Batalha", "Inhuma",
+    "São João do Piauí", "Simplício Mendes", "Canto do Buriti", "Itainópolis",
+  ],
+};
 
 interface TenantEditForm {
   name: string;
@@ -314,24 +320,43 @@ const TenantEditPage = () => {
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label>CEP</Label>
-            <Input value={form.zip_code} onChange={(e) => set("zip_code", e.target.value)} placeholder="00000-000" />
+            <Input
+              value={form.zip_code}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, "").slice(0, 8);
+                set("zip_code", v);
+              }}
+              placeholder="00000000"
+              maxLength={8}
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Estado</Label>
             <select
               value={form.state}
-              onChange={(e) => set("state", e.target.value)}
+              onChange={(e) => {
+                set("state", e.target.value);
+                set("city", "");
+              }}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <option value="">Selecione</option>
-              {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              {Object.keys(STATES_CITIES).map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
 
           <div className="space-y-2 sm:col-span-2">
             <Label>Cidade</Label>
-            <Input value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="Ex: São Paulo" />
+            <select
+              value={form.city}
+              onChange={(e) => set("city", e.target.value)}
+              disabled={!form.state}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <option value="">{form.state ? "Selecione a cidade" : "Selecione o estado primeiro"}</option>
+              {(STATES_CITIES[form.state] || []).map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
 
           <div className="space-y-2">
