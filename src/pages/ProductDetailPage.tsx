@@ -259,7 +259,7 @@ const ProductDetailPage = () => {
                   },
                   { id: tenant.id, slug: tenant.slug, name: tenant.name }
                 );
-                toast.success(`${product.name} adicionado ao carrinho!`);
+                toast.success("✔ Produto adicionado ao carrinho");
                 setQuantity(1);
               }}
             >
