@@ -315,7 +315,7 @@ const AdminChatPage = () => {
   const financialStatus = sale ? FINANCIAL_LABELS[sale.financial_status] || FINANCIAL_LABELS.pending : null;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
+    <div className="flex flex-col -m-4 lg:-m-6 h-[calc(100vh-64px)]">
       {/* Chat header */}
       <div className="border-b border-border p-4 bg-card">
         <div className="flex items-center justify-between">
