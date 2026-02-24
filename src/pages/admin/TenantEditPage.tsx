@@ -202,16 +202,16 @@ const TenantEditPage = () => {
         <p className="text-sm text-muted-foreground">Edite as informações do seu estabelecimento</p>
       </div>
 
-      {/* Logo */}
+      {/* Logo & Banner */}
       <Card>
-        <CardHeader><CardTitle className="text-lg">Logo</CardTitle></CardHeader>
-        <CardContent>
+        <CardHeader><CardTitle className="text-lg">Logo & Banner</CardTitle></CardHeader>
+        <CardContent className="space-y-6">
           <div className="flex items-center gap-5">
-            <div className="w-24 h-24 rounded-full bg-secondary overflow-hidden flex-shrink-0 border-2 border-border">
+            <div className="w-20 h-20 rounded-full bg-secondary overflow-hidden flex-shrink-0 border-2 border-border">
               {logoUrl ? (
                 <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-3xl text-muted-foreground">🏪</div>
+                <div className="w-full h-full flex items-center justify-center text-2xl text-muted-foreground">🏪</div>
               )}
             </div>
             <div>
@@ -222,23 +222,17 @@ const TenantEditPage = () => {
                   <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                 </label>
               </Button>
-              <p className="text-xs text-muted-foreground mt-1">PNG, JPG ou WebP. Recomendado: 200x200px</p>
+              <p className="text-xs text-muted-foreground mt-1">PNG, JPG ou WebP. 200x200px</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Banner / Cover */}
-      <Card>
-        <CardHeader><CardTitle className="text-lg">Banner / Capa</CardTitle></CardHeader>
-        <CardContent>
+          <div className="border-t border-border" />
           <div className="space-y-3">
-            <div className="w-full h-40 rounded-lg bg-secondary overflow-hidden border-2 border-border">
+            <div className="w-full h-36 rounded-lg bg-secondary overflow-hidden border border-border">
               {coverUrl ? (
                 <img src={coverUrl} alt="Banner" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-muted-foreground gap-2">
-                  <Image className="w-6 h-6" />
+                  <Image className="w-5 h-5" />
                   <span className="text-sm">Nenhum banner definido</span>
                 </div>
               )}
@@ -256,7 +250,7 @@ const TenantEditPage = () => {
                   <X className="w-4 h-4" /> Remover
                 </Button>
               )}
-              <p className="text-xs text-muted-foreground">Recomendado: 1200x400px</p>
+              <p className="text-xs text-muted-foreground">1200x400px</p>
             </div>
           </div>
         </CardContent>
