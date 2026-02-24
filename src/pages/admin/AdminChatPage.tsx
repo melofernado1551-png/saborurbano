@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Send, ArrowLeft, ChevronDown, DollarSign, CreditCard, Banknote, QrCode, X } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate, useParams } from "react-router-dom";
@@ -47,7 +48,9 @@ const AdminChatPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [registeringPayment, setRegisteringPayment] = useState(false);
+  const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Fetch chat
   const { data: chat } = useQuery({
@@ -114,6 +117,13 @@ const AdminChatPage = () => {
     },
   });
 
+  // Clear optimistic messages when real messages update
+  useEffect(() => {
+    if (messages.length > 0) {
+      setOptimisticMessages([]);
+    }
+  }, [messages]);
+
   // Realtime
   useEffect(() => {
     if (!chatId) return;
@@ -133,27 +143,73 @@ const AdminChatPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [chatId, chat?.sale_id, sale?.id, queryClient]);
 
+  // Combined messages for display
+  const allMessages = [...messages, ...optimisticMessages].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [allMessages.length]);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!message.trim() || !chatId) return;
+    const content = message.trim();
+    setMessage("");
+
+    // Optimistic message
+    const optimistic = {
+      id: `optimistic-${Date.now()}`,
+      chat_id: chatId,
+      sender_id: user?.id || null,
+      sender_type: "tenant",
+      content,
+      message_type: "text",
+      metadata: { sender_name: user?.name || user?.login || "Loja" },
+      created_at: new Date().toISOString(),
+      active: true,
+      _optimistic: true,
+    };
+    setOptimisticMessages((prev) => [...prev, optimistic]);
+
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+
     setSending(true);
     try {
-      await supabase.from("chat_messages").insert({
+      const { error } = await supabase.from("chat_messages").insert({
         chat_id: chatId,
         sender_id: user?.id || null,
         sender_type: "tenant",
-        content: message.trim(),
+        content,
         message_type: "text",
+        metadata: { sender_name: user?.name || user?.login || "Loja" },
       });
-      setMessage("");
+      if (error) throw error;
     } catch {
+      setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       toast.error("Erro ao enviar mensagem");
+      setMessage(content); // Restore message
     } finally {
       setSending(false);
     }
+  }, [message, chatId, user, queryClient]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+    // Auto-resize
+    const textarea = e.target;
+    textarea.style.height = "auto";
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
   };
 
   const handleUpdateOperationalStatus = async (newStatus: string) => {
@@ -168,6 +224,7 @@ const AdminChatPage = () => {
         sender_type: "system",
         content: `${statusInfo.emoji} Status atualizado: **${statusInfo.label}**`,
         message_type: "status_update",
+        metadata: { sender_name: user?.name || user?.login || "Sistema" },
       });
 
       setShowStatusMenu(false);
@@ -204,6 +261,7 @@ const AdminChatPage = () => {
         sender_type: "system",
         content: `💳 **Pagamento registrado**\nR$ ${amount.toFixed(2)} via ${methodLabel}`,
         message_type: "payment_registered",
+        metadata: { sender_name: user?.name || user?.login || "Sistema" },
       });
 
       setPaymentMethod("");
@@ -377,26 +435,34 @@ const AdminChatPage = () => {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {messages.map((msg) => {
+        {allMessages.map((msg) => {
           const isCustomer = msg.sender_type === "customer";
+          const isTenant = msg.sender_type === "tenant";
           const isSystem = ["order_summary", "address_confirmation", "status_update", "payment_registered"].includes(msg.message_type);
+          const senderName = (msg.metadata as any)?.sender_name;
 
           return (
             <div key={msg.id} className={`flex ${isCustomer ? "justify-start" : "justify-end"}`}>
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
-                  isSystem
-                    ? "bg-accent border border-border text-foreground"
-                    : isCustomer
-                    ? "bg-card border border-border text-foreground"
-                    : "bg-primary text-primary-foreground"
-                }`}
-              >
-                {isCustomer && <p className="text-xs font-semibold text-primary mb-1">{customerInfo?.name || "Cliente"}</p>}
-                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                <p className={`text-[10px] mt-1 ${!isCustomer && !isSystem ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                  {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                </p>
+              <div className="max-w-[80%]">
+                {/* Sender name for store messages */}
+                {isTenant && senderName && (
+                  <p className="text-[11px] text-muted-foreground mb-0.5 text-right px-1">{senderName}</p>
+                )}
+                <div
+                  className={`rounded-2xl px-4 py-2.5 text-sm ${
+                    isSystem
+                      ? "bg-accent border border-border text-foreground"
+                      : isCustomer
+                      ? "bg-card border border-border text-foreground"
+                      : "bg-primary text-primary-foreground"
+                  } ${msg._optimistic ? "opacity-70" : ""}`}
+                >
+                  {isCustomer && <p className="text-xs font-semibold text-primary mb-1">{customerInfo?.name || "Cliente"}</p>}
+                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  <p className={`text-[10px] mt-1 ${!isCustomer && !isSystem ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                    {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
               </div>
             </div>
           );
@@ -406,16 +472,17 @@ const AdminChatPage = () => {
 
       {/* Input */}
       <div className="border-t border-border p-4 bg-card">
-        <div className="flex gap-2">
-          <input
-            type="text"
+        <div className="flex gap-2 items-end">
+          <textarea
+            ref={textareaRef}
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+            onChange={handleTextareaInput}
+            onKeyDown={handleKeyDown}
             placeholder="Responder ao cliente..."
-            className="flex-1 h-10 px-4 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            rows={1}
+            className="flex-1 min-h-[40px] max-h-[120px] px-4 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
           />
-          <Button size="icon" className="h-10 w-10 rounded-xl" onClick={handleSend} disabled={!message.trim() || sending}>
+          <Button size="icon" className="h-10 w-10 rounded-xl flex-shrink-0" onClick={handleSend} disabled={!message.trim() || sending}>
             <Send className="w-4 h-4" />
           </Button>
         </div>
