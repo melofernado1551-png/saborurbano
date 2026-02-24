@@ -46,7 +46,6 @@ const AdminChatPage = () => {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("");
-  const [paymentAmount, setPaymentAmount] = useState("");
   const [registeringPayment, setRegisteringPayment] = useState(false);
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -236,12 +235,8 @@ const AdminChatPage = () => {
   };
 
   const handleRegisterPayment = async () => {
-    if (!sale || !paymentMethod || !paymentAmount) return;
-    const amount = parseFloat(paymentAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Valor inválido");
-      return;
-    }
+    if (!sale || !paymentMethod) return;
+    const amount = remaining;
 
     setRegisteringPayment(true);
     try {
@@ -265,7 +260,6 @@ const AdminChatPage = () => {
       });
 
       setPaymentMethod("");
-      setPaymentAmount("");
       setShowPaymentForm(false);
       toast.success("Pagamento registrado!");
     } catch {
@@ -389,22 +383,14 @@ const AdminChatPage = () => {
               })}
             </div>
 
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder={`Valor (máx R$ ${remaining.toFixed(2)})`}
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  className="h-9 text-sm"
-                />
-              </div>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Valor: <span className="font-semibold text-foreground">R$ {remaining.toFixed(2)}</span>
+              </p>
               <Button
                 size="sm"
                 className="h-9"
-                disabled={!paymentMethod || !paymentAmount || registeringPayment}
+                disabled={!paymentMethod || registeringPayment}
                 onClick={handleRegisterPayment}
               >
                 {registeringPayment ? "..." : "Confirmar"}
