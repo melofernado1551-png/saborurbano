@@ -21,7 +21,7 @@ const RestaurantPage = () => {
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
   const { session, getOrCreateCustomerForTenant } = useCustomerAuth();
   const { user } = useAuth();
-  const { addItem, totalItems, setIsOpen: setCartOpen } = useCart();
+  const { addItem, totalItems, totalPrice, setIsOpen: setCartOpen } = useCart();
 
   // Fetch tenant
   const { data: tenant, isLoading: tenantLoading } = useQuery({
@@ -540,12 +540,17 @@ const RestaurantPage = () => {
                 <span className="hidden sm:inline">Admin</span>
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="relative" onClick={() => setCartOpen(true)}>
+            <Button variant="ghost" className="relative gap-2 px-3" onClick={() => setCartOpen(true)}>
               <ShoppingBag className="w-5 h-5" />
               {totalItems > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-semibold">
-                  {totalItems}
-                </span>
+                <>
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-semibold">
+                    {totalItems}
+                  </span>
+                  <span className="text-sm font-semibold text-foreground hidden sm:inline">
+                    {totalPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </span>
+                </>
               )}
             </Button>
             <Button variant="ghost" size="icon" onClick={handleShareRestaurant}>
