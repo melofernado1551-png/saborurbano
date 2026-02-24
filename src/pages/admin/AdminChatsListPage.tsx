@@ -38,6 +38,13 @@ const AdminChatsListPage = () => {
           queryClient.invalidateQueries({ queryKey: ["admin-chats", tenantId] });
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sales", filter: `tenant_id=eq.${tenantId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["admin-chats", tenantId] });
+        }
+      )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [tenantId, queryClient]);
@@ -47,7 +54,7 @@ const AdminChatsListPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chats")
-        .select("*, customers(name, phone), sales(sale_number, valor_total, financial_status, operational_status)")
+        .select("*, customers(name, phone), sales!sales_chat_id_fkey(sale_number, valor_total, financial_status, operational_status)")
         .eq("tenant_id", tenantId!)
         .eq("active", true)
         .order("updated_at", { ascending: false });
@@ -80,7 +87,8 @@ const AdminChatsListPage = () => {
         <div className="space-y-3">
           {chats.map((chat: any) => {
             const customerName = chat.customers?.name || "Cliente";
-            const sale = chat.sales;
+            const salesArray = chat.sales;
+            const sale = Array.isArray(salesArray) ? salesArray[0] : salesArray;
             const financial = sale ? FINANCIAL_LABELS[sale.financial_status] || FINANCIAL_LABELS.pending : null;
             const operational = sale ? STATUS_LABELS[sale.operational_status] || { label: sale.operational_status, emoji: "📋" } : null;
 
