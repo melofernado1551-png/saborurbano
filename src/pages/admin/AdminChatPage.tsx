@@ -318,20 +318,25 @@ const AdminChatPage = () => {
     <div className="flex flex-col -m-4 lg:-m-6 h-[calc(100vh-64px)]">
       {/* Chat header */}
       <div className="border-b border-border p-4 bg-card">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <h2 className="font-bold text-foreground flex items-center gap-2">
               {customerInfo?.name || "Cliente"}
               {sale && <span className="text-sm font-normal text-muted-foreground">· Pedido #{sale.sale_number}</span>}
             </h2>
-            {customerInfo?.phone && <p className="text-xs text-muted-foreground">{customerInfo.phone}</p>}
-          </div>
-          <div className="flex gap-2 flex-wrap justify-end">
-            {financialStatus && (
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${financialStatus.color}`}>
-                {financialStatus.emoji} {financialStatus.label}
-              </span>
+            {sale && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                💰 Total: R$ {Number(sale.valor_total).toFixed(2)}
+                {totalPaid > 0 && (
+                  <>
+                    {" "}· Pago: <span className="text-green-600 font-medium">R$ {totalPaid.toFixed(2)}</span>
+                    {remaining > 0 && <span className="ml-1 text-destructive">· Falta: R$ {remaining.toFixed(2)}</span>}
+                  </>
+                )}
+              </p>
             )}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
             {operationalStatus && (
               <div className="relative">
                 <button
@@ -358,27 +363,12 @@ const AdminChatPage = () => {
                 )}
               </div>
             )}
-          </div>
-        </div>
-
-        {sale?.delivery_address && (
-          <div className="mt-2 px-3 py-2 rounded-lg bg-secondary/50 text-xs text-muted-foreground">
-            📍 {(sale.delivery_address as any)?.label}: {(sale.delivery_address as any)?.street}, {(sale.delivery_address as any)?.number} — {(sale.delivery_address as any)?.neighborhood}
-          </div>
-        )}
-
-        {sale && (
-          <div className="mt-2 flex items-center justify-between">
-            <div className="text-xs text-muted-foreground">
-              💰 Total: R$ {Number(sale.valor_total).toFixed(2)}
-              {totalPaid > 0 && (
-                <span className="ml-2">
-                  · Pago: <span className="text-green-600 font-medium">R$ {totalPaid.toFixed(2)}</span>
-                  {remaining > 0 && <span className="ml-1 text-destructive">· Falta: R$ {remaining.toFixed(2)}</span>}
-                </span>
-              )}
-            </div>
-            {sale.financial_status !== "paid" && (
+            {financialStatus && (
+              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${financialStatus.color}`}>
+                {financialStatus.emoji} {financialStatus.label}
+              </span>
+            )}
+            {sale && sale.financial_status !== "paid" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -389,6 +379,12 @@ const AdminChatPage = () => {
                 Registrar Pagamento
               </Button>
             )}
+          </div>
+        </div>
+
+        {sale?.delivery_address && (
+          <div className="mt-2 px-3 py-2 rounded-lg bg-secondary/50 text-xs text-muted-foreground">
+            📍 {(sale.delivery_address as any)?.label}: {(sale.delivery_address as any)?.street}, {(sale.delivery_address as any)?.number} — {(sale.delivery_address as any)?.neighborhood}
           </div>
         )}
 
