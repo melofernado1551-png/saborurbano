@@ -87,8 +87,9 @@ Deno.serve(async (req) => {
     // Build order summary message
     const itemLines = items.map((item: any) => {
       const price = item.promoPrice ?? item.price;
-      const obs = item.observation ? ` (${item.observation})` : "";
-      return `• ${item.quantity}x ${item.name} — R$ ${(price * item.quantity).toFixed(2)}${obs}`;
+      const lines = [`• ${item.quantity}x ${item.name} — R$ ${(price * item.quantity).toFixed(2)}`];
+      if (item.observation) lines.push(`  📝 ${item.observation}`);
+      return lines.join("\n");
     });
 
     const messageContent = [

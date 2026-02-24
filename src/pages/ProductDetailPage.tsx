@@ -11,6 +11,7 @@ const ProductDetailPage = () => {
   const { tenantSlug, productSlug } = useParams<{ tenantSlug: string; productSlug: string }>();
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
+  const [observation, setObservation] = useState("");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { addItem, totalItems, setIsOpen: setCartOpen } = useCart();
 
@@ -221,9 +222,28 @@ const ProductDetailPage = () => {
           )}
         </div>
 
-        {/* Quantity + Add to cart (prepared for future) */}
+        {/* Observation */}
         {!outOfStock && (
-          <div className="flex items-center gap-4 mt-8">
+          <div className="mt-6">
+            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+              Observações (opcional)
+            </label>
+            <textarea
+              value={observation}
+              onChange={(e) => setObservation(e.target.value.slice(0, 200))}
+              placeholder="Ex: sem cebola, bem passado, molho à parte..."
+              rows={2}
+              className="w-full rounded-xl border border-border bg-secondary/50 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+            />
+            <span className="text-xs text-muted-foreground mt-1 block text-right">
+              {observation.length}/200
+            </span>
+          </div>
+        )}
+
+        {/* Quantity + Add to cart */}
+        {!outOfStock && (
+          <div className="flex items-center gap-4 mt-4">
             <div className="flex items-center gap-3 bg-secondary rounded-xl px-2 py-1">
               <Button
                 variant="ghost"
@@ -248,6 +268,7 @@ const ProductDetailPage = () => {
               className="flex-1 h-12 gap-2 rounded-xl text-base font-bold"
               disabled={outOfStock}
               onClick={() => {
+                const trimmedObs = observation.trim();
                 addItem(
                   {
                     productId: product.id,
@@ -256,11 +277,13 @@ const ProductDetailPage = () => {
                     promoPrice: product.promo_price ? Number(product.promo_price) : null,
                     imageUrl: mainImage,
                     quantity,
+                    observation: trimmedObs || undefined,
                   },
                   { id: tenant.id, slug: tenant.slug, name: tenant.name }
                 );
                 toast.success("✔ Produto adicionado ao carrinho");
                 setQuantity(1);
+                setObservation("");
               }}
             >
               <ShoppingBag className="w-5 h-5" />
