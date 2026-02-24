@@ -67,11 +67,8 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
     ...(isSuperAdmin || isAdminTenant
       ? [{ label: "Minha Vitrine", icon: LayoutGrid, path: "/admin/meu-perfil" }]
       : []),
-    ...(isAdminTenant
-      ? [{ label: "Configurações", icon: Settings, path: "/admin/configuracoes" }]
-      : []),
-    ...(isSuperAdmin
-      ? [{ label: "Configs Admin", icon: SlidersHorizontal, path: "/admin/configs-admin" }]
+    ...(!isContador
+      ? [{ label: "Configurações", icon: Settings, path: isAdminTenant ? "/admin/configuracoes" : "/admin/configs-admin" }]
       : []),
   ];
 
