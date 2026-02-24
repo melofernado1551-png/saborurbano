@@ -181,17 +181,10 @@ const RestaurantPage = () => {
     return map;
   }, [categoryRelations]);
 
-  // Categories with products (hide empty)
+  // Categories with products (show all tenant categories)
   const categoriesWithProducts = useMemo(() => {
-    const catProductCount: Record<string, number> = {};
-    for (const p of products) {
-      const cats = categoryMap[p.id] || [];
-      for (const catId of cats) {
-        catProductCount[catId] = (catProductCount[catId] || 0) + 1;
-      }
-    }
-    return categories.filter((cat) => (catProductCount[cat.id] || 0) > 0);
-  }, [categories, products, categoryMap]);
+    return categories;
+  }, [categories]);
 
   // Filter products
   const filteredProducts = useMemo(() => {
