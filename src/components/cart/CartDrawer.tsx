@@ -122,7 +122,7 @@ const CartDrawer = () => {
       </AlertDialog>
 
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
+        <SheetContent className="w-full sm:max-w-md flex flex-col p-0 [&>button.absolute]:hidden">
           <SheetHeader className="px-4 pt-4 pb-3 border-b border-border">
             <div className="flex items-center justify-between">
               <SheetTitle className="flex items-center gap-2">
