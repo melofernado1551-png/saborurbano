@@ -333,7 +333,7 @@ const SalesPageNew = () => {
     queryFn: async () => {
       let query = supabase
         .from("sales")
-        .select("*, customers(name)")
+        .select("*, customers(name), sale_payments(payment_method)")
         .eq("tenant_id", effectiveTenantId!)
         .eq("active", true)
         .order("created_at", { ascending: false });
@@ -536,7 +536,15 @@ const SalesPageNew = () => {
                         <Badge className={`text-[10px] ${fin.color}`}>{fin.label}</Badge>
                       </TableCell>
                       <TableCell className="capitalize text-sm">
-                        {PAYMENT_LABELS[sale.forma_pagamento] || sale.forma_pagamento || "—"}
+                        {(() => {
+                          // Try sale_payments first, then fallback to forma_pagamento
+                          const paymentMethods = sale.sale_payments?.map((p: any) => p.payment_method).filter(Boolean) || [];
+                          const uniqueMethods = [...new Set(paymentMethods)] as string[];
+                          if (uniqueMethods.length > 0) {
+                            return uniqueMethods.map((m: string) => PAYMENT_LABELS[m] || m).join(", ");
+                          }
+                          return PAYMENT_LABELS[sale.forma_pagamento] || sale.forma_pagamento || "—";
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setSelectedSale(sale); }}>
