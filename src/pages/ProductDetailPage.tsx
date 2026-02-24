@@ -14,11 +14,21 @@ const ProductDetailPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [observation, setObservation] = useState("");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const { addItem, totalItems, totalPrice, setIsOpen: setCartOpen } = useCart();
 
+  const changeImage = (next: number) => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentImageIndex(next);
+      setTimeout(() => setIsTransitioning(false), 50);
+    }, 200);
+  };
+
   const imageSwipe = useSwipe({
-    onSwipeLeft: () => setCurrentImageIndex((prev) => (prev === (images?.length || 1) - 1 ? 0 : prev + 1)),
-    onSwipeRight: () => setCurrentImageIndex((prev) => (prev === 0 ? (images?.length || 1) - 1 : prev - 1)),
+    onSwipeLeft: () => changeImage(currentImageIndex === (images?.length || 1) - 1 ? 0 : currentImageIndex + 1),
+    onSwipeRight: () => changeImage(currentImageIndex === 0 ? (images?.length || 1) - 1 : currentImageIndex - 1),
   });
 
   // Fetch tenant by slug
@@ -180,7 +190,7 @@ const ProductDetailPage = () => {
             <img
               src={images[currentImageIndex]?.image_url}
               alt={product.name}
-              className="w-full h-full object-contain"
+              className={`w-full h-full object-contain transition-opacity duration-300 ease-in-out ${isTransitioning ? "opacity-0" : "opacity-100"}`}
             />
             {images.length > 1 && (
               <>
@@ -188,7 +198,7 @@ const ProductDetailPage = () => {
                   variant="ghost"
                   size="icon"
                   className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-card/80 backdrop-blur-sm hover:bg-card shadow-md"
-                  onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))}
+                  onClick={() => changeImage(currentImageIndex === 0 ? images.length - 1 : currentImageIndex - 1)}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </Button>
@@ -196,7 +206,7 @@ const ProductDetailPage = () => {
                   variant="ghost"
                   size="icon"
                   className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-card/80 backdrop-blur-sm hover:bg-card shadow-md"
-                  onClick={() => setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))}
+                  onClick={() => changeImage(currentImageIndex === images.length - 1 ? 0 : currentImageIndex + 1)}
                 >
                   <ChevronRight className="w-5 h-5" />
                 </Button>
