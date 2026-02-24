@@ -35,6 +35,7 @@ const DashboardPage = () => {
         .select("*")
         .eq("tenant_id", effectiveTenantId!)
         .eq("active", true)
+        .eq("financial_status", "paid")
         .gte("created_at", startOfMonth)
         .order("created_at", { ascending: false });
 
