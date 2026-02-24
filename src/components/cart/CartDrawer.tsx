@@ -5,6 +5,7 @@ import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { Minus, Plus, Trash2, ShoppingBag, MessageCircle, Truck } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSwipe } from "@/hooks/useSwipe";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import CustomerAuthModal from "@/components/customer/CustomerAuthModal";
@@ -41,6 +42,7 @@ const CartDrawer = () => {
   const navigate = useNavigate();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const swipeHandlers = useSwipe({ onSwipeRight: () => setIsOpen(false) });
 
   const handleCheckout = async () => {
     if (isInactive) {
@@ -122,7 +124,11 @@ const CartDrawer = () => {
       </AlertDialog>
 
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent className="w-full sm:max-w-md flex flex-col p-0 [&>button.absolute]:hidden">
+        <SheetContent
+          className="w-full sm:max-w-md flex flex-col p-0 [&>button.absolute]:hidden"
+          onTouchStart={swipeHandlers.onTouchStart}
+          onTouchEnd={swipeHandlers.onTouchEnd}
+        >
           <SheetHeader className="px-4 pt-4 pb-3 border-b border-border">
             <div className="flex items-center justify-between">
               <SheetTitle className="flex items-center gap-2">

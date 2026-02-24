@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useSwipe } from "@/hooks/useSwipe";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Share2, ShoppingBag, Minus, Plus, ChevronLeft, ChevronRight } from "lucide-react";
@@ -14,6 +15,11 @@ const ProductDetailPage = () => {
   const [observation, setObservation] = useState("");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const { addItem, totalItems, totalPrice, setIsOpen: setCartOpen } = useCart();
+
+  const imageSwipe = useSwipe({
+    onSwipeLeft: () => setCurrentImageIndex((prev) => (prev === (images?.length || 1) - 1 ? 0 : prev + 1)),
+    onSwipeRight: () => setCurrentImageIndex((prev) => (prev === 0 ? (images?.length || 1) - 1 : prev - 1)),
+  });
 
   // Fetch tenant by slug
   const { data: tenant, isLoading: tenantLoading } = useQuery({
@@ -164,7 +170,11 @@ const ProductDetailPage = () => {
       </header>
 
       {/* Product image */}
-      <div className="relative w-full h-72 md:h-96 bg-white overflow-hidden">
+      <div
+        className="relative w-full h-72 md:h-96 bg-white overflow-hidden"
+        onTouchStart={imageSwipe.onTouchStart}
+        onTouchEnd={imageSwipe.onTouchEnd}
+      >
         {images.length > 0 ? (
           <>
             <img
