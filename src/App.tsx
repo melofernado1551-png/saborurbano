@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { useAutoTheme } from "@/hooks/useAutoTheme";
+import { useSystemConfig } from "@/hooks/useSystemConfig";
 import CartDrawer from "@/components/cart/CartDrawer";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -40,6 +41,7 @@ const queryClient = new QueryClient();
 
 const AutoThemeHandler = () => {
   useAutoTheme();
+  useSystemConfig();
   return null;
 };
 
