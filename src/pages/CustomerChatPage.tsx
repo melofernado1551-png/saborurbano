@@ -193,8 +193,8 @@ const CustomerChatPage = () => {
         message_type: "text",
       });
       if (error) throw error;
-      // Immediate refetch to ensure message appears
-      queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
+      // Await refetch to ensure message appears immediately
+      await queryClient.refetchQueries({ queryKey: ["chat-messages", chatId] });
     } catch {
       setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       toast.error("Erro ao enviar mensagem");
