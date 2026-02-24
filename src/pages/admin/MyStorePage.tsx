@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/contexts/AdminContext";
@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -16,22 +15,16 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Plus, Pencil, Trash2, ChevronUp, ChevronDown, Star, Sparkles,
-  GripVertical, Loader2, Save, Eye, Settings2, Flame,
+  Plus, Pencil, Trash2, Star, Sparkles, Loader2, Save, Eye, Flame, GripVertical, ChevronDown, ChevronUp, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-
 
 const MAX_SECTION_PRODUCTS = 12;
 
 // ── Types ──
 interface DraftSectionProduct {
-  id?: string; // existing DB id or undefined for new
+  id?: string;
   product_id: string;
   position: number;
   active: boolean;
@@ -89,7 +82,6 @@ const MyStorePage = () => {
 
   const imageMap = useMemo(() => {
     const map: Record<string, string> = {};
-    // pick lowest position per product
     const sorted = [...productImages].sort((a, b) => a.position - b.position);
     for (const img of sorted) {
       if (!map[img.product_id]) map[img.product_id] = img.image_url;
@@ -112,7 +104,6 @@ const MyStorePage = () => {
     },
   });
 
-  // Load existing sections
   const { data: remoteSections = [], isLoading: sectionsLoading } = useQuery({
     queryKey: ["tenant-sections", tenantId],
     enabled: !!tenantId,
@@ -127,7 +118,6 @@ const MyStorePage = () => {
     },
   });
 
-  // Load existing featured
   const { data: remoteFeatured = [], isLoading: featuredLoading } = useQuery({
     queryKey: ["featured-products-tenant", tenantId],
     enabled: !!tenantId,
@@ -142,7 +132,6 @@ const MyStorePage = () => {
     },
   });
 
-  // Tenant info for preview header
   const { data: tenant } = useQuery({
     queryKey: ["tenant-info-preview", tenantId],
     enabled: !!tenantId,
@@ -163,33 +152,20 @@ const MyStorePage = () => {
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Initialize drafts from remote data
   useEffect(() => {
     if (sectionsLoading || featuredLoading) return;
     if (initialized) return;
     setDraftSections(
       remoteSections.map((s: any) => ({
-        id: s.id,
-        title: s.title,
-        category_id: s.category_id,
-        position: s.position,
-        active: s.active,
+        id: s.id, title: s.title, category_id: s.category_id,
+        position: s.position, active: s.active,
         products: (s.tenant_section_products || [])
           .sort((a: any, b: any) => a.position - b.position)
-          .map((sp: any) => ({
-            id: sp.id,
-            product_id: sp.product_id,
-            position: sp.position,
-            active: sp.active,
-          })),
+          .map((sp: any) => ({ id: sp.id, product_id: sp.product_id, position: sp.position, active: sp.active })),
       }))
     );
     setDraftFeatured(
-      remoteFeatured.map((f: any) => ({
-        id: f.id,
-        product_id: f.product_id,
-        position: f.position,
-      }))
+      remoteFeatured.map((f: any) => ({ id: f.id, product_id: f.product_id, position: f.position }))
     );
     setInitialized(true);
   }, [sectionsLoading, featuredLoading, remoteSections, remoteFeatured, initialized]);
@@ -197,38 +173,41 @@ const MyStorePage = () => {
   // ── Dirty detection ──
   const isDirty = useMemo(() => {
     if (!initialized) return false;
-    const currentSections = JSON.stringify(
-      draftSections.map(({ id, title, category_id, position, active, products, _deleted }) => ({
-        id, title, category_id, position, active, _deleted,
-        products: products.map(({ id: pid, product_id, position: pos, active: a }) => ({ id: pid, product_id, position: pos, active: a })),
-      }))
-    );
-    const originalSections = JSON.stringify(
-      remoteSections.map((s: any) => ({
-        id: s.id, title: s.title, category_id: s.category_id, position: s.position, active: s.active, _deleted: undefined,
-        products: (s.tenant_section_products || [])
-          .sort((a: any, b: any) => a.position - b.position)
-          .map((sp: any) => ({ id: sp.id, product_id: sp.product_id, position: sp.position, active: sp.active })),
-      }))
-    );
-    const currentFeatured = JSON.stringify(draftFeatured);
-    const originalFeatured = JSON.stringify(remoteFeatured.map((f: any) => ({ id: f.id, product_id: f.product_id, position: f.position })));
-    return currentSections !== originalSections || currentFeatured !== originalFeatured;
+    const cs = JSON.stringify(draftSections.map(({ id, title, category_id, position, active, products, _deleted }) => ({
+      id, title, category_id, position, active, _deleted,
+      products: products.map(({ id: pid, product_id, position: pos, active: a }) => ({ id: pid, product_id, position: pos, active: a })),
+    })));
+    const os = JSON.stringify(remoteSections.map((s: any) => ({
+      id: s.id, title: s.title, category_id: s.category_id, position: s.position, active: s.active, _deleted: undefined,
+      products: (s.tenant_section_products || []).sort((a: any, b: any) => a.position - b.position)
+        .map((sp: any) => ({ id: sp.id, product_id: sp.product_id, position: sp.position, active: sp.active })),
+    })));
+    const cf = JSON.stringify(draftFeatured);
+    const of2 = JSON.stringify(remoteFeatured.map((f: any) => ({ id: f.id, product_id: f.product_id, position: f.position })));
+    return cs !== os || cf !== of2;
   }, [draftSections, draftFeatured, remoteSections, remoteFeatured, initialized]);
 
-  // Navigation blocker via beforeunload
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
+      if (isDirty) { e.preventDefault(); e.returnValue = ""; }
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
 
-  // ── Draft actions: Featured ──
+  // ── Product map ──
+  const productMap = useMemo(() => {
+    const map = new Map<string, typeof tenantProducts[0]>();
+    for (const p of tenantProducts) map.set(p.id, p);
+    return map;
+  }, [tenantProducts]);
+
+  // ── Featured actions ──
+  const activeFeatured = draftFeatured.filter((f) => !f._deleted);
+  const availableForFeatured = tenantProducts.filter(
+    (p) => !activeFeatured.some((f) => f.product_id === p.id)
+  );
+
   const addFeaturedDraft = (productId: string) => {
     setDraftFeatured((prev) => [
       ...prev.filter((f) => !f._deleted),
@@ -240,31 +219,21 @@ const MyStorePage = () => {
     setDraftFeatured((prev) => {
       const item = prev.find((f) => f.product_id === productId && !f._deleted);
       if (!item) return prev;
-      if (item.id) {
-        return prev.map((f) => (f === item ? { ...f, _deleted: true } : f));
-      }
+      if (item.id) return prev.map((f) => (f === item ? { ...f, _deleted: true } : f));
       return prev.filter((f) => f !== item);
     });
   };
 
-  const activeFeatured = draftFeatured.filter((f) => !f._deleted);
-  const availableForFeatured = tenantProducts.filter(
-    (p) => !activeFeatured.some((f) => f.product_id === p.id)
-  );
+  // ── Sections actions ──
+  const getActiveIndices = (sections: DraftSection[]) =>
+    sections.reduce<number[]>((acc, s, i) => (s._deleted ? acc : [...acc, i]), []);
 
-  // ── Draft actions: Sections ──
   const activeSections = draftSections.filter((s) => !s._deleted);
 
   const addSectionDraft = (title: string, categoryId: string | null) => {
     setDraftSections((prev) => [
       ...prev,
-      {
-        title,
-        category_id: categoryId === "none" ? null : categoryId,
-        position: activeSections.length,
-        active: true,
-        products: [],
-      },
+      { title, category_id: categoryId === "none" ? null : categoryId, position: activeSections.length, active: true, products: [] },
     ]);
   };
 
@@ -349,9 +318,6 @@ const MyStorePage = () => {
     });
   };
 
-  const getActiveIndices = (sections: DraftSection[]) =>
-    sections.reduce<number[]>((acc, s, i) => (s._deleted ? acc : [...acc, i]), []);
-
   const getAvailableProducts = (sectionIndex: number) => {
     const section = activeSections[sectionIndex];
     if (!section) return tenantProducts;
@@ -359,9 +325,110 @@ const MyStorePage = () => {
     return tenantProducts.filter((p) => !usedIds.includes(p.id));
   };
 
-  // ── Save all ──
+  // ── Drag & Drop for Featured ──
+  const [dragFeaturedIdx, setDragFeaturedIdx] = useState<number | null>(null);
+  const [dragOverFeaturedIdx, setDragOverFeaturedIdx] = useState<number | null>(null);
+
+  const handleFeaturedDragStart = (idx: number) => setDragFeaturedIdx(idx);
+  const handleFeaturedDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setDragOverFeaturedIdx(idx);
+  };
+  const handleFeaturedDrop = (idx: number) => {
+    if (dragFeaturedIdx === null || dragFeaturedIdx === idx) {
+      setDragFeaturedIdx(null);
+      setDragOverFeaturedIdx(null);
+      return;
+    }
+    setDraftFeatured((prev) => {
+      const active = prev.filter((f) => !f._deleted);
+      const item = active[dragFeaturedIdx];
+      const without = active.filter((_, i) => i !== dragFeaturedIdx);
+      without.splice(idx, 0, item);
+      const deleted = prev.filter((f) => f._deleted);
+      return [...without.map((f, i) => ({ ...f, position: i })), ...deleted];
+    });
+    setDragFeaturedIdx(null);
+    setDragOverFeaturedIdx(null);
+  };
+
+  // ── Drag & Drop for Section Products ──
+  const [dragSectionProductInfo, setDragSectionProductInfo] = useState<{ sectionIdx: number; productIdx: number } | null>(null);
+  const [dragOverSectionProduct, setDragOverSectionProduct] = useState<{ sectionIdx: number; productIdx: number } | null>(null);
+
+  const handleSectionProductDragStart = (sectionIdx: number, productIdx: number) => {
+    setDragSectionProductInfo({ sectionIdx, productIdx });
+  };
+  const handleSectionProductDragOver = (e: React.DragEvent, sectionIdx: number, productIdx: number) => {
+    e.preventDefault();
+    setDragOverSectionProduct({ sectionIdx, productIdx });
+  };
+  const handleSectionProductDrop = (sectionIdx: number, productIdx: number) => {
+    if (!dragSectionProductInfo || dragSectionProductInfo.sectionIdx !== sectionIdx) {
+      setDragSectionProductInfo(null);
+      setDragOverSectionProduct(null);
+      return;
+    }
+    const fromIdx = dragSectionProductInfo.productIdx;
+    if (fromIdx === productIdx) {
+      setDragSectionProductInfo(null);
+      setDragOverSectionProduct(null);
+      return;
+    }
+    setDraftSections((prev) => {
+      const activeIdx = getActiveIndices(prev);
+      const realIdx = activeIdx[sectionIdx];
+      const section = prev[realIdx];
+      const prods = [...section.products];
+      const [moved] = prods.splice(fromIdx, 1);
+      prods.splice(productIdx, 0, moved);
+      const next = [...prev];
+      next[realIdx] = { ...section, products: prods.map((p, i) => ({ ...p, position: i })) };
+      return next;
+    });
+    setDragSectionProductInfo(null);
+    setDragOverSectionProduct(null);
+  };
+
+  // ── Drag & Drop for Sections ──
+  const [dragSectionIdx, setDragSectionIdx] = useState<number | null>(null);
+  const [dragOverSectionIdx, setDragOverSectionIdx] = useState<number | null>(null);
+
+  const handleSectionDragStart = (idx: number) => setDragSectionIdx(idx);
+  const handleSectionDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setDragOverSectionIdx(idx);
+  };
+  const handleSectionDrop = (idx: number) => {
+    if (dragSectionIdx === null || dragSectionIdx === idx) {
+      setDragSectionIdx(null);
+      setDragOverSectionIdx(null);
+      return;
+    }
+    setDraftSections((prev) => {
+      const activeIdx = getActiveIndices(prev);
+      const sorted = [...activeSections].sort((a, b) => a.position - b.position);
+      const [moved] = sorted.splice(dragSectionIdx, 0);
+      // Reorder
+      const arr = activeSections.sort((a, b) => a.position - b.position);
+      const item = arr[dragSectionIdx];
+      const without = arr.filter((_, i) => i !== dragSectionIdx);
+      without.splice(idx, 0, item);
+      // Rebuild with new positions
+      const posMap = new Map<DraftSection, number>();
+      without.forEach((s, i) => posMap.set(s, i));
+      return prev.map((s) => {
+        if (s._deleted) return s;
+        const newPos = posMap.get(s);
+        return newPos !== undefined ? { ...s, position: newPos } : s;
+      });
+    });
+    setDragSectionIdx(null);
+    setDragOverSectionIdx(null);
+  };
+
+  // ── Save ──
   const handleSave = async () => {
-    // Validate
     for (const s of activeSections) {
       if (s.active && s.products.length === 0) {
         toast.error(`A seção "${s.title}" está ativa mas não tem produtos.`);
@@ -375,7 +442,6 @@ const MyStorePage = () => {
 
     setSaving(true);
     try {
-      // ─ Featured: delete removed, insert new ─
       const deletedFeaturedIds = draftFeatured.filter((f) => f._deleted && f.id).map((f) => f.id!);
       if (deletedFeaturedIds.length > 0) {
         await supabase.from("featured_products_tenant").delete().in("id", deletedFeaturedIds);
@@ -386,57 +452,48 @@ const MyStorePage = () => {
           newFeatured.map((f, i) => ({ tenant_id: tenantId!, product_id: f.product_id, position: i }))
         );
       }
+      // Update positions for existing
+      for (let i = 0; i < activeFeatured.length; i++) {
+        const f = activeFeatured[i];
+        if (f.id) {
+          await supabase.from("featured_products_tenant").update({ position: i }).eq("id", f.id);
+        }
+      }
 
-      // ─ Sections: delete removed, upsert existing, insert new ─
       const deletedSectionIds = draftSections.filter((s) => s._deleted && s.id).map((s) => s.id!);
       if (deletedSectionIds.length > 0) {
         await supabase.from("tenant_section_products").delete().in("tenant_section_id", deletedSectionIds);
         await supabase.from("tenant_sections").delete().in("id", deletedSectionIds);
       }
 
-      for (let i = 0; i < activeSections.length; i++) {
-        const section = activeSections[i];
+      const sortedSections = [...activeSections].sort((a, b) => a.position - b.position);
+      for (let i = 0; i < sortedSections.length; i++) {
+        const section = sortedSections[i];
         let sectionId = section.id;
 
         if (sectionId) {
-          // Update existing section
           await supabase.from("tenant_sections").update({
-            title: section.title,
-            category_id: section.category_id,
-            position: i,
-            active: section.active,
+            title: section.title, category_id: section.category_id, position: i, active: section.active,
           }).eq("id", sectionId);
-
-          // Sync products: delete all existing, re-insert
           await supabase.from("tenant_section_products").delete().eq("tenant_section_id", sectionId);
         } else {
-          // Insert new section
           const { data, error } = await supabase.from("tenant_sections").insert({
-            tenant_id: tenantId!,
-            title: section.title,
-            category_id: section.category_id,
-            position: i,
-            active: section.active,
+            tenant_id: tenantId!, title: section.title, category_id: section.category_id, position: i, active: section.active,
           }).select("id").single();
           if (error) throw error;
           sectionId = data.id;
         }
 
-        // Insert products
         if (section.products.length > 0) {
           await supabase.from("tenant_section_products").insert(
             section.products.map((p, pi) => ({
-              tenant_section_id: sectionId!,
-              product_id: p.product_id,
-              position: pi,
-              active: p.active,
+              tenant_section_id: sectionId!, product_id: p.product_id, position: pi, active: p.active,
             }))
           );
         }
       }
 
       toast.success("Perfil da loja atualizado com sucesso!");
-      // Reset initialized to reload from DB
       setInitialized(false);
     } catch (err: any) {
       toast.error(err.message || "Erro ao salvar");
@@ -445,19 +502,15 @@ const MyStorePage = () => {
     }
   };
 
-  // ── Dialog states ──
+  // ── Dialogs ──
   const [featuredDialogOpen, setFeaturedDialogOpen] = useState(false);
   const [selectedFeaturedProduct, setSelectedFeaturedProduct] = useState("");
-
   const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
   const [editingSectionIdx, setEditingSectionIdx] = useState<number | null>(null);
   const [sectionForm, setSectionForm] = useState({ title: "", category_id: "" });
-
   const [productDialogOpen, setProductDialogOpen] = useState(false);
   const [activeSectionIdx, setActiveSectionIdx] = useState<number | null>(null);
   const [selectedProductId, setSelectedProductId] = useState("");
-
-  const [mobileTab, setMobileTab] = useState("config");
 
   const openCreateSection = () => {
     setEditingSectionIdx(null);
@@ -466,19 +519,21 @@ const MyStorePage = () => {
   };
 
   const openEditSection = (idx: number) => {
-    const s = activeSections[idx];
+    const sorted = [...activeSections].sort((a, b) => a.position - b.position);
+    const s = sorted[idx];
     setEditingSectionIdx(idx);
     setSectionForm({ title: s.title, category_id: s.category_id || "" });
     setSectionDialogOpen(true);
   };
 
   const handleSaveSection = () => {
-    if (!sectionForm.title.trim()) {
-      toast.error("Título é obrigatório");
-      return;
-    }
+    if (!sectionForm.title.trim()) { toast.error("Título é obrigatório"); return; }
     if (editingSectionIdx !== null) {
-      updateSectionDraft(editingSectionIdx, sectionForm.title.trim(), sectionForm.category_id || null);
+      // Find the actual index in activeSections for the sorted position
+      const sorted = [...activeSections].sort((a, b) => a.position - b.position);
+      const section = sorted[editingSectionIdx];
+      const realIdx = activeSections.indexOf(section);
+      updateSectionDraft(realIdx, sectionForm.title.trim(), sectionForm.category_id || null);
     } else {
       addSectionDraft(sectionForm.title.trim(), sectionForm.category_id || null);
     }
@@ -487,17 +542,15 @@ const MyStorePage = () => {
 
   const handleAddProduct = () => {
     if (activeSectionIdx !== null && selectedProductId) {
-      addProductToSectionDraft(activeSectionIdx, selectedProductId);
+      // Find real index from sorted
+      const sorted = [...activeSections].sort((a, b) => a.position - b.position);
+      const section = sorted[activeSectionIdx];
+      const realIdx = activeSections.indexOf(section);
+      addProductToSectionDraft(realIdx, selectedProductId);
     }
     setProductDialogOpen(false);
     setSelectedProductId("");
   };
-
-  const productMap = useMemo(() => {
-    const map = new Map<string, typeof tenantProducts[0]>();
-    for (const p of tenantProducts) map.set(p.id, p);
-    return map;
-  }, [tenantProducts]);
 
   // ── Preview data ──
   const previewSections = useMemo(() => {
@@ -506,8 +559,7 @@ const MyStorePage = () => {
       .sort((a, b) => a.position - b.position)
       .map((s) => ({
         title: s.title,
-        products: s.products
-          .filter((sp) => sp.active)
+        products: s.products.filter((sp) => sp.active)
           .sort((a, b) => a.position - b.position)
           .map((sp) => productMap.get(sp.product_id))
           .filter(Boolean) as typeof tenantProducts,
@@ -516,11 +568,10 @@ const MyStorePage = () => {
   }, [activeSections, productMap]);
 
   const previewFeatured = useMemo(() => {
-    return activeFeatured
-      .map((f) => productMap.get(f.product_id))
-      .filter(Boolean) as typeof tenantProducts;
+    return activeFeatured.map((f) => productMap.get(f.product_id)).filter(Boolean) as typeof tenantProducts;
   }, [activeFeatured, productMap]);
 
+  // ── Render guards ──
   if (!tenantId) {
     return (
       <div className="text-center py-16 text-muted-foreground">
@@ -531,33 +582,50 @@ const MyStorePage = () => {
 
   if (!initialized) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 p-4">
         <Skeleton className="h-8 w-64" />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
-          </div>
-          <Skeleton className="h-96 w-full rounded-xl" />
-        </div>
+        <Skeleton className="h-64 w-full rounded-2xl" />
+        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-xl" />
       </div>
     );
   }
 
-  // ── Preview Component ──
-  const PreviewPanel = () => (
-    <div className="bg-background border border-border rounded-2xl overflow-hidden shadow-lg">
-      <div className="bg-muted/50 px-4 py-2 border-b border-border flex items-center gap-2">
-        <Eye className="w-4 h-4 text-muted-foreground" />
-        <span className="text-xs font-medium text-muted-foreground">Pré-visualização da sua loja</span>
+  const sortedActiveSections = [...activeSections].sort((a, b) => a.position - b.position);
+
+  return (
+    <div className="space-y-6 pb-24">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Minha Vitrine</h1>
+          <p className="text-sm text-muted-foreground">Organize como sua loja aparece para os clientes</p>
+        </div>
+        <Button onClick={handleSave} disabled={saving || !isDirty} className="gap-2">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Salvar alterações
+        </Button>
       </div>
 
-      <div className="max-h-[70vh] overflow-y-auto">
-        {/* Mini header */}
+      {isDirty && (
+        <div className="bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-xl px-4 py-2.5 text-sm flex items-center gap-2">
+          ⚠️ Você tem alterações não salvas.
+        </div>
+      )}
+
+      {/* ═══ PREVIEW SECTION ═══ */}
+      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-lg">
+        <div className="bg-muted/50 px-4 py-2 border-b border-border flex items-center gap-2">
+          <Eye className="w-4 h-4 text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">Pré-visualização da sua loja</span>
+        </div>
+
+        {/* Store header preview */}
         <div className="relative">
-          <div className="w-full h-28 overflow-hidden bg-gradient-to-br from-primary/20 via-primary/10 to-secondary">
+          <div className="w-full h-32 overflow-hidden bg-gradient-to-br from-primary/20 via-primary/10 to-secondary">
             {tenant?.cover_url && <img src={tenant.cover_url} alt="" className="w-full h-full object-cover" />}
           </div>
-          <div className="flex flex-col items-center -mt-10 relative z-10 pb-3">
+          <div className="flex flex-col items-center -mt-10 relative z-10 pb-4">
             <div className="w-20 h-20 rounded-full bg-card border-4 border-card shadow-lg overflow-hidden">
               {tenant?.logo_url ? (
                 <img src={tenant.logo_url} alt="" className="w-full h-full object-cover" />
@@ -567,161 +635,160 @@ const MyStorePage = () => {
                 </div>
               )}
             </div>
-            <h3 className="text-base font-bold mt-1">{tenant?.name || "Sua Loja"}</h3>
+            <h3 className="text-lg font-bold mt-2">{tenant?.name || "Sua Loja"}</h3>
             {tenant?.category && <span className="text-xs text-muted-foreground">{tenant.category}</span>}
           </div>
         </div>
 
+        {/* Preview content */}
         <div className="px-4 pb-6 space-y-6">
-          {/* Featured preview */}
           {previewFeatured.length > 0 && (
             <div>
               <h4 className="text-sm font-bold mb-3 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-yellow-500" />
-                Destaques da Loja
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Destaques da Loja
               </h4>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {previewFeatured.map((p) => (
-                  <PreviewProductCard key={p.id} product={p} featured />
+                  <MiniProductCard key={p.id} product={p} imageUrl={imageMap[p.id]} featured />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Sections preview */}
-          {previewSections.length > 0 ? (
-            previewSections.map((section, i) => (
-              <div key={i}>
-                <h4 className="text-sm font-bold mb-3">{section.title}</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {section.products.map((p) => (
-                    <PreviewProductCard key={p.id} product={p} />
-                  ))}
-                </div>
+          {previewSections.map((section, i) => (
+            <div key={i}>
+              <h4 className="text-sm font-bold mb-3">{section.title}</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {section.products.map((p) => (
+                  <MiniProductCard key={p.id} product={p} imageUrl={imageMap[p.id]} />
+                ))}
               </div>
-            ))
-          ) : previewFeatured.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="text-3xl mb-2">🏪</div>
-              <p className="text-xs text-muted-foreground">Adicione seções e produtos para visualizar</p>
             </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
+          ))}
 
-  const PreviewProductCard = ({ product, featured }: { product: typeof tenantProducts[0]; featured?: boolean }) => (
-    <div className={`bg-card rounded-xl overflow-hidden shadow-sm border ${featured ? "border-primary/30" : "border-border"}`}>
-      <div className="relative h-24 overflow-hidden bg-secondary">
-        {imageMap[product.id] ? (
-          <img src={imageMap[product.id]} alt={product.name} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br from-secondary to-muted">🍔</div>
-        )}
-        {featured && (
-          <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground flex items-center gap-0.5" style={{ fontSize: "9px" }}>
-            <Sparkles className="w-2.5 h-2.5" />
-            Destaque
-          </div>
-        )}
-        {product.has_discount && product.promo_price && (
-          <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground flex items-center gap-0.5" style={{ fontSize: "9px" }}>
-            <Flame className="w-2.5 h-2.5" />
-          </div>
-        )}
-      </div>
-      <div className="p-2">
-        <p className="text-xs font-semibold line-clamp-1">{product.name}</p>
-        <div className="flex items-center gap-1 mt-0.5">
-          {product.has_discount && product.promo_price ? (
-            <>
-              <span className="text-xs font-bold text-primary">R$ {Number(product.promo_price).toFixed(2)}</span>
-              <span className="text-[10px] text-muted-foreground line-through">R$ {Number(product.price).toFixed(2)}</span>
-            </>
-          ) : (
-            <span className="text-xs font-bold">R$ {Number(product.price).toFixed(2)}</span>
+          {previewFeatured.length === 0 && previewSections.length === 0 && (
+            <div className="text-center py-10">
+              <div className="text-4xl mb-3">🏪</div>
+              <p className="text-sm text-muted-foreground">Adicione destaques e seções abaixo para ver a pré-visualização</p>
+            </div>
           )}
         </div>
       </div>
-    </div>
-  );
 
-  // ── Config Panel ──
-  const ConfigPanel = () => (
-    <div className="space-y-6">
-      {/* Featured */}
+      {/* ═══ FEATURED PRODUCTS ═══ */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <Star className="w-4 h-4 text-yellow-500" />
-            Destaques da Loja
+            <Star className="w-5 h-5 text-amber-500" />
+            ⭐ Destaques da Loja
           </CardTitle>
-          <Button size="sm" variant="outline" onClick={() => { setSelectedFeaturedProduct(""); setFeaturedDialogOpen(true); }} className="gap-1 h-8">
-            <Plus className="w-3 h-3" /> Adicionar
+          <Button size="sm" variant="outline" onClick={() => { setSelectedFeaturedProduct(""); setFeaturedDialogOpen(true); }} className="gap-1.5">
+            <Plus className="w-4 h-4" /> Adicionar
           </Button>
         </CardHeader>
         <CardContent>
           {activeFeatured.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Nenhum destaque configurado.</p>
+            <div className="text-center py-8 text-muted-foreground">
+              <Star className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Nenhum destaque. Adicione produtos para aparecerem em destaque na loja.</p>
+            </div>
           ) : (
-            <div className="space-y-1.5">
-              {activeFeatured.map((f) => {
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {activeFeatured.map((f, idx) => {
                 const product = productMap.get(f.product_id);
+                if (!product) return null;
+                const isDragOver = dragOverFeaturedIdx === idx;
                 return (
-                  <div key={f.product_id} className="flex items-center justify-between bg-secondary/50 rounded-lg px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      {imageMap[f.product_id] && (
-                        <img src={imageMap[f.product_id]} className="w-8 h-8 rounded-lg object-cover" />
-                      )}
-                      <span className="text-sm font-medium">{product?.name || "Produto"}</span>
+                  <div
+                    key={f.product_id}
+                    draggable
+                    onDragStart={() => handleFeaturedDragStart(idx)}
+                    onDragOver={(e) => handleFeaturedDragOver(e, idx)}
+                    onDrop={() => handleFeaturedDrop(idx)}
+                    onDragEnd={() => { setDragFeaturedIdx(null); setDragOverFeaturedIdx(null); }}
+                    className={`relative group bg-card border rounded-xl overflow-hidden cursor-grab active:cursor-grabbing transition-all ${
+                      isDragOver ? "border-primary ring-2 ring-primary/30 scale-[1.02]" : "border-border hover:border-primary/40"
+                    } ${dragFeaturedIdx === idx ? "opacity-50" : ""}`}
+                  >
+                    <div className="absolute top-1.5 left-1.5 z-10">
+                      <div className="w-6 h-6 rounded-md bg-foreground/60 backdrop-blur-sm flex items-center justify-center">
+                        <GripVertical className="w-3.5 h-3.5 text-background" />
+                      </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeFeaturedDraft(f.product_id)}>
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </Button>
+                    <button
+                      onClick={() => removeFeaturedDraft(f.product_id)}
+                      className="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-md bg-destructive/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3.5 h-3.5 text-destructive-foreground" />
+                    </button>
+                    <div className="h-24 bg-secondary overflow-hidden">
+                      {imageMap[f.product_id] ? (
+                        <img src={imageMap[f.product_id]} alt={product.name} className="w-full h-full object-contain bg-white" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-3xl">🍔</div>
+                      )}
+                    </div>
+                    <div className="p-2">
+                      <p className="text-xs font-semibold line-clamp-1">{product.name}</p>
+                      <p className="text-xs text-primary font-bold mt-0.5">
+                        R$ {Number(product.has_discount && product.promo_price ? product.promo_price : product.price).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
                 );
               })}
+              {/* Add button card */}
+              <button
+                onClick={() => { setSelectedFeaturedProduct(""); setFeaturedDialogOpen(true); }}
+                className="border-2 border-dashed border-border rounded-xl h-full min-h-[140px] flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors"
+              >
+                <Plus className="w-6 h-6" />
+                <span className="text-xs font-medium">Adicionar</span>
+              </button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Sections */}
+      {/* ═══ SECTIONS ═══ */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
-            <GripVertical className="w-4 h-4" />
-            Seções da Vitrine
+            🧩 Seções da Vitrine
           </CardTitle>
-          <Button size="sm" variant="outline" onClick={openCreateSection} className="gap-1 h-8">
-            <Plus className="w-3 h-3" /> Nova Seção
+          <Button size="sm" variant="outline" onClick={openCreateSection} className="gap-1.5">
+            <Plus className="w-4 h-4" /> Nova Seção
           </Button>
         </CardHeader>
         <CardContent>
           {activeSections.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Nenhuma seção. A loja usará as categorias padrão.
-            </p>
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="text-sm">Nenhuma seção criada. A loja usará as categorias padrão.</p>
+              <Button variant="outline" className="mt-3 gap-1.5" onClick={openCreateSection}>
+                <Plus className="w-4 h-4" /> Criar primeira seção
+              </Button>
+            </div>
           ) : (
-            <div className="space-y-3">
-              {activeSections
-                .map((s, originalIdx) => ({ section: s, originalIdx }))
-                .sort((a, b) => a.section.position - b.section.position)
-                .map(({ section, originalIdx }, sortedIdx) => (
-                  <div key={originalIdx} className="border border-border rounded-xl overflow-hidden">
-                    <div className="flex items-center justify-between bg-secondary/30 px-3 py-2.5">
+            <div className="space-y-4">
+              {sortedActiveSections.map((section, sortedIdx) => {
+                const realIdx = activeSections.indexOf(section);
+                const isDragOver = dragOverSectionIdx === sortedIdx;
+                return (
+                  <div
+                    key={sortedIdx}
+                    draggable
+                    onDragStart={() => handleSectionDragStart(sortedIdx)}
+                    onDragOver={(e) => handleSectionDragOver(e, sortedIdx)}
+                    onDrop={() => handleSectionDrop(sortedIdx)}
+                    onDragEnd={() => { setDragSectionIdx(null); setDragOverSectionIdx(null); }}
+                    className={`border rounded-xl overflow-hidden transition-all ${
+                      isDragOver ? "border-primary ring-2 ring-primary/30" : "border-border"
+                    } ${dragSectionIdx === sortedIdx ? "opacity-50" : ""} ${!section.active ? "opacity-60" : ""}`}
+                  >
+                    {/* Section header */}
+                    <div className="flex items-center justify-between bg-muted/50 px-3 py-2.5 cursor-grab active:cursor-grabbing">
                       <div className="flex items-center gap-2">
-                        <div className="flex flex-col gap-0.5">
-                          <Button variant="ghost" size="icon" className="h-5 w-5" disabled={sortedIdx === 0}
-                            onClick={() => moveSectionDraft(originalIdx, "up")}>
-                            <ChevronUp className="w-3 h-3" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-5 w-5" disabled={sortedIdx === activeSections.length - 1}
-                            onClick={() => moveSectionDraft(originalIdx, "down")}>
-                            <ChevronDown className="w-3 h-3" />
-                          </Button>
-                        </div>
+                        <GripVertical className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                         <div>
                           <h4 className="font-semibold text-sm">{section.title}</h4>
                           <span className="text-xs text-muted-foreground">
@@ -731,103 +798,77 @@ const MyStorePage = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Switch checked={section.active} onCheckedChange={() => toggleSectionActiveDraft(originalIdx)} />
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSection(originalIdx)}>
+                        <Switch checked={section.active} onCheckedChange={() => toggleSectionActiveDraft(realIdx)} />
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditSection(sortedIdx)}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                          if (confirm("Remover esta seção?")) removeSectionDraft(originalIdx);
+                          if (confirm("Remover esta seção?")) removeSectionDraft(realIdx);
                         }}>
                           <Trash2 className="w-3.5 h-3.5 text-destructive" />
                         </Button>
                       </div>
                     </div>
+
+                    {/* Section products */}
                     <div className="p-3">
                       {section.products.length === 0 ? (
-                        <p className="text-xs text-muted-foreground text-center py-2">Nenhum produto</p>
+                        <p className="text-xs text-muted-foreground text-center py-4">Nenhum produto nesta seção</p>
                       ) : (
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                           {section.products.map((sp, pi) => {
                             const product = productMap.get(sp.product_id);
+                            if (!product) return null;
+                            const isOver = dragOverSectionProduct?.sectionIdx === sortedIdx && dragOverSectionProduct?.productIdx === pi;
                             return (
-                              <Badge key={pi} variant="secondary" className="gap-1 py-1 pl-2 pr-0.5">
-                                {product?.name || "Produto"}
+                              <div
+                                key={pi}
+                                draggable
+                                onDragStart={(e) => { e.stopPropagation(); handleSectionProductDragStart(sortedIdx, pi); }}
+                                onDragOver={(e) => { e.stopPropagation(); handleSectionProductDragOver(e, sortedIdx, pi); }}
+                                onDrop={(e) => { e.stopPropagation(); handleSectionProductDrop(sortedIdx, pi); }}
+                                onDragEnd={() => { setDragSectionProductInfo(null); setDragOverSectionProduct(null); }}
+                                className={`relative group bg-secondary/50 border rounded-lg overflow-hidden cursor-grab active:cursor-grabbing transition-all ${
+                                  isOver ? "border-primary ring-1 ring-primary/30" : "border-transparent"
+                                }`}
+                              >
                                 <button
-                                  onClick={() => removeProductFromSectionDraft(originalIdx, pi)}
-                                  className="ml-0.5 w-4 h-4 rounded-full hover:bg-destructive/20 flex items-center justify-center"
+                                  onClick={() => removeProductFromSectionDraft(realIdx, pi)}
+                                  className="absolute top-1 right-1 z-10 w-5 h-5 rounded-full bg-destructive/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
-                                  <Trash2 className="w-2.5 h-2.5 text-destructive" />
+                                  <X className="w-3 h-3 text-destructive-foreground" />
                                 </button>
-                              </Badge>
+                                <div className="h-16 bg-white overflow-hidden">
+                                  {imageMap[sp.product_id] ? (
+                                    <img src={imageMap[sp.product_id]} alt="" className="w-full h-full object-contain" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-xl">🍔</div>
+                                  )}
+                                </div>
+                                <div className="p-1.5">
+                                  <p className="text-[10px] font-medium line-clamp-1">{product.name}</p>
+                                </div>
+                              </div>
                             );
                           })}
                         </div>
                       )}
                       {section.products.length < MAX_SECTION_PRODUCTS && (
-                        <Button variant="outline" size="sm" className="mt-2 gap-1 h-7 text-xs"
-                          onClick={() => { setActiveSectionIdx(originalIdx); setSelectedProductId(""); setProductDialogOpen(true); }}>
+                        <Button variant="outline" size="sm" className="mt-3 gap-1.5 text-xs"
+                          onClick={() => { setActiveSectionIdx(sortedIdx); setSelectedProductId(""); setProductDialogOpen(true); }}>
                           <Plus className="w-3 h-3" /> Adicionar Produto
                         </Button>
                       )}
                     </div>
                   </div>
-                ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
-    </div>
-  );
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Minha Vitrine</h1>
-          <p className="text-sm text-muted-foreground">Organize os destaques e seções da sua loja</p>
-        </div>
-        <Button onClick={handleSave} disabled={saving || !isDirty} className="gap-2">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          Salvar alterações
-        </Button>
-      </div>
-
-      {isDirty && (
-        <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-700 dark:text-yellow-300 rounded-xl px-4 py-2.5 text-sm flex items-center gap-2">
-          <span className="text-lg">⚠️</span>
-          Você tem alterações não salvas.
-        </div>
-      )}
-
-      {/* Desktop: 2 columns */}
-      <div className="hidden lg:grid lg:grid-cols-2 gap-6">
-        <ConfigPanel />
-        <div className="sticky top-4 self-start">
-          <PreviewPanel />
-        </div>
-      </div>
-
-      {/* Mobile: tabs */}
-      <div className="lg:hidden">
-        <Tabs value={mobileTab} onValueChange={setMobileTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="config" className="gap-1.5">
-              <Settings2 className="w-4 h-4" /> Configuração
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="gap-1.5">
-              <Eye className="w-4 h-4" /> Pré-visualização
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="config" className="mt-4">
-            <ConfigPanel />
-          </TabsContent>
-          <TabsContent value="preview" className="mt-4">
-            <PreviewPanel />
-          </TabsContent>
-        </Tabs>
-      </div>
-
-      {/* Save button fixed on mobile */}
+      {/* Fixed save on mobile */}
       {isDirty && (
         <div className="lg:hidden fixed bottom-4 left-4 right-4 z-50">
           <Button onClick={handleSave} disabled={saving} className="w-full gap-2 shadow-xl h-12">
@@ -837,7 +878,7 @@ const MyStorePage = () => {
         </div>
       )}
 
-      {/* Dialogs */}
+      {/* ═══ DIALOGS ═══ */}
       <Dialog open={featuredDialogOpen} onOpenChange={setFeaturedDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Adicionar Destaque</DialogTitle></DialogHeader>
@@ -847,7 +888,12 @@ const MyStorePage = () => {
               <SelectTrigger><SelectValue placeholder="Selecione um produto" /></SelectTrigger>
               <SelectContent>
                 {availableForFeatured.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>
+                    <div className="flex items-center gap-2">
+                      {imageMap[p.id] && <img src={imageMap[p.id]} className="w-6 h-6 rounded object-cover" />}
+                      {p.name}
+                    </div>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -898,8 +944,19 @@ const MyStorePage = () => {
             <Select value={selectedProductId} onValueChange={setSelectedProductId}>
               <SelectTrigger><SelectValue placeholder="Selecione um produto" /></SelectTrigger>
               <SelectContent>
-                {activeSectionIdx !== null && getAvailableProducts(activeSectionIdx).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                {activeSectionIdx !== null && (() => {
+                  const sorted = [...activeSections].sort((a, b) => a.position - b.position);
+                  const section = sorted[activeSectionIdx];
+                  if (!section) return [];
+                  const usedIds = section.products.map((p) => p.product_id);
+                  return tenantProducts.filter((p) => !usedIds.includes(p.id));
+                })().map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    <div className="flex items-center gap-2">
+                      {imageMap[p.id] && <img src={imageMap[p.id]} className="w-6 h-6 rounded object-cover" />}
+                      {p.name}
+                    </div>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -910,9 +967,48 @@ const MyStorePage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 };
+
+// ── Mini product card for preview ──
+const MiniProductCard = ({ product, imageUrl, featured }: {
+  product: { id: string; name: string; price: number; promo_price: number | null; has_discount: boolean };
+  imageUrl?: string;
+  featured?: boolean;
+}) => (
+  <div className={`bg-card rounded-xl overflow-hidden shadow-sm border ${featured ? "border-primary/30" : "border-border"}`}>
+    <div className="relative h-20 overflow-hidden bg-white">
+      {imageUrl ? (
+        <img src={imageUrl} alt={product.name} className="w-full h-full object-contain" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br from-secondary to-muted">🍔</div>
+      )}
+      {featured && (
+        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground flex items-center gap-0.5 text-[9px]">
+          <Sparkles className="w-2.5 h-2.5" /> Destaque
+        </div>
+      )}
+      {product.has_discount && product.promo_price && (
+        <div className="absolute top-1 right-1 px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground flex items-center gap-0.5 text-[9px]">
+          <Flame className="w-2.5 h-2.5" />
+        </div>
+      )}
+    </div>
+    <div className="p-2">
+      <p className="text-xs font-semibold line-clamp-1">{product.name}</p>
+      <div className="flex items-center gap-1 mt-0.5">
+        {product.has_discount && product.promo_price ? (
+          <>
+            <span className="text-xs font-bold text-primary">R$ {Number(product.promo_price).toFixed(2)}</span>
+            <span className="text-[10px] text-muted-foreground line-through">R$ {Number(product.price).toFixed(2)}</span>
+          </>
+        ) : (
+          <span className="text-xs font-bold">R$ {Number(product.price).toFixed(2)}</span>
+        )}
+      </div>
+    </div>
+  </div>
+);
 
 export default MyStorePage;
