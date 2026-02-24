@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { X, Upload, Loader2, Store } from "lucide-react";
+import { X, Upload, Loader2, Store, Image } from "lucide-react";
 import { toast } from "sonner";
 
 const CATEGORIES = [
@@ -17,12 +17,23 @@ const CATEGORIES = [
   "Doceria", "Sorveteria", "Padaria", "Cafeteria", "Bar", "Outro",
 ];
 
+const STATES = [
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+  "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+];
+
 interface TenantEditForm {
   name: string;
   categories: string[];
   city: string;
+  state: string;
   address: string;
+  zip_code: string;
+  cnpj: string;
+  whatsapp_number: string;
   owner_name: string;
+  owner_phone: string;
+  owner_email: string;
 }
 
 const TenantEditPage = () => {
@@ -31,13 +42,15 @@ const TenantEditPage = () => {
   const queryClient = useQueryClient();
 
   const [form, setForm] = useState<TenantEditForm>({
-    name: "", categories: [], city: "", address: "", owner_name: "",
+    name: "", categories: [], city: "", state: "", address: "",
+    zip_code: "", cnpj: "", whatsapp_number: "", owner_name: "",
+    owner_phone: "", owner_email: "",
   });
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
 
-  // Tenant admin: always use their own tenant_id from session
-  // SuperAdmin: use effectiveTenantId (from topbar selector)
   const tenantId = isAdminTenant ? (user?.tenant_id || null) : (isSuperAdmin ? effectiveTenantId : null);
 
   const { data: tenant, isLoading } = useQuery({
@@ -61,10 +74,17 @@ const TenantEditPage = () => {
         name: tenant.name || "",
         categories: catStr ? catStr.split(",").map((s: string) => s.trim()) : [],
         city: tenant.city || "",
+        state: tenant.state || "",
         address: tenant.address || "",
+        zip_code: tenant.zip_code || "",
+        cnpj: tenant.cnpj || "",
+        whatsapp_number: tenant.whatsapp_number || "",
         owner_name: tenant.owner_name || "",
+        owner_phone: tenant.owner_phone || "",
+        owner_email: tenant.owner_email || "",
       });
       setLogoUrl(tenant.logo_url || null);
+      setCoverUrl(tenant.cover_url || null);
     }
   }, [tenant]);
 
@@ -89,15 +109,43 @@ const TenantEditPage = () => {
     }
   };
 
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = file.name.split(".").pop();
+    const filePath = `${tenantId}/cover.${ext}`;
+    setCoverUploading(true);
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("tenant-logos")
+        .upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from("tenant-logos").getPublicUrl(filePath);
+      setCoverUrl(publicUrl);
+      toast.success("Banner enviado com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar banner");
+    } finally {
+      setCoverUploading(false);
+    }
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = {
         name: form.name,
         category: form.categories.length > 0 ? form.categories.join(", ") : null,
         city: form.city || null,
+        state: form.state || null,
         address: form.address || null,
+        zip_code: form.zip_code || null,
+        cnpj: form.cnpj || null,
+        whatsapp_number: form.whatsapp_number || null,
         owner_name: form.owner_name || null,
+        owner_phone: form.owner_phone || null,
+        owner_email: form.owner_email || null,
         logo_url: logoUrl || null,
+        cover_url: coverUrl || null,
       };
       const { error } = await supabase.from("tenants").update(payload).eq("id", tenantId!);
       if (error) throw error;
@@ -122,7 +170,6 @@ const TenantEditPage = () => {
     }));
   };
 
-  // Access control: only tenant_admin or superadmin
   if (!isAdminTenant && !isSuperAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -180,9 +227,43 @@ const TenantEditPage = () => {
         </CardContent>
       </Card>
 
-      {/* Form */}
+      {/* Banner / Cover */}
       <Card>
-        <CardHeader><CardTitle className="text-lg">Informações</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-lg">Banner / Capa</CardTitle></CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="w-full h-40 rounded-lg bg-secondary overflow-hidden border-2 border-border">
+              {coverUrl ? (
+                <img src={coverUrl} alt="Banner" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground gap-2">
+                  <Image className="w-6 h-6" />
+                  <span className="text-sm">Nenhum banner definido</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" className="gap-2" asChild disabled={coverUploading}>
+                <label className="cursor-pointer">
+                  {coverUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {coverUploading ? "Enviando..." : "Enviar banner"}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
+                </label>
+              </Button>
+              {coverUrl && (
+                <Button variant="ghost" size="sm" onClick={() => setCoverUrl(null)} className="text-destructive gap-1">
+                  <X className="w-4 h-4" /> Remover
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground">Recomendado: 1200x400px</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Informações Gerais */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Informações Gerais</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label>Nome do estabelecimento *</Label>
@@ -214,18 +295,67 @@ const TenantEditPage = () => {
           </div>
 
           <div className="space-y-2">
+            <Label>CNPJ</Label>
+            <Input value={form.cnpj} onChange={(e) => set("cnpj", e.target.value)} placeholder="00.000.000/0000-00" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>WhatsApp</Label>
+            <Input value={form.whatsapp_number} onChange={(e) => set("whatsapp_number", e.target.value)} placeholder="(00) 00000-0000" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Localização */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Localização</CardTitle></CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Endereço</Label>
+            <Input value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="Ex: Rua das Flores, 123" />
+          </div>
+
+          <div className="space-y-2">
             <Label>Cidade</Label>
             <Input value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="Ex: São Paulo" />
           </div>
 
           <div className="space-y-2">
-            <Label>Endereço / Localização</Label>
-            <Input value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="Ex: Rua das Flores, 123" />
+            <Label>Estado</Label>
+            <select
+              value={form.state}
+              onChange={(e) => set("state", e.target.value)}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="">Selecione</option>
+              {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
 
+          <div className="space-y-2">
+            <Label>CEP</Label>
+            <Input value={form.zip_code} onChange={(e) => set("zip_code", e.target.value)} placeholder="00000-000" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Responsável */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Responsável</CardTitle></CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
-            <Label>Dono(s)</Label>
-            <Input value={form.owner_name} onChange={(e) => set("owner_name", e.target.value)} placeholder="Ex: João Silva, Maria Souza" />
+            <Label>Nome do responsável</Label>
+            <Input value={form.owner_name} onChange={(e) => set("owner_name", e.target.value)} placeholder="Ex: João Silva" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Telefone do responsável</Label>
+            <Input value={form.owner_phone} onChange={(e) => set("owner_phone", e.target.value)} placeholder="(00) 00000-0000" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Email do responsável</Label>
+            <Input value={form.owner_email} onChange={(e) => set("owner_email", e.target.value)} placeholder="email@exemplo.com" />
           </div>
         </CardContent>
       </Card>
