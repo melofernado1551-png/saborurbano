@@ -501,8 +501,8 @@ const SalesPageNew = () => {
                 <TableHead>Data</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Valor</TableHead>
-                <TableHead>Pagamento</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Pagamento</TableHead>
                 <TableHead className="w-12"></TableHead>
               </TableRow>
             </TableHeader>
@@ -532,11 +532,11 @@ const SalesPageNew = () => {
                       <TableCell className="font-semibold">
                         R$ {Number(sale.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </TableCell>
-                      <TableCell className="capitalize text-sm">
-                        {PAYMENT_LABELS[sale.forma_pagamento] || sale.forma_pagamento || "—"}
-                      </TableCell>
                       <TableCell>
                         <Badge className={`text-[10px] ${fin.color}`}>{fin.label}</Badge>
+                      </TableCell>
+                      <TableCell className="capitalize text-sm">
+                        {PAYMENT_LABELS[sale.forma_pagamento] || sale.forma_pagamento || "—"}
                       </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setSelectedSale(sale); }}>
