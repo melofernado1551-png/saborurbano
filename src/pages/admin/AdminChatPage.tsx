@@ -5,6 +5,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Send, ArrowLeft, ChevronDown, DollarSign, CreditCard, Banknote, QrCode, X } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate, useParams } from "react-router-dom";
@@ -48,6 +58,7 @@ const AdminChatPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [registeringPayment, setRegisteringPayment] = useState(false);
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
+  const [pendingFinishStatus, setPendingFinishStatus] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -213,6 +224,19 @@ const AdminChatPage = () => {
 
   const handleUpdateOperationalStatus = async (newStatus: string) => {
     if (!sale) return;
+
+    // If "finished", show confirmation dialog first
+    if (newStatus === "finished") {
+      setShowStatusMenu(false);
+      setPendingFinishStatus(true);
+      return;
+    }
+
+    await executeStatusUpdate(newStatus);
+  };
+
+  const executeStatusUpdate = async (newStatus: string) => {
+    if (!sale) return;
     try {
       const { error: updateErr } = await supabase.from("sales").update({ operational_status: newStatus }).eq("id", sale.id);
       if (updateErr) throw updateErr;
@@ -228,10 +252,19 @@ const AdminChatPage = () => {
       });
       if (msgErr) console.error("Erro ao enviar mensagem de status:", msgErr);
 
+      // If finishing, close the chat
+      if (newStatus === "finished" && chatId) {
+        await supabase.from("chats").update({ active: false, status: "closed" }).eq("id", chatId);
+      }
+
       setShowStatusMenu(false);
-      toast.success("Status atualizado!");
+      toast.success(newStatus === "finished" ? "Pedido finalizado e chat encerrado!" : "Status atualizado!");
       queryClient.invalidateQueries({ queryKey: ["admin-sale", sale.id] });
       queryClient.invalidateQueries({ queryKey: ["admin-chat-messages", chatId] });
+
+      if (newStatus === "finished") {
+        navigate("/admin/pedidos");
+      }
     } catch (err) {
       console.error("Erro ao atualizar status:", err);
       toast.error("Erro ao atualizar status");
@@ -477,6 +510,24 @@ const AdminChatPage = () => {
           </Button>
         </div>
       </div>
+
+      {/* Confirmation dialog for finishing */}
+      <AlertDialog open={pendingFinishStatus} onOpenChange={setPendingFinishStatus}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finalizar pedido?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja finalizar este pedido e encerrar o chat? Ele não poderá ser reaberto após essa ação.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => executeStatusUpdate("finished")}>
+              Sim, finalizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
