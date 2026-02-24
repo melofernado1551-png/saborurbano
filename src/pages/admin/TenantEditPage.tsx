@@ -27,7 +27,7 @@ interface TenantEditForm {
 
 const TenantEditPage = () => {
   const { user } = useAuth();
-  const { effectiveTenantId, isAdminTenant } = useAdmin();
+  const { effectiveTenantId, isAdminTenant, isSuperAdmin } = useAdmin();
   const queryClient = useQueryClient();
 
   const [form, setForm] = useState<TenantEditForm>({
@@ -36,7 +36,9 @@ const TenantEditPage = () => {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
 
-  const tenantId = isAdminTenant ? effectiveTenantId : null;
+  // Tenant admin: always use their own tenant_id from session
+  // SuperAdmin: use effectiveTenantId (from topbar selector)
+  const tenantId = isAdminTenant ? (user?.tenant_id || null) : (isSuperAdmin ? effectiveTenantId : null);
 
   const { data: tenant, isLoading } = useQuery({
     queryKey: ["my-tenant", tenantId],
@@ -120,8 +122,8 @@ const TenantEditPage = () => {
     }));
   };
 
-  // Access control renders
-  if (!isAdminTenant) {
+  // Access control: only tenant_admin or superadmin
+  if (!isAdminTenant && !isSuperAdmin) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <Store className="w-12 h-12 text-muted-foreground mb-4" />
