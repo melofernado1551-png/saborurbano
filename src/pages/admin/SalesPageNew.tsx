@@ -35,7 +35,7 @@ const OP_LABELS: Record<string, { label: string; emoji: string }> = {
   finished: { label: "Finalizado", emoji: "✅" },
 };
 
-const SaleDetailDialog = ({ sale, open, onClose, isReadOnly }: { sale: any; open: boolean; onClose: () => void; isReadOnly: boolean }) => {
+const SaleDetailDialog = ({ sale, open, onClose, isReadOnly, canEdit }: { sale: any; open: boolean; onClose: () => void; isReadOnly: boolean; canEdit: boolean }) => {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState({ observacao: "", forma_pagamento: "", operational_status: "" });
@@ -134,7 +134,7 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly }: { sale: any; open
               Venda #{sale?.sale_number || "—"}
               <Badge className={`text-xs ${financialInfo.color}`}>{financialInfo.label}</Badge>
             </DialogTitle>
-            {!isReadOnly && !editing && (
+            {canEdit && !editing && (
               <Button variant="ghost" size="icon" onClick={() => setEditing(true)}>
                 <Pencil className="w-4 h-4" />
               </Button>
@@ -311,7 +311,7 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly }: { sale: any; open
 
 const SalesPageNew = () => {
   const { user } = useAuth();
-  const { effectiveTenantId, isReadOnly } = useAdmin();
+  const { effectiveTenantId, isReadOnly, isSuperAdmin, isAdminTenant } = useAdmin();
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -566,6 +566,7 @@ const SalesPageNew = () => {
         open={!!selectedSale}
         onClose={() => setSelectedSale(null)}
         isReadOnly={isReadOnly}
+        canEdit={isSuperAdmin || isAdminTenant}
       />
     </div>
   );
