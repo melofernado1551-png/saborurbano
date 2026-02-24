@@ -214,10 +214,11 @@ const AdminChatPage = () => {
   const handleUpdateOperationalStatus = async (newStatus: string) => {
     if (!sale) return;
     try {
-      await supabase.from("sales").update({ operational_status: newStatus }).eq("id", sale.id);
+      const { error: updateErr } = await supabase.from("sales").update({ operational_status: newStatus }).eq("id", sale.id);
+      if (updateErr) throw updateErr;
 
       const statusInfo = STATUS_LABELS[newStatus] || { label: newStatus, emoji: "📋" };
-      await supabase.from("chat_messages").insert({
+      const { error: msgErr } = await supabase.from("chat_messages").insert({
         chat_id: chatId,
         sender_id: user?.id || null,
         sender_type: "system",
@@ -225,11 +226,14 @@ const AdminChatPage = () => {
         message_type: "status_update",
         metadata: { sender_name: user?.name || user?.login || "Sistema" },
       });
+      if (msgErr) console.error("Erro ao enviar mensagem de status:", msgErr);
 
       setShowStatusMenu(false);
       toast.success("Status atualizado!");
       queryClient.invalidateQueries({ queryKey: ["admin-sale", sale.id] });
-    } catch {
+      queryClient.invalidateQueries({ queryKey: ["admin-chat-messages", chatId] });
+    } catch (err) {
+      console.error("Erro ao atualizar status:", err);
       toast.error("Erro ao atualizar status");
     }
   };
