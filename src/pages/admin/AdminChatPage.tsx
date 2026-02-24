@@ -198,6 +198,8 @@ const AdminChatPage = () => {
         metadata: { sender_name: user?.name || user?.login || "Loja" },
       });
       if (error) throw error;
+      // Immediate refetch to ensure message appears
+      queryClient.invalidateQueries({ queryKey: ["admin-chat-messages", chatId] });
     } catch {
       setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       toast.error("Erro ao enviar mensagem");
