@@ -784,6 +784,44 @@ export type Database = {
           },
         ]
       }
+      push_subscriptions: {
+        Row: {
+          active: boolean
+          auth: string
+          created_at: string
+          customer_id: string
+          endpoint: string
+          id: string
+          p256dh: string
+        }
+        Insert: {
+          active?: boolean
+          auth: string
+          created_at?: string
+          customer_id: string
+          endpoint: string
+          id?: string
+          p256dh: string
+        }
+        Update: {
+          active?: boolean
+          auth?: string
+          created_at?: string
+          customer_id?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sale_payments: {
         Row: {
           active: boolean
