@@ -13,7 +13,7 @@ const ProductDetailPage = () => {
   const [quantity, setQuantity] = useState(1);
   const [observation, setObservation] = useState("");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const { addItem, totalItems, setIsOpen: setCartOpen } = useCart();
+  const { addItem, totalItems, totalPrice, setIsOpen: setCartOpen } = useCart();
 
   // Fetch tenant by slug
   const { data: tenant, isLoading: tenantLoading } = useQuery({
@@ -142,9 +142,24 @@ const ProductDetailPage = () => {
             </div>
             <h1 className="font-semibold text-foreground truncate text-sm">{tenant.name}</h1>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleShare}>
-            <Share2 className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={handleShare}>
+              <Share2 className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" className="relative gap-2 px-3" onClick={() => setCartOpen(true)}>
+              <ShoppingBag className="w-5 h-5" />
+              {totalItems > 0 && (
+                <>
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-semibold">
+                    {totalItems}
+                  </span>
+                  <span className="text-sm font-semibold text-foreground hidden sm:inline">
+                    {totalPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </span>
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </header>
 
