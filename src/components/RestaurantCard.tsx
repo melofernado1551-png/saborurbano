@@ -102,10 +102,12 @@ const RestaurantCard = ({ restaurant, index }: RestaurantCardProps) => {
         {/* Footer */}
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            {restaurant.deliveryFee === 0 ? (
+            {restaurant.freeShipping ? (
               <span className="text-success font-semibold">Entrega grátis</span>
+            ) : restaurant.shippingFee != null && restaurant.shippingFee > 0 ? (
+              `Entrega R$ ${restaurant.shippingFee.toFixed(2)}`
             ) : (
-              `Entrega R$ ${restaurant.deliveryFee.toFixed(2)}`
+              <span className="text-muted-foreground">Frete a combinar</span>
             )}
           </span>
           <span className="text-muted-foreground">

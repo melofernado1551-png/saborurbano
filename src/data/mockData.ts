@@ -14,6 +14,8 @@ export interface Restaurant {
   isFavorite: boolean;
   tags: string[];
   promoted?: boolean;
+  freeShipping?: boolean;
+  shippingFee?: number | null;
 }
 
 export interface Category {

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { X, Upload, Loader2, Store, Image } from "lucide-react";
+import { X, Upload, Loader2, Store, Image, Truck } from "lucide-react";
 import { toast } from "sonner";
 
 const CATEGORIES = [
@@ -36,6 +36,8 @@ interface TenantEditForm {
   owner_email: string;
   opening_time: string;
   closing_time: string;
+  free_shipping: boolean;
+  shipping_fee: string;
 }
 
 const TenantEditPage = () => {
@@ -47,6 +49,7 @@ const TenantEditPage = () => {
     name: "", categories: [], city: "", state: "", address: "", number: "",
     zip_code: "", cnpj: "", whatsapp_number: "", owner_name: "",
     owner_phone: "", owner_email: "", opening_time: "08:00", closing_time: "22:00",
+    free_shipping: false, shipping_fee: "",
   });
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -87,6 +90,8 @@ const TenantEditPage = () => {
         owner_email: tenant.owner_email || "",
         opening_time: (tenant as any).opening_time || "08:00",
         closing_time: (tenant as any).closing_time || "22:00",
+        free_shipping: (tenant as any).free_shipping || false,
+        shipping_fee: (tenant as any).shipping_fee != null ? String((tenant as any).shipping_fee) : "",
       });
       setLogoUrl(tenant.logo_url || null);
       setCoverUrl(tenant.cover_url || null);
@@ -151,6 +156,8 @@ const TenantEditPage = () => {
         owner_email: form.owner_email || null,
         opening_time: form.opening_time || null,
         closing_time: form.closing_time || null,
+        free_shipping: form.free_shipping,
+        shipping_fee: !form.free_shipping && form.shipping_fee ? parseFloat(form.shipping_fee) : null,
         logo_url: logoUrl || null,
         cover_url: coverUrl || null,
       };
@@ -314,6 +321,43 @@ const TenantEditPage = () => {
             <Label>Horário de Fechamento</Label>
             <Input type="time" value={form.closing_time} onChange={(e) => set("closing_time", e.target.value)} />
           </div>
+
+          <div className="space-y-2 sm:col-span-2 border-t border-border pt-4">
+            <div className="flex items-center gap-3">
+              <Truck className="w-5 h-5 text-muted-foreground" />
+              <Label className="text-base font-semibold">Configuração de Frete</Label>
+            </div>
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-3 cursor-pointer rounded-lg border px-4 py-3 hover:bg-secondary transition-colors">
+              <Checkbox
+                checked={form.free_shipping}
+                onCheckedChange={(checked) => {
+                  setForm((prev) => ({ ...prev, free_shipping: !!checked, shipping_fee: checked ? "" : prev.shipping_fee }));
+                }}
+              />
+              <div>
+                <span className="text-sm font-medium">Frete grátis</span>
+                <p className="text-xs text-muted-foreground">Marque se o estabelecimento oferece entrega gratuita</p>
+              </div>
+            </label>
+          </div>
+
+          {!form.free_shipping && (
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Valor do frete (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.shipping_fee}
+                onChange={(e) => set("shipping_fee", e.target.value)}
+                placeholder="Deixe vazio para 'Frete a combinar'"
+              />
+              <p className="text-xs text-muted-foreground">Se não informar um valor, será exibido "Frete a combinar" no card da loja</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

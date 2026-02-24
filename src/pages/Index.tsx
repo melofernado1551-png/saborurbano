@@ -267,6 +267,8 @@ const Index = () => {
     isFavorite: false,
     tags: t.category ? t.category.split(",").map((c: string) => c.trim()) : [],
     promoted: false,
+    freeShipping: (t as any).free_shipping || false,
+    shippingFee: (t as any).shipping_fee ? Number((t as any).shipping_fee) : null,
   }));
 
   // Filter products (search + tag)
