@@ -136,19 +136,14 @@ const CartDrawer = () => {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-sm text-foreground line-clamp-1">{item.name}</h4>
+                        {item.observation && (
+                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                            📝 {item.observation}
+                          </p>
+                        )}
                         <p className="text-sm font-bold text-primary mt-0.5">
                           R$ {unitPrice.toFixed(2)}
                         </p>
-
-                        {/* Observation */}
-                        <input
-                          type="text"
-                          placeholder="Obs: sem cebola..."
-                          value={item.observation || ""}
-                          onChange={(e) => updateObservation(item.productId, e.target.value)}
-                          className="w-full mt-1.5 text-xs px-2 py-1 rounded-md bg-card border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
-                          onClick={(e) => e.stopPropagation()}
-                        />
 
                         {/* Quantity controls */}
                         <div className="flex items-center justify-between mt-2">

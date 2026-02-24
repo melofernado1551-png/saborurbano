@@ -77,7 +77,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         }
 
         const existing = prev?.items || [];
-        const idx = existing.findIndex((i) => i.productId === item.productId);
+        // Items with different observations are treated as distinct
+        const idx = existing.findIndex(
+          (i) => i.productId === item.productId && (i.observation || "") === (item.observation || "")
+        );
         let newItems: CartItem[];
 
         if (idx >= 0) {
