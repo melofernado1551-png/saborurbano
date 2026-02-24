@@ -94,10 +94,10 @@ const MyStorePage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_categories")
-        .select("id, name, emoji")
+        .select("id, name, emoji, position")
         .eq("tenant_id", tenantId!)
         .eq("active", true)
-        .order("name");
+        .order("position");
       if (error) throw error;
       return data;
     },
@@ -148,6 +148,7 @@ const MyStorePage = () => {
   // ── Draft state ──
   const [draftSections, setDraftSections] = useState<DraftSection[]>([]);
   const [draftFeatured, setDraftFeatured] = useState<DraftFeatured[]>([]);
+  const [draftCategoryOrder, setDraftCategoryOrder] = useState<{ id: string; name: string; emoji: string | null; position: number }[]>([]);
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -164,7 +165,10 @@ const MyStorePage = () => {
     setDraftFeatured(
       remoteFeatured.map((f: any) => ({ id: f.id, product_id: f.product_id, position: f.position }))
     );
-  }, [remoteSections, remoteFeatured]);
+    setDraftCategoryOrder(
+      categories.map((c: any) => ({ id: c.id, name: c.name, emoji: c.emoji, position: c.position ?? 0 }))
+    );
+  }, [remoteSections, remoteFeatured, categories]);
 
   useEffect(() => {
     if (sectionsLoading || featuredLoading) return;
@@ -187,8 +191,10 @@ const MyStorePage = () => {
     })));
     const cf = JSON.stringify(draftFeatured);
     const of2 = JSON.stringify(remoteFeatured.map((f: any) => ({ id: f.id, product_id: f.product_id, position: f.position })));
-    return cs !== os || cf !== of2;
-  }, [draftSections, draftFeatured, remoteSections, remoteFeatured, initialized]);
+    const cc = JSON.stringify(draftCategoryOrder.map((c) => ({ id: c.id, position: c.position })));
+    const oc = JSON.stringify(categories.map((c: any) => ({ id: c.id, position: c.position ?? 0 })));
+    return cs !== os || cf !== of2 || cc !== oc;
+  }, [draftSections, draftFeatured, draftCategoryOrder, remoteSections, remoteFeatured, categories, initialized]);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -378,6 +384,21 @@ const MyStorePage = () => {
     setDragSectionIdx(null); setDragOverSectionIdx(null);
   };
 
+  // ── Drag & Drop for Categories ──
+  const [dragCatIdx, setDragCatIdx] = useState<number | null>(null);
+  const [dragOverCatIdx, setDragOverCatIdx] = useState<number | null>(null);
+
+  const handleCategoryDrop = (idx: number) => {
+    if (dragCatIdx === null || dragCatIdx === idx) { setDragCatIdx(null); setDragOverCatIdx(null); return; }
+    setDraftCategoryOrder((prev) => {
+      const arr = [...prev];
+      const [moved] = arr.splice(dragCatIdx, 1);
+      arr.splice(idx, 0, moved);
+      return arr.map((c, i) => ({ ...c, position: i }));
+    });
+    setDragCatIdx(null); setDragOverCatIdx(null);
+  };
+
   // ── Save ──
   const handleSave = async () => {
     for (const s of activeSections) {
@@ -441,6 +462,11 @@ const MyStorePage = () => {
             }))
           );
         }
+      }
+
+      // Category order
+      for (const cat of draftCategoryOrder) {
+        await supabase.from("product_categories").update({ position: cat.position }).eq("id", cat.id);
       }
 
       toast.success("Sua loja foi atualizada com sucesso!");
@@ -615,6 +641,43 @@ const MyStorePage = () => {
               })}
             </div>
           </EditableSection>
+
+          {/* ═══ CATEGORY ORDER ═══ */}
+          {draftCategoryOrder.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  🏷️ Ordem das Categorias
+                  <span className="text-xs font-normal text-muted-foreground ml-1">
+                    (arraste para reordenar)
+                  </span>
+                </h3>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {draftCategoryOrder.map((cat, idx) => {
+                  const isDragOver = dragOverCatIdx === idx;
+                  return (
+                    <div
+                      key={cat.id}
+                      draggable
+                      onDragStart={() => setDragCatIdx(idx)}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCatIdx(idx); }}
+                      onDrop={() => handleCategoryDrop(idx)}
+                      onDragEnd={() => { setDragCatIdx(null); setDragOverCatIdx(null); }}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full bg-card border border-border cursor-grab active:cursor-grabbing transition-all select-none ${
+                        isDragOver ? "ring-2 ring-primary/50 scale-105" : ""
+                      } ${dragCatIdx === idx ? "opacity-40 scale-95" : ""}`}
+                    >
+                      <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-sm font-medium whitespace-nowrap">
+                        {cat.emoji || "🍽️"} {cat.name}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* ═══ CUSTOM SECTIONS ═══ */}
           {sortedActiveSections.map((section, sortedIdx) => {
