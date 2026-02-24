@@ -35,6 +35,7 @@ import CustomerChatPage from "./pages/CustomerChatPage";
 import CustomerOrdersPage from "./pages/CustomerOrdersPage";
 import AdminChatsListPage from "./pages/admin/AdminChatsListPage";
 import AdminChatPage from "./pages/admin/AdminChatPage";
+import FinishedChatsPage from "./pages/admin/FinishedChatsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -65,6 +66,7 @@ const App = () => (
                 <Route index element={<DashboardPage />} />
                 <Route path="vendas" element={<SalesPageNew />} />
                 <Route path="pedidos" element={<AdminChatsListPage />} />
+                <Route path="pedidos/finalizados" element={<FinishedChatsPage />} />
                 <Route path="pedidos/:chatId" element={<AdminChatPage />} />
                 <Route path="produtos" element={<ProductsListPage />} />
                 <Route path="produtos/novo" element={<ProductFormPage />} />
