@@ -475,6 +475,7 @@ export type Database = {
           emoji: string | null
           id: string
           name: string
+          position: number
           slug: string
           tenant_id: string
         }
@@ -484,6 +485,7 @@ export type Database = {
           emoji?: string | null
           id?: string
           name: string
+          position?: number
           slug: string
           tenant_id: string
         }
@@ -493,6 +495,7 @@ export type Database = {
           emoji?: string | null
           id?: string
           name?: string
+          position?: number
           slug?: string
           tenant_id?: string
         }

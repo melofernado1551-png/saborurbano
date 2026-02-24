@@ -116,9 +116,10 @@ const RestaurantPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_categories")
-        .select("id, name, emoji")
+        .select("id, name, emoji, position")
         .eq("tenant_id", tenant!.id)
-        .eq("active", true);
+        .eq("active", true)
+        .order("position");
       if (error) throw error;
       return data;
     },
