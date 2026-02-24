@@ -271,30 +271,34 @@ const CustomerChatPage = () => {
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border">
-        <div className="container mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          {tenant && (
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-secondary overflow-hidden flex-shrink-0">
-                {tenant.logo_url ? (
-                  <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-sm font-bold text-muted-foreground">
-                    {tenant.name.charAt(0)}
-                  </div>
-                )}
+        <div className="container mx-auto px-4 py-2 space-y-1.5">
+          {/* Row 1: Back button + tenant info */}
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="flex-shrink-0">
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            {tenant && (
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-secondary overflow-hidden flex-shrink-0">
+                  {tenant.logo_url ? (
+                    <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-sm font-bold text-muted-foreground">
+                      {tenant.name.charAt(0)}
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <h1 className="font-semibold text-sm text-foreground truncate">{tenant.name}</h1>
+                  {sale && <p className="text-xs text-muted-foreground">Pedido #{sale.sale_number}</p>}
+                </div>
               </div>
-              <div className="min-w-0">
-                <h1 className="font-semibold text-sm text-foreground truncate">{tenant.name}</h1>
-                {sale && <p className="text-xs text-muted-foreground">Pedido #{sale.sale_number}</p>}
-              </div>
-            </div>
-          )}
-          {/* Status badges inline with header */}
+            )}
+          </div>
+
+          {/* Row 2: Status badges */}
           {sale && (
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-wrap pl-1">
               {operationalStatus && (
                 <span className="px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-medium">
                   {operationalStatus.emoji} {operationalStatus.label}
@@ -303,6 +307,11 @@ const CustomerChatPage = () => {
               {financialStatus && (
                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${financialStatus.color}`}>
                   {financialStatus.emoji} {financialStatus.label}
+                </span>
+              )}
+              {totalPaid > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  💰 R$ {totalPaid.toFixed(2)} / R$ {Number(sale.valor_total).toFixed(2)}
                 </span>
               )}
               {payments.length > 0 && (
@@ -320,28 +329,19 @@ const CustomerChatPage = () => {
         </div>
 
         {/* Expandable payment details & total */}
-        {sale && (totalPaid > 0 || (showPayments && payments.length > 0)) && (
-          <div className="px-4 pb-2 space-y-2">
-            {totalPaid > 0 && (
-              <div className="text-xs text-muted-foreground px-1">
-                💰 Total: R$ {Number(sale.valor_total).toFixed(2)} · Pago: <span className="text-green-600 font-medium">R$ {totalPaid.toFixed(2)}</span>
-                {remaining > 0 && <span className="text-destructive ml-1">· Falta: R$ {remaining.toFixed(2)}</span>}
-              </div>
-            )}
-
-            {showPayments && payments.length > 0 && (
-              <div className="space-y-1.5 px-1">
-                {payments.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between text-xs px-3 py-2 rounded-lg bg-secondary/50 border border-border">
-                    <span className="font-medium text-foreground">R$ {Number(p.amount).toFixed(2)}</span>
-                    <span className="text-muted-foreground">{PAYMENT_METHOD_LABELS[p.payment_method] || p.payment_method}</span>
-                    <span className="text-muted-foreground">
-                      {new Date(p.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+        {sale && showPayments && payments.length > 0 && (
+          <div className="px-4 pb-2">
+            <div className="space-y-1.5 px-1">
+              {payments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between text-xs px-3 py-2 rounded-lg bg-secondary/50 border border-border">
+                  <span className="font-medium text-foreground">R$ {Number(p.amount).toFixed(2)}</span>
+                  <span className="text-muted-foreground">{PAYMENT_METHOD_LABELS[p.payment_method] || p.payment_method}</span>
+                  <span className="text-muted-foreground">
+                    {new Date(p.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </header>
