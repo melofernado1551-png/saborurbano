@@ -2,12 +2,13 @@ import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame, ShoppingBag, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import CustomerMenu from "@/components/customer/CustomerMenu";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 
 // No longer needed - emoji comes from DB
@@ -19,6 +20,7 @@ const RestaurantPage = () => {
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
   const { session, getOrCreateCustomerForTenant } = useCustomerAuth();
+  const { user } = useAuth();
   const { addItem, totalItems, setIsOpen: setCartOpen } = useCart();
 
   // Fetch tenant
@@ -524,6 +526,17 @@ const RestaurantPage = () => {
           </Button>
           <h1 className="font-semibold text-foreground truncate">{tenant.name}</h1>
           <div className="flex items-center gap-1">
+            {user && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => navigate("/admin")}
+                className="gap-1.5 rounded-xl text-xs"
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Admin</span>
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="relative" onClick={() => setCartOpen(true)}>
               <ShoppingBag className="w-5 h-5" />
               {totalItems > 0 && (
