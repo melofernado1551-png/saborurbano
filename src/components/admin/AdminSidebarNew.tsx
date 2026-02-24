@@ -9,7 +9,6 @@ import {
   Settings,
   LogOut,
   Store,
-  Pencil,
   Tag,
   SlidersHorizontal,
   LayoutGrid,
@@ -65,14 +64,11 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
     ...(isSuperAdmin || isAdminTenant
       ? [{ label: "Usuários", icon: Users, path: "/admin/usuarios" }]
       : []),
-    ...(isAdminTenant
-      ? [{ label: "Dados do Estabelecimento", icon: Pencil, path: "/admin/tenant/editar" }]
-      : []),
     ...(isSuperAdmin || isAdminTenant
       ? [{ label: "Minha Vitrine", icon: LayoutGrid, path: "/admin/meu-perfil" }]
       : []),
-    ...(!isContador
-      ? [{ label: "Configurações", icon: Settings, path: isAdminTenant ? "/admin/tenant/editar" : "/admin/configuracoes" }]
+    ...(isAdminTenant
+      ? [{ label: "Configurações", icon: Settings, path: "/admin/configuracoes" }]
       : []),
     ...(isSuperAdmin
       ? [{ label: "Configs Admin", icon: SlidersHorizontal, path: "/admin/configs-admin" }]
