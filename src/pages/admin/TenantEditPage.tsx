@@ -18,14 +18,7 @@ const CATEGORIES = [
 ];
 
 const STATES_CITIES: Record<string, string[]> = {
-  PI: [
-    "Teresina", "Parnaíba", "Picos", "Piripiri", "Floriano", "Campo Maior",
-    "Barras", "União", "Altos", "José de Freitas", "Pedro II", "Oeiras",
-    "Esperantina", "Luís Correia", "Valença do Piauí", "São Raimundo Nonato",
-    "Corrente", "Bom Jesus", "Uruçuí", "Agua Branca", "Regeneração",
-    "Miguel Alves", "Amarante", "Luzilândia", "Batalha", "Inhuma",
-    "São João do Piauí", "Simplício Mendes", "Canto do Buriti", "Itainópolis",
-  ],
+  PI: ["Buriti dos Lopes", "Parnaíba", "Luís Correia", "Cocal dos Alves"],
 };
 
 interface TenantEditForm {
