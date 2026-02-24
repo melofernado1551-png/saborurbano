@@ -28,6 +28,7 @@ interface TenantEditForm {
   city: string;
   state: string;
   address: string;
+  number: string;
   zip_code: string;
   cnpj: string;
   whatsapp_number: string;
@@ -42,7 +43,7 @@ const TenantEditPage = () => {
   const queryClient = useQueryClient();
 
   const [form, setForm] = useState<TenantEditForm>({
-    name: "", categories: [], city: "", state: "", address: "",
+    name: "", categories: [], city: "", state: "", address: "", number: "",
     zip_code: "", cnpj: "", whatsapp_number: "", owner_name: "",
     owner_phone: "", owner_email: "",
   });
@@ -76,6 +77,7 @@ const TenantEditPage = () => {
         city: tenant.city || "",
         state: tenant.state || "",
         address: tenant.address || "",
+        number: "",
         zip_code: tenant.zip_code || "",
         cnpj: tenant.cnpj || "",
         whatsapp_number: tenant.whatsapp_number || "",
@@ -310,14 +312,9 @@ const TenantEditPage = () => {
       <Card>
         <CardHeader><CardTitle className="text-lg">Localização</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Endereço</Label>
-            <Input value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="Ex: Rua das Flores, 123" />
-          </div>
-
           <div className="space-y-2">
-            <Label>Cidade</Label>
-            <Input value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="Ex: São Paulo" />
+            <Label>CEP</Label>
+            <Input value={form.zip_code} onChange={(e) => set("zip_code", e.target.value)} placeholder="00000-000" />
           </div>
 
           <div className="space-y-2">
@@ -332,9 +329,19 @@ const TenantEditPage = () => {
             </select>
           </div>
 
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Cidade</Label>
+            <Input value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="Ex: São Paulo" />
+          </div>
+
           <div className="space-y-2">
-            <Label>CEP</Label>
-            <Input value={form.zip_code} onChange={(e) => set("zip_code", e.target.value)} placeholder="00000-000" />
+            <Label>Endereço (Rua)</Label>
+            <Input value={form.address} onChange={(e) => set("address", e.target.value)} placeholder="Ex: Rua das Flores" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Número</Label>
+            <Input value={form.number} onChange={(e) => set("number", e.target.value)} placeholder="Ex: 123" />
           </div>
         </CardContent>
       </Card>
