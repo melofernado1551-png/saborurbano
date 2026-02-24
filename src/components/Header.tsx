@@ -60,7 +60,7 @@ const Header = ({ location, onLocationClick }: HeaderProps) => {
                   className="gap-2 rounded-xl"
                 >
                   <Settings className="w-4 h-4" />
-                  <span className="hidden sm:inline">Administração</span>
+                   Administração
                 </Button>
               )}
               <Button variant="ghost" className="relative gap-2 px-3" onClick={() => setCartOpen(true)}>
