@@ -2,12 +2,21 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
-import { Minus, Plus, Trash2, ShoppingBag, MessageCircle } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, MessageCircle, Truck } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import CustomerAuthModal from "@/components/customer/CustomerAuthModal";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 const CartDrawer = () => {
   const {
@@ -16,6 +25,8 @@ const CartDrawer = () => {
     tenantSlug,
     tenantName,
     totalItems,
+    subtotal,
+    deliveryFee,
     totalPrice,
     removeItem,
     updateQuantity,
@@ -23,6 +34,8 @@ const CartDrawer = () => {
     clearCart,
     isOpen,
     setIsOpen,
+    tenantMismatch,
+    dismissMismatch,
   } = useCart();
   const { customer, session, getOrCreateCustomerForTenant, isInactive } = useCustomerAuth();
   const navigate = useNavigate();
@@ -41,7 +54,6 @@ const CartDrawer = () => {
 
     if (!tenantId) return;
 
-    // Ensure customer exists for this tenant
     let cust = customer;
     if (!cust || cust.tenant_id !== tenantId) {
       cust = await getOrCreateCustomerForTenant(tenantId);
@@ -91,6 +103,24 @@ const CartDrawer = () => {
 
   return (
     <>
+      {/* Tenant mismatch dialog */}
+      <AlertDialog open={tenantMismatch} onOpenChange={dismissMismatch}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              ❌ Lojas diferentes
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Você não pode misturar produtos de lojas diferentes no mesmo carrinho.
+              Finalize ou limpe seu carrinho atual para comprar de outra loja.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={dismissMismatch}>Entendi</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
           <SheetHeader className="px-4 pt-4 pb-3 border-b border-border">
@@ -124,7 +154,6 @@ const CartDrawer = () => {
                   const unitPrice = item.promoPrice ?? item.price;
                   return (
                     <div key={item.productId} className="flex gap-3 p-3 bg-secondary/50 rounded-xl">
-                      {/* Image */}
                       <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
                         {item.imageUrl ? (
                           <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
@@ -133,7 +162,6 @@ const CartDrawer = () => {
                         )}
                       </div>
 
-                      {/* Info */}
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-sm text-foreground line-clamp-1">{item.name}</h4>
                         {item.observation && (
@@ -145,7 +173,6 @@ const CartDrawer = () => {
                           R$ {unitPrice.toFixed(2)}
                         </p>
 
-                        {/* Quantity controls */}
                         <div className="flex items-center justify-between mt-2">
                           <div className="flex items-center gap-2">
                             <button
@@ -180,11 +207,28 @@ const CartDrawer = () => {
                 })}
               </div>
 
-              {/* Footer */}
+              {/* Footer with subtotal, shipping, total */}
               <div className="border-t border-border p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{totalItems} {totalItems === 1 ? "item" : "itens"}</span>
-                  <span className="text-xl font-extrabold text-foreground">R$ {totalPrice.toFixed(2)}</span>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{totalItems} {totalItems === 1 ? "item" : "itens"}</span>
+                    <span className="text-muted-foreground">R$ {subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5" />
+                      Frete
+                    </span>
+                    {deliveryFee === 0 ? (
+                      <span className="text-success font-semibold text-sm">Grátis</span>
+                    ) : (
+                      <span className="text-muted-foreground">R$ {deliveryFee.toFixed(2)}</span>
+                    )}
+                  </div>
+                  <div className="border-t border-border pt-2 flex items-center justify-between">
+                    <span className="font-bold text-foreground">Total</span>
+                    <span className="text-xl font-extrabold text-foreground">R$ {totalPrice.toFixed(2)}</span>
+                  </div>
                 </div>
                 <Button
                   className="w-full h-12 rounded-xl gap-2 text-base font-bold"
@@ -200,7 +244,6 @@ const CartDrawer = () => {
         </SheetContent>
       </Sheet>
 
-      {/* Auth modal for checkout */}
       {showAuthModal && tenantId && (
         <CustomerAuthModal
           tenantId={tenantId}

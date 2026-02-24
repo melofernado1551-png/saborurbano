@@ -284,7 +284,7 @@ const ProductDetailPage = () => {
               disabled={outOfStock}
               onClick={() => {
                 const trimmedObs = observation.trim();
-                addItem(
+                const added = addItem(
                   {
                     productId: product.id,
                     name: product.name,
@@ -294,11 +294,13 @@ const ProductDetailPage = () => {
                     quantity,
                     observation: trimmedObs || undefined,
                   },
-                  { id: tenant.id, slug: tenant.slug, name: tenant.name }
+                  { id: tenant.id, slug: tenant.slug, name: tenant.name, freeShipping: (tenant as any).free_shipping, shippingFee: (tenant as any).shipping_fee ? Number((tenant as any).shipping_fee) : null }
                 );
-                toast.success("✔ Produto adicionado ao carrinho");
-                setQuantity(1);
-                setObservation("");
+                if (added) {
+                  toast.success("✔ Produto adicionado ao carrinho");
+                  setQuantity(1);
+                  setObservation("");
+                }
               }}
             >
               <ShoppingBag className="w-5 h-5" />
