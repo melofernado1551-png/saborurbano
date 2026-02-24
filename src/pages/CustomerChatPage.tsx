@@ -309,31 +309,21 @@ const CustomerChatPage = () => {
                   {financialStatus.emoji} {financialStatus.label}
                 </span>
               )}
-              {totalPaid > 0 && (
+              {sale.financial_status !== "paid" && totalPaid > 0 && (
                 <span className="text-xs text-muted-foreground">
                   💰 R$ {totalPaid.toFixed(2)} / R$ {Number(sale.valor_total).toFixed(2)}
                 </span>
-              )}
-              {payments.length > 0 && (
-                <button
-                  onClick={() => setShowPayments(!showPayments)}
-                  className="px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-medium flex items-center gap-1"
-                >
-                  <Receipt className="w-3 h-3" />
-                  Pagamentos ({payments.length})
-                  <ChevronDown className={`w-3 h-3 transition-transform ${showPayments ? "rotate-180" : ""}`} />
-                </button>
               )}
             </div>
           )}
         </div>
 
-        {/* Expandable payment details & total */}
-        {sale && showPayments && payments.length > 0 && (
-          <div className="px-4 pb-2">
+        {/* Payment details - always visible when there are payments */}
+        {sale && payments.length > 0 && (
+          <div className="px-4 py-2 border-t border-border bg-secondary/30">
             <div className="space-y-1.5 px-1">
               {payments.map((p) => (
-                <div key={p.id} className="flex items-center justify-between text-xs px-3 py-2 rounded-lg bg-secondary/50 border border-border">
+                <div key={p.id} className="flex items-center justify-between text-xs px-3 py-1.5">
                   <span className="font-medium text-foreground">R$ {Number(p.amount).toFixed(2)}</span>
                   <span className="text-muted-foreground">{PAYMENT_METHOD_LABELS[p.payment_method] || p.payment_method}</span>
                   <span className="text-muted-foreground">
