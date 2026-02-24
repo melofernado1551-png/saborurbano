@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,7 +36,9 @@ const CustomerChatPage = () => {
   const [sending, setSending] = useState(false);
   const [showAddresses, setShowAddresses] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
+  const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Fetch chat
   const { data: chat } = useQuery({
@@ -118,6 +120,13 @@ const CustomerChatPage = () => {
     },
   });
 
+  // Clear optimistic messages when real messages update
+  useEffect(() => {
+    if (messages.length > 0) {
+      setOptimisticMessages([]);
+    }
+  }, [messages]);
+
   // Realtime
   useEffect(() => {
     if (!chatId) return;
@@ -137,28 +146,71 @@ const CustomerChatPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [chatId, chat?.sale_id, sale?.id, queryClient]);
 
+  // Combined messages for display
+  const allMessages = [...messages, ...optimisticMessages].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [allMessages.length]);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!message.trim() || !chatId || !customer) return;
+    const content = message.trim();
+    setMessage("");
+
+    // Optimistic message
+    const optimistic = {
+      id: `optimistic-${Date.now()}`,
+      chat_id: chatId,
+      sender_id: customer.id,
+      sender_type: "customer",
+      content,
+      message_type: "text",
+      metadata: {},
+      created_at: new Date().toISOString(),
+      active: true,
+      _optimistic: true,
+    };
+    setOptimisticMessages((prev) => [...prev, optimistic]);
+
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+
     setSending(true);
     try {
       const { error } = await supabase.from("chat_messages").insert({
         chat_id: chatId,
         sender_id: customer.id,
         sender_type: "customer",
-        content: message.trim(),
+        content,
         message_type: "text",
       });
       if (error) throw error;
-      setMessage("");
     } catch {
+      setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       toast.error("Erro ao enviar mensagem");
+      setMessage(content);
     } finally {
       setSending(false);
     }
+  }, [message, chatId, customer]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+    const textarea = e.target;
+    textarea.style.height = "auto";
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
   };
 
   const handleSelectAddress = async (addr: any) => {
@@ -263,7 +315,6 @@ const CustomerChatPage = () => {
               )}
             </div>
 
-            {/* Financial summary */}
             {totalPaid > 0 && (
               <div className="text-xs text-muted-foreground px-1">
                 💰 Total: R$ {Number(sale.valor_total).toFixed(2)} · Pago: <span className="text-green-600 font-medium">R$ {totalPaid.toFixed(2)}</span>
@@ -271,7 +322,6 @@ const CustomerChatPage = () => {
               </div>
             )}
 
-            {/* Payment history dropdown */}
             {showPayments && payments.length > 0 && (
               <div className="space-y-1.5 px-1">
                 {payments.map((p) => (
@@ -291,25 +341,33 @@ const CustomerChatPage = () => {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {messages.map((msg) => {
+        {allMessages.map((msg) => {
           const isCustomer = msg.sender_type === "customer";
+          const isTenant = msg.sender_type === "tenant";
           const isSystem = ["order_summary", "address_confirmation", "status_update", "payment_registered"].includes(msg.message_type);
+          const senderName = (msg.metadata as any)?.sender_name;
 
           return (
             <div key={msg.id} className={`flex ${isCustomer ? "justify-end" : "justify-start"}`}>
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
-                  isSystem
-                    ? "bg-accent border border-border text-foreground"
-                    : isCustomer
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-card border border-border text-foreground"
-                }`}
-              >
-                <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                <p className={`text-[10px] mt-1 ${isCustomer ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                  {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                </p>
+              <div className="max-w-[80%]">
+                {/* Sender name for store messages */}
+                {isTenant && senderName && (
+                  <p className="text-[11px] text-muted-foreground mb-0.5 text-left px-1">{senderName}</p>
+                )}
+                <div
+                  className={`rounded-2xl px-4 py-2.5 text-sm ${
+                    isSystem
+                      ? "bg-accent border border-border text-foreground"
+                      : isCustomer
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card border border-border text-foreground"
+                  } ${msg._optimistic ? "opacity-70" : ""}`}
+                >
+                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  <p className={`text-[10px] mt-1 ${isCustomer ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                    {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
               </div>
             </div>
           );
@@ -362,18 +420,19 @@ const CustomerChatPage = () => {
 
       {/* Input */}
       <div className="border-t border-border p-4 bg-card">
-        <div className="flex gap-2">
-          <input
-            type="text"
+        <div className="flex gap-2 items-end">
+          <textarea
+            ref={textareaRef}
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+            onChange={handleTextareaInput}
+            onKeyDown={handleKeyDown}
             placeholder="Digite sua mensagem..."
-            className="flex-1 h-10 px-4 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            rows={1}
+            className="flex-1 min-h-[40px] max-h-[120px] px-4 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
           />
           <Button
             size="icon"
-            className="h-10 w-10 rounded-xl"
+            className="h-10 w-10 rounded-xl flex-shrink-0"
             onClick={handleSend}
             disabled={!message.trim() || sending}
           >
