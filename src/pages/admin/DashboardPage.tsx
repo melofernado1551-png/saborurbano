@@ -7,32 +7,86 @@ import {
   DollarSign,
   ShoppingCart,
   TrendingUp,
-  Activity,
   Clock,
   AlertTriangle,
   Building2,
   Flame,
+  ChefHat,
+  CheckCircle2,
+  Truck,
+  Hourglass,
+  Activity,
+  CalendarDays,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Badge } from "@/components/ui/badge";
+import { useEffect } from "react";
 
 const DashboardPage = () => {
   const { user } = useAuth();
-  const { effectiveTenantId, isSuperAdmin, tenantName } = useAdmin();
+  const { effectiveTenantId, isSuperAdmin, isAdminTenant, isColaborador, tenantName } = useAdmin();
+
+  const canSeeFinancials = isSuperAdmin || isAdminTenant;
 
   const today = new Date();
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+  const startOfWeek = (() => {
+    const d = new Date(today);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.getFullYear(), d.getMonth(), diff).toISOString();
+  })();
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
 
-  // Sales data
-  const { data: salesData } = useQuery({
-    queryKey: ["dashboard-sales", effectiveTenantId],
+  // ─── LAYER 1: OPERATIONAL (real-time) ───
+  const { data: opsData, refetch: refetchOps } = useQuery({
+    queryKey: ["dashboard-ops", effectiveTenantId],
     enabled: !!effectiveTenantId,
+    refetchInterval: 15000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("sales" as any)
+        .select("id, operational_status, created_at")
+        .eq("tenant_id", effectiveTenantId!)
+        .eq("active", true)
+        .gte("created_at", startOfDay);
+
+      const sales = (data || []) as any[];
+
+      const aguardando = sales.filter((s: any) => s.operational_status === "received").length;
+      const emPreparo = sales.filter((s: any) => s.operational_status === "preparing").length;
+      const prontos = sales.filter((s: any) => s.operational_status === "ready").length;
+      const emEntrega = sales.filter((s: any) => s.operational_status === "delivering").length;
+      const finalizados = sales.filter((s: any) => s.operational_status === "finished").length;
+      const emAndamento = aguardando + emPreparo + prontos + emEntrega;
+
+      return { aguardando, emPreparo, prontos, emEntrega, finalizados, emAndamento, total: sales.length };
+    },
+  });
+
+  // Realtime subscription for sales changes
+  useEffect(() => {
+    if (!effectiveTenantId) return;
+    const channel = supabase
+      .channel("dashboard-sales-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sales", filter: `tenant_id=eq.${effectiveTenantId}` }, () => {
+        refetchOps();
+        if (canSeeFinancials) refetchFinancials();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveTenantId]);
+
+  // ─── LAYER 2: FINANCIAL (admin only) ───
+  const { data: financialData, refetch: refetchFinancials } = useQuery({
+    queryKey: ["dashboard-financials", effectiveTenantId],
+    enabled: !!effectiveTenantId && canSeeFinancials,
     refetchInterval: 30000,
     queryFn: async () => {
       const { data: allSales } = await supabase
         .from("sales" as any)
-        .select("*")
+        .select("id, valor_total, created_at, forma_pagamento")
         .eq("tenant_id", effectiveTenantId!)
         .eq("active", true)
         .eq("financial_status", "paid")
@@ -40,12 +94,15 @@ const DashboardPage = () => {
         .order("created_at", { ascending: false });
 
       const sales = (allSales || []) as any[];
+
       const todaySales = sales.filter((s: any) => s.created_at >= startOfDay);
+      const weekSales = sales.filter((s: any) => s.created_at >= startOfWeek);
 
       const faturamentoDia = todaySales.reduce((acc: number, s: any) => acc + Number(s.valor_total), 0);
+      const faturamentoSemana = weekSales.reduce((acc: number, s: any) => acc + Number(s.valor_total), 0);
       const faturamentoMes = sales.reduce((acc: number, s: any) => acc + Number(s.valor_total), 0);
-      const numVendasHoje = todaySales.length;
-      const ticketMedio = numVendasHoje > 0 ? faturamentoDia / numVendasHoje : 0;
+      const qtdVendasPagas = sales.length;
+      const ticketMedio = qtdVendasPagas > 0 ? faturamentoMes / qtdVendasPagas : 0;
 
       // Chart by day
       const byDay: Record<string, number> = {};
@@ -57,33 +114,10 @@ const DashboardPage = () => {
         .map(([day, total]) => ({ day, total }))
         .reverse();
 
-      // Recent sales (last 5)
+      // Recent sales
       const recentSales = todaySales.slice(0, 5);
 
-      return { faturamentoDia, faturamentoMes, numVendasHoje, ticketMedio, chartData, recentSales };
-    },
-  });
-
-  // Orders data
-  const { data: ordersData } = useQuery({
-    queryKey: ["dashboard-orders", effectiveTenantId],
-    enabled: !!effectiveTenantId,
-    refetchInterval: 30000,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("orders")
-        .select("id, status, created_at")
-        .eq("tenant_id", effectiveTenantId!)
-        .eq("active", true)
-        .gte("created_at", startOfDay);
-
-      const orders = data || [];
-      const total = orders.length;
-      const emAndamento = orders.filter((o) => o.status === "em_preparo" || o.status === "aberto").length;
-      const aguardandoPreparo = orders.filter((o) => o.status === "aberto").length;
-      const aguardandoEntrega = orders.filter((o) => o.status === "pronto").length;
-
-      return { total, emAndamento, aguardandoPreparo, aguardandoEntrega };
+      return { faturamentoDia, faturamentoSemana, faturamentoMes, qtdVendasPagas, ticketMedio, chartData, recentSales };
     },
   });
 
@@ -122,6 +156,15 @@ const DashboardPage = () => {
   const formatCurrency = (v: number) =>
     `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 
+  const opsCards = [
+    { label: "Aguardando", value: opsData?.aguardando ?? 0, icon: Hourglass, color: "text-yellow-500" },
+    { label: "Em Preparo", value: opsData?.emPreparo ?? 0, icon: ChefHat, color: "text-orange-500" },
+    { label: "Prontos", value: opsData?.prontos ?? 0, icon: CheckCircle2, color: "text-green-500" },
+    { label: "Em Entrega", value: opsData?.emEntrega ?? 0, icon: Truck, color: "text-blue-500" },
+    { label: "Finalizados Hoje", value: opsData?.finalizados ?? 0, icon: CheckCircle2, color: "text-emerald-600" },
+    { label: "Em Andamento", value: opsData?.emAndamento ?? 0, icon: Activity, color: "text-primary" },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Greeting */}
@@ -132,154 +175,153 @@ const DashboardPage = () => {
         <p className="text-muted-foreground text-sm">Bem-vindo, {user?.name || user?.login}</p>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Pedidos Hoje</CardTitle>
-            <ShoppingCart className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{ordersData?.total ?? 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Faturamento Hoje</CardTitle>
-            <DollarSign className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(salesData?.faturamentoDia ?? 0)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Ticket Médio</CardTitle>
-            <TrendingUp className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(salesData?.ticketMedio ?? 0)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Em Andamento</CardTitle>
-            <Activity className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{ordersData?.emAndamento ?? 0}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-xs font-medium text-muted-foreground">Faturamento Mês</CardTitle>
-            <DollarSign className="w-4 h-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(salesData?.faturamentoMes ?? 0)}</div>
-          </CardContent>
-        </Card>
+      {/* ═══ LAYER 1: O AGORA ═══ */}
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+          <Clock className="w-4 h-4" /> Operação em Tempo Real
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {opsCards.map((card) => (
+            <Card key={card.label} className="relative overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <card.icon className={`w-5 h-5 ${card.color}`} />
+                </div>
+                <div className="text-2xl font-bold">{card.value}</div>
+                <p className="text-xs text-muted-foreground mt-1">{card.label}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
-      {/* Operational Status + Alerts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Operational Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="w-4 h-4 text-primary" />
-              Status Operacional
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Aguardando preparo</span>
-              <Badge variant="secondary">{ordersData?.aguardandoPreparo ?? 0}</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Aguardando entrega/retirada</span>
-              <Badge variant="secondary">{ordersData?.aguardandoEntrega ?? 0}</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Total pedidos hoje</span>
-              <Badge>{ordersData?.total ?? 0}</Badge>
-            </div>
-          </CardContent>
-        </Card>
+      {/* ═══ LAYER 2: FINANCEIRO (ADMIN ONLY) ═══ */}
+      {canSeeFinancials && (
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+            <DollarSign className="w-4 h-4" /> Financeiro — Somente Vendas Pagas
+          </h2>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">Faturamento Hoje</CardTitle>
+                <DollarSign className="w-4 h-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold">{formatCurrency(financialData?.faturamentoDia ?? 0)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">Faturamento Semana</CardTitle>
+                <CalendarDays className="w-4 h-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold">{formatCurrency(financialData?.faturamentoSemana ?? 0)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">Faturamento Mês</CardTitle>
+                <DollarSign className="w-4 h-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold">{formatCurrency(financialData?.faturamentoMes ?? 0)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">Vendas Pagas</CardTitle>
+                <ShoppingCart className="w-4 h-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold">{financialData?.qtdVendasPagas ?? 0}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-xs font-medium text-muted-foreground">Ticket Médio</CardTitle>
+                <TrendingUp className="w-4 h-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold">{formatCurrency(financialData?.ticketMedio ?? 0)}</div>
+              </CardContent>
+            </Card>
+          </div>
 
-        {/* Smart Alerts */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-warning" />
-              Alertas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stockAlerts && stockAlerts.length > 0 ? (
-              <ul className="space-y-2">
-                {stockAlerts.map((alert) => (
-                  <li key={alert.id} className="flex items-start gap-2 text-sm">
-                    <Flame className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
-                    <span>{alert.message}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">Nenhum alerta no momento 🎉</p>
+          {/* Recent Sales + Chart */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Vendas Recentes (Hoje)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {financialData?.recentSales && financialData.recentSales.length > 0 ? (
+                  <div className="space-y-3">
+                    {financialData.recentSales.map((sale: any) => (
+                      <div key={sale.id} className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <span className="text-muted-foreground">
+                            {new Date(sale.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          <span className="capitalize">{sale.forma_pagamento?.replace("_", " ") || "—"}</span>
+                        </div>
+                        <span className="font-semibold">{formatCurrency(Number(sale.valor_total))}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhuma venda paga registrada hoje.</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {financialData?.chartData && financialData.chartData.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Vendas por Dia (Mês)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-52">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={financialData.chartData}>
+                        <XAxis dataKey="day" className="text-xs" />
+                        <YAxis className="text-xs" />
+                        <Tooltip formatter={(value: number) => [formatCurrency(value), "Total"]} />
+                        <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </div>
+      )}
 
-      {/* Recent Sales */}
+      {/* Alerts */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Vendas Recentes (Hoje)</CardTitle>
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-yellow-500" />
+            Alertas de Estoque
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {salesData?.recentSales && salesData.recentSales.length > 0 ? (
-            <div className="space-y-3">
-              {salesData.recentSales.map((sale: any) => (
-                <div key={sale.id} className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0">
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground">
-                      {new Date(sale.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                    <span className="capitalize">{sale.forma_pagamento?.replace("_", " ") || "—"}</span>
-                  </div>
-                  <span className="font-semibold">{formatCurrency(Number(sale.valor_total))}</span>
-                </div>
+          {stockAlerts && stockAlerts.length > 0 ? (
+            <ul className="space-y-2">
+              {stockAlerts.map((alert) => (
+                <li key={alert.id} className="flex items-start gap-2 text-sm">
+                  <Flame className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+                  <span>{alert.message}</span>
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">Nenhuma venda registrada hoje.</p>
+            <p className="text-sm text-muted-foreground">Nenhum alerta no momento 🎉</p>
           )}
         </CardContent>
       </Card>
-
-      {/* Chart */}
-      {salesData?.chartData && salesData.chartData.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Vendas por Dia (Mês)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salesData.chartData}>
-                  <XAxis dataKey="day" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), "Total"]}
-                  />
-                  <Bar dataKey="total" fill="hsl(24, 95%, 53%)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };
