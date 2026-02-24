@@ -82,25 +82,16 @@ const CustomerOrdersPage = () => {
                 className="w-full text-left p-4 rounded-xl bg-card border border-border hover:border-primary/30 transition-all"
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden flex-shrink-0">
-                      {tenant?.logo_url ? (
-                        <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center font-bold text-muted-foreground">
-                          {tenant?.name?.charAt(0) || "?"}
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm text-foreground">
-                        {tenant?.name || "Restaurante"}
-                        {sale?.sale_number && <span className="text-muted-foreground font-normal"> · #{sale.sale_number}</span>}
-                      </p>
-                      {sale && <p className="text-xs text-muted-foreground">R$ {Number(sale.valor_total).toFixed(2)}</p>}
-                    </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-foreground">
+                      {sale?.sale_number ? `Pedido #${sale.sale_number}` : "Pedido"}
+                      {sale && <span className="font-normal text-muted-foreground"> · R$ {Number(sale.valor_total).toFixed(2)}</span>}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {tenant?.name || "Restaurante"}
+                    </p>
                   </div>
-                  <div className="flex gap-1.5 flex-wrap justify-end">
+                  <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
                     {operational && (
                       <span className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-xs">
                         {operational.emoji} {operational.label}
