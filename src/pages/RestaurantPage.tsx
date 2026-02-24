@@ -383,9 +383,9 @@ const RestaurantPage = () => {
         className={`group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer ${outOfStock ? "opacity-50 pointer-events-none" : ""}`}
         onClick={() => product.slug && navigate(`/${slug}/${product.slug}`)}
       >
-        <div className="relative h-40 overflow-hidden bg-secondary">
+        <div className="relative h-40 overflow-hidden bg-white">
           {imageMap[product.id] ? (
-            <img src={imageMap[product.id]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            <img src={imageMap[product.id]} alt={product.name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-secondary to-muted">🍔</div>
           )}
@@ -452,9 +452,9 @@ const RestaurantPage = () => {
         className={`group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer border-2 border-primary/20 ${outOfStock ? "opacity-50 pointer-events-none" : ""}`}
         onClick={() => product.slug && navigate(`/${slug}/${product.slug}`)}
       >
-        <div className="relative h-48 overflow-hidden bg-secondary">
+        <div className="relative h-48 overflow-hidden bg-white">
           {imageMap[product.id] ? (
-            <img src={imageMap[product.id]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            <img src={imageMap[product.id]} alt={product.name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-5xl bg-gradient-to-br from-primary/10 to-secondary">⭐</div>
           )}
