@@ -595,6 +595,43 @@ const MyStorePage = () => {
         </section>
 
         <main className="container mx-auto px-4 py-6 space-y-8">
+          {/* ═══ CATEGORY ORDER ═══ */}
+          {draftCategoryOrder.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  🏷️ Ordem das Categorias
+                  <span className="text-xs font-normal text-muted-foreground ml-1">
+                    (arraste para reordenar)
+                  </span>
+                </h3>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {draftCategoryOrder.map((cat, idx) => {
+                  const isDragOver = dragOverCatIdx === idx;
+                  return (
+                    <div
+                      key={cat.id}
+                      draggable
+                      onDragStart={() => setDragCatIdx(idx)}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCatIdx(idx); }}
+                      onDrop={() => handleCategoryDrop(idx)}
+                      onDragEnd={() => { setDragCatIdx(null); setDragOverCatIdx(null); }}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full bg-card border border-border cursor-grab active:cursor-grabbing transition-all select-none ${
+                        isDragOver ? "ring-2 ring-primary/50 scale-105" : ""
+                      } ${dragCatIdx === idx ? "opacity-40 scale-95" : ""}`}
+                    >
+                      <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-sm font-medium whitespace-nowrap">
+                        {cat.emoji || "🍽️"} {cat.name}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           {/* ═══ FEATURED SECTION ═══ */}
           <EditableSection
             title="⭐ Destaques da Loja"
@@ -642,43 +679,6 @@ const MyStorePage = () => {
               })}
             </div>
           </EditableSection>
-
-          {/* ═══ CATEGORY ORDER ═══ */}
-          {draftCategoryOrder.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  🏷️ Ordem das Categorias
-                  <span className="text-xs font-normal text-muted-foreground ml-1">
-                    (arraste para reordenar)
-                  </span>
-                </h3>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {draftCategoryOrder.map((cat, idx) => {
-                  const isDragOver = dragOverCatIdx === idx;
-                  return (
-                    <div
-                      key={cat.id}
-                      draggable
-                      onDragStart={() => setDragCatIdx(idx)}
-                      onDragOver={(e) => { e.preventDefault(); setDragOverCatIdx(idx); }}
-                      onDrop={() => handleCategoryDrop(idx)}
-                      onDragEnd={() => { setDragCatIdx(null); setDragOverCatIdx(null); }}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full bg-card border border-border cursor-grab active:cursor-grabbing transition-all select-none ${
-                        isDragOver ? "ring-2 ring-primary/50 scale-105" : ""
-                      } ${dragCatIdx === idx ? "opacity-40 scale-95" : ""}`}
-                    >
-                      <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-sm font-medium whitespace-nowrap">
-                        {cat.emoji || "🍽️"} {cat.name}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
 
           {/* ═══ CUSTOM SECTIONS ═══ */}
           {sortedActiveSections.map((section, sortedIdx) => {
