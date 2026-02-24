@@ -271,8 +271,7 @@ const CustomerChatPage = () => {
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-lg border-b border-border">
-        <div className="container mx-auto px-4 py-2 space-y-1.5">
-          {/* Row 1: Back button + tenant info */}
+        <div className="container mx-auto px-4 py-2">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="flex-shrink-0">
               <ArrowLeft className="w-5 h-5" />
@@ -294,38 +293,38 @@ const CustomerChatPage = () => {
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Row 2: Status badges */}
-          {sale && (
-            <div className="flex items-center gap-2 flex-wrap pl-1">
-              {operationalStatus && (
-                <span className="px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-medium">
-                  {operationalStatus.emoji} {operationalStatus.label}
-                </span>
-              )}
-              {financialStatus && (
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${financialStatus.color}`}>
-                  {financialStatus.emoji} {financialStatus.label}
-                </span>
-              )}
-              {totalPaid > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  💰 R$ {totalPaid.toFixed(2)} / R$ {Number(sale.valor_total).toFixed(2)}
-                </span>
-              )}
-              {payments.length > 0 && (
-                <button
-                  onClick={() => setShowPayments(!showPayments)}
-                  className="px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-medium flex items-center gap-1"
-                >
-                  <Receipt className="w-3 h-3" />
-                  Pagamentos ({payments.length})
-                  <ChevronDown className={`w-3 h-3 transition-transform ${showPayments ? "rotate-180" : ""}`} />
-                </button>
-              )}
-            </div>
-          )}
+            {/* Status badges - right side */}
+            {sale && (
+              <div className="flex items-center gap-2 flex-wrap ml-auto flex-shrink-0">
+                {operationalStatus && (
+                  <span className="px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-medium">
+                    {operationalStatus.emoji} {operationalStatus.label}
+                  </span>
+                )}
+                {financialStatus && (
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${financialStatus.color}`}>
+                    {financialStatus.emoji} {financialStatus.label}
+                  </span>
+                )}
+                {totalPaid > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    💰 R$ {totalPaid.toFixed(2)} / R$ {Number(sale.valor_total).toFixed(2)}
+                  </span>
+                )}
+                {payments.length > 0 && (
+                  <button
+                    onClick={() => setShowPayments(!showPayments)}
+                    className="px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-medium flex items-center gap-1"
+                  >
+                    <Receipt className="w-3 h-3" />
+                    Pagamentos ({payments.length})
+                    <ChevronDown className={`w-3 h-3 transition-transform ${showPayments ? "rotate-180" : ""}`} />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Expandable payment details & total */}
