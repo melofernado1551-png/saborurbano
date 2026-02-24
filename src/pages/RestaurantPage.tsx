@@ -359,7 +359,7 @@ const RestaurantPage = () => {
     e.stopPropagation();
     const outOfStock = stockMap[product.id] !== undefined && stockMap[product.id] <= 0;
     if (outOfStock) return;
-    addItem(
+    const added = addItem(
       {
         productId: product.id,
         name: product.name,
@@ -367,9 +367,11 @@ const RestaurantPage = () => {
         promoPrice: product.promo_price ? Number(product.promo_price) : null,
         imageUrl: imageMap[product.id] || null,
       },
-      { id: tenant.id, slug: tenant.slug, name: tenant.name }
+      { id: tenant.id, slug: tenant.slug, name: tenant.name, freeShipping: (tenant as any).free_shipping, shippingFee: (tenant as any).shipping_fee ? Number((tenant as any).shipping_fee) : null }
     );
-    toast.success("✔ Produto adicionado ao carrinho");
+    if (added) {
+      toast.success("✔ Produto adicionado ao carrinho");
+    }
   };
 
   const ProductGridCard = ({ product }: { product: typeof products[0] }) => {

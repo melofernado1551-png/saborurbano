@@ -10,20 +10,32 @@ export interface CartItem {
   observation?: string;
 }
 
+interface TenantInfo {
+  id: string;
+  slug: string;
+  name: string;
+  freeShipping?: boolean;
+  shippingFee?: number | null;
+}
+
 interface CartContextType {
   items: CartItem[];
   tenantId: string | null;
   tenantSlug: string | null;
   tenantName: string | null;
   totalItems: number;
+  subtotal: number;
+  deliveryFee: number;
   totalPrice: number;
-  addItem: (item: Omit<CartItem, "quantity"> & { quantity?: number }, tenant: { id: string; slug: string; name: string }) => void;
+  addItem: (item: Omit<CartItem, "quantity"> & { quantity?: number }, tenant: TenantInfo) => boolean;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   updateObservation: (productId: string, observation: string) => void;
   clearCart: () => void;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  tenantMismatch: boolean;
+  dismissMismatch: () => void;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -41,6 +53,7 @@ interface StoredCart {
   tenantSlug: string;
   tenantName: string;
   items: CartItem[];
+  deliveryFee: number;
 }
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
@@ -53,6 +66,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   });
   const [isOpen, setIsOpen] = useState(false);
+  const [tenantMismatch, setTenantMismatch] = useState(false);
 
   useEffect(() => {
     if (cart && cart.items.length > 0) {
@@ -62,22 +76,24 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [cart]);
 
-  const addItem = useCallback(
-    (item: Omit<CartItem, "quantity"> & { quantity?: number }, tenant: { id: string; slug: string; name: string }) => {
-      setCart((prev) => {
-        // If cart belongs to a different tenant, clear it
-        if (prev && prev.tenantId !== tenant.id) {
-          const newCart: StoredCart = {
-            tenantId: tenant.id,
-            tenantSlug: tenant.slug,
-            tenantName: tenant.name,
-            items: [{ ...item, quantity: item.quantity || 1 }],
-          };
-          return newCart;
-        }
+  const dismissMismatch = useCallback(() => setTenantMismatch(false), []);
 
+  const computeDeliveryFee = (tenant: TenantInfo): number => {
+    if (tenant.freeShipping) return 0;
+    if (tenant.shippingFee != null && tenant.shippingFee > 0) return tenant.shippingFee;
+    return 0;
+  };
+
+  const addItem = useCallback(
+    (item: Omit<CartItem, "quantity"> & { quantity?: number }, tenant: TenantInfo): boolean => {
+      // Block if cart belongs to a different tenant
+      if (cart && cart.tenantId !== tenant.id && cart.items.length > 0) {
+        setTenantMismatch(true);
+        return false;
+      }
+
+      setCart((prev) => {
         const existing = prev?.items || [];
-        // Items with different observations are treated as distinct
         const idx = existing.findIndex(
           (i) => i.productId === item.productId && (i.observation || "") === (item.observation || "")
         );
@@ -96,11 +112,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           tenantSlug: prev?.tenantSlug || tenant.slug,
           tenantName: prev?.tenantName || tenant.name,
           items: newItems,
+          deliveryFee: prev?.deliveryFee ?? computeDeliveryFee(tenant),
         };
       });
-      // Cart no longer auto-opens; user clicks the icon to open
+      return true;
     },
-    []
+    [cart]
   );
 
   const removeItem = useCallback((productId: string) => {
@@ -143,10 +160,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const items = cart?.items || [];
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
-  const totalPrice = items.reduce((sum, i) => {
+  const subtotal = items.reduce((sum, i) => {
     const unitPrice = i.promoPrice ?? i.price;
     return sum + unitPrice * i.quantity;
   }, 0);
+  const deliveryFee = cart?.deliveryFee ?? 0;
+  const totalPrice = subtotal + deliveryFee;
 
   return (
     <CartContext.Provider
@@ -156,6 +175,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         tenantSlug: cart?.tenantSlug || null,
         tenantName: cart?.tenantName || null,
         totalItems,
+        subtotal,
+        deliveryFee,
         totalPrice,
         addItem,
         removeItem,
@@ -164,6 +185,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         clearCart,
         isOpen,
         setIsOpen,
+        tenantMismatch,
+        dismissMismatch,
       }}
     >
       {children}
