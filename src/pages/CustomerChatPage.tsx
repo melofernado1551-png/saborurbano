@@ -120,11 +120,14 @@ const CustomerChatPage = () => {
     },
   });
 
-  // Clear optimistic messages when real messages update
+  // Clear optimistic messages only when they appear in real messages
   useEffect(() => {
-    if (messages.length > 0) {
-      setOptimisticMessages([]);
-    }
+    if (optimisticMessages.length === 0) return;
+    setOptimisticMessages((prev) =>
+      prev.filter(
+        (opt) => !messages.some((real) => real.content === opt.content && real.sender_id === opt.sender_id)
+      )
+    );
   }, [messages]);
 
   // Realtime
