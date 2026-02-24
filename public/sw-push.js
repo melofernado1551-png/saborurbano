@@ -1,5 +1,4 @@
-// Service Worker for Push Notifications
-// This file is served from /sw-push.js in the public folder
+// Service Worker for Push Notifications (iOS + Android + Desktop)
 
 self.addEventListener("push", function (event) {
   let data = { title: "Sabor Urbano", body: "Atualização do seu pedido" };
@@ -8,23 +7,28 @@ self.addEventListener("push", function (event) {
     try {
       data = event.data.json();
     } catch {
-      data.body = event.data.text();
+      try {
+        data.body = event.data.text();
+      } catch {
+        // fallback to defaults
+      }
     }
   }
 
   const options = {
-    body: data.body,
+    body: data.body || "Atualização do seu pedido",
     icon: "/pwa-192x192.png",
     badge: "/pwa-192x192.png",
     vibrate: [200, 100, 200],
-    tag: "order-status",
+    tag: "order-status-" + Date.now(),
     renotify: true,
+    requireInteraction: true,
     data: {
       url: "/meus-pedidos",
     },
   };
 
-  event.waitUntil(self.registration.showNotification(data.title, options));
+  event.waitUntil(self.registration.showNotification(data.title || "Sabor Urbano", options));
 });
 
 self.addEventListener("notificationclick", function (event) {

@@ -213,16 +213,16 @@ Deno.serve(async (req) => {
       const keys = await getOrCreateVapidKeys(supabaseAdmin);
 
       const STATUS_LABELS: Record<string, string> = {
-        received: "📥 Recebido",
-        preparing: "👨‍🍳 Em preparo",
-        delivering: "🛵 Saiu para entrega",
-        finished: "✅ Finalizado",
+        received: "Recebido",
+        preparing: "Em preparo",
+        delivering: "Saiu para entrega",
+        finished: "Finalizado",
       };
 
       const FINANCIAL_LABELS: Record<string, string> = {
-        pending: "🔴 Pagamento pendente",
-        partial: "🟡 Parcialmente pago",
-        paid: "🟢 Pago",
+        pending: "Pagamento pendente",
+        partial: "Parcialmente pago",
+        paid: "Pago",
       };
 
       const messages: string[] = [];
