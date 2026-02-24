@@ -34,6 +34,8 @@ interface TenantEditForm {
   owner_name: string;
   owner_phone: string;
   owner_email: string;
+  opening_time: string;
+  closing_time: string;
 }
 
 const TenantEditPage = () => {
@@ -44,7 +46,7 @@ const TenantEditPage = () => {
   const [form, setForm] = useState<TenantEditForm>({
     name: "", categories: [], city: "", state: "", address: "", number: "",
     zip_code: "", cnpj: "", whatsapp_number: "", owner_name: "",
-    owner_phone: "", owner_email: "",
+    owner_phone: "", owner_email: "", opening_time: "08:00", closing_time: "22:00",
   });
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -83,6 +85,8 @@ const TenantEditPage = () => {
         owner_name: tenant.owner_name || "",
         owner_phone: tenant.owner_phone || "",
         owner_email: tenant.owner_email || "",
+        opening_time: (tenant as any).opening_time || "08:00",
+        closing_time: (tenant as any).closing_time || "22:00",
       });
       setLogoUrl(tenant.logo_url || null);
       setCoverUrl(tenant.cover_url || null);
@@ -145,6 +149,8 @@ const TenantEditPage = () => {
         owner_name: form.owner_name || null,
         owner_phone: form.owner_phone || null,
         owner_email: form.owner_email || null,
+        opening_time: form.opening_time || null,
+        closing_time: form.closing_time || null,
         logo_url: logoUrl || null,
         cover_url: coverUrl || null,
       };
@@ -297,6 +303,16 @@ const TenantEditPage = () => {
           <div className="space-y-2">
             <Label>WhatsApp</Label>
             <Input value={form.whatsapp_number} onChange={(e) => set("whatsapp_number", e.target.value)} placeholder="(00) 00000-0000" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Horário de Abertura</Label>
+            <Input type="time" value={form.opening_time} onChange={(e) => set("opening_time", e.target.value)} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Horário de Fechamento</Label>
+            <Input type="time" value={form.closing_time} onChange={(e) => set("closing_time", e.target.value)} />
           </div>
         </CardContent>
       </Card>

@@ -1156,6 +1156,7 @@ export type Database = {
           address: string | null
           category: string | null
           city: string | null
+          closing_time: string | null
           cnpj: string | null
           cover_url: string | null
           created_at: string
@@ -1165,6 +1166,7 @@ export type Database = {
           logo_url: string | null
           longitude: number | null
           name: string
+          opening_time: string | null
           owner_email: string | null
           owner_name: string | null
           owner_phone: string | null
@@ -1180,6 +1182,7 @@ export type Database = {
           address?: string | null
           category?: string | null
           city?: string | null
+          closing_time?: string | null
           cnpj?: string | null
           cover_url?: string | null
           created_at?: string
@@ -1189,6 +1192,7 @@ export type Database = {
           logo_url?: string | null
           longitude?: number | null
           name: string
+          opening_time?: string | null
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
@@ -1204,6 +1208,7 @@ export type Database = {
           address?: string | null
           category?: string | null
           city?: string | null
+          closing_time?: string | null
           cnpj?: string | null
           cover_url?: string | null
           created_at?: string
@@ -1213,6 +1218,7 @@ export type Database = {
           logo_url?: string | null
           longitude?: number | null
           name?: string
+          opening_time?: string | null
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
