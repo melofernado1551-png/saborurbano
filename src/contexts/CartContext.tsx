@@ -95,7 +95,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           items: newItems,
         };
       });
-      setIsOpen(true);
+      // Cart no longer auto-opens; user clicks the icon to open
     },
     []
   );

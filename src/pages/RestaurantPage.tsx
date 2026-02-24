@@ -367,7 +367,7 @@ const RestaurantPage = () => {
       },
       { id: tenant.id, slug: tenant.slug, name: tenant.name }
     );
-    toast.success(`${product.name} adicionado!`);
+    toast.success("✔ Produto adicionado ao carrinho");
   };
 
   const ProductGridCard = ({ product }: { product: typeof products[0] }) => {
