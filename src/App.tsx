@@ -3,11 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CustomerAuthProvider } from "@/contexts/CustomerAuthContext";
 import { CartProvider } from "@/contexts/CartContext";
-import { useAutoTheme } from "@/hooks/useAutoTheme";
 import { useSystemConfig } from "@/hooks/useSystemConfig";
 import CartDrawer from "@/components/cart/CartDrawer";
 import OrderStatusNotifier from "@/components/customer/OrderStatusNotifier";
@@ -41,16 +39,14 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const AutoThemeHandler = () => {
-  useAutoTheme();
+const SystemConfigHandler = () => {
   useSystemConfig();
   return null;
 };
 
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
   <QueryClientProvider client={queryClient}>
-    <AutoThemeHandler />
+    <SystemConfigHandler />
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -99,7 +95,6 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-  </ThemeProvider>
 );
 
 export default App;
