@@ -26,11 +26,12 @@ const TenantDashboard = () => {
         .order("created_at", { ascending: false });
 
       const sales = (allSales || []) as any[];
-      const todaySales = sales.filter((s: any) => s.created_at >= startOfDay);
+      const paidSales = sales.filter((s: any) => s.financial_status === 'paid');
+      const todayPaidSales = paidSales.filter((s: any) => s.created_at >= startOfDay);
 
-      const faturamentoDia = todaySales.reduce((acc: number, s: any) => acc + Number(s.valor_total), 0);
-      const faturamentoMes = sales.reduce((acc: number, s: any) => acc + Number(s.valor_total), 0);
-      const numVendas = sales.length;
+      const faturamentoDia = todayPaidSales.reduce((acc: number, s: any) => acc + Number(s.valor_total), 0);
+      const faturamentoMes = paidSales.reduce((acc: number, s: any) => acc + Number(s.valor_total), 0);
+      const numVendas = paidSales.length;
       const ticketMedio = numVendas > 0 ? faturamentoMes / numVendas : 0;
 
       const byDay: Record<string, number> = {};
