@@ -4,8 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, MapPin, ChevronDown, Receipt } from "lucide-react";
+import { ArrowLeft, Send, MapPin, ChevronDown, Receipt, QrCode, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { generatePixWithAmount } from "@/lib/pixUtils";
 
 const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Pedido recebido", emoji: "📥" },
@@ -36,6 +37,9 @@ const CustomerChatPage = () => {
   const [sending, setSending] = useState(false);
   const [showAddresses, setShowAddresses] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
+  const [showPixPayment, setShowPixPayment] = useState(false);
+  const [pixCopied, setPixCopied] = useState(false);
+  const [sendingPix, setSendingPix] = useState(false);
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -67,7 +71,7 @@ const CustomerChatPage = () => {
     queryKey: ["chat-tenant", chat?.tenant_id],
     enabled: !!chat?.tenant_id,
     queryFn: async () => {
-      const { data, error } = await supabase.from("tenants").select("id, name, logo_url, slug").eq("id", chat!.tenant_id).single();
+      const { data, error } = await supabase.from("tenants").select("id, name, logo_url, slug, pix_copy_paste, pix_receiver_name").eq("id", chat!.tenant_id).single();
       if (error) throw error;
       return data;
     },
@@ -253,6 +257,45 @@ const CustomerChatPage = () => {
   const operationalStatus = sale ? STATUS_LABELS[sale.operational_status] || { label: sale.operational_status, emoji: "📋" } : null;
   const financialStatus = sale ? FINANCIAL_LABELS[sale.financial_status] || FINANCIAL_LABELS.pending : null;
 
+  // PIX dynamic generation
+  const tenantPixBase = (tenant as any)?.pix_copy_paste as string | null;
+  const tenantPixReceiver = (tenant as any)?.pix_receiver_name as string | null;
+  const saleAmount = sale ? Number(sale.valor_total) : 0;
+  const generatedPix = tenantPixBase && saleAmount > 0
+    ? generatePixWithAmount(tenantPixBase, saleAmount - totalPaid > 0 ? saleAmount - totalPaid : saleAmount)
+    : null;
+  const pixAmount = saleAmount - totalPaid > 0 ? saleAmount - totalPaid : saleAmount;
+
+  const handleCopyPix = () => {
+    if (!generatedPix) return;
+    navigator.clipboard.writeText(generatedPix);
+    setPixCopied(true);
+    toast.success("PIX copiado!");
+    setTimeout(() => setPixCopied(false), 3000);
+  };
+
+  const handleSendPixInChat = async () => {
+    if (!generatedPix || !chatId || !customer || !sale) return;
+    setSendingPix(true);
+    try {
+      const content = `💠 **Pagamento via PIX**\n\n💰 Valor: R$ ${pixAmount.toFixed(2)}\n${tenantPixReceiver ? `👤 Recebedor: ${tenantPixReceiver}\n` : ""}\n📋 PIX Copia e Cola:\n\`${generatedPix}\`\n\n_Copie o código acima e cole no app do seu banco._`;
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: customer.id,
+        sender_type: "customer",
+        content,
+        message_type: "pix_payment",
+      });
+      setShowPixPayment(false);
+      toast.success("PIX enviado no chat!");
+      queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
+    } catch {
+      toast.error("Erro ao enviar PIX no chat");
+    } finally {
+      setSendingPix(false);
+    }
+  };
+
   if (!session?.user || isInactive) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -412,6 +455,75 @@ const CustomerChatPage = () => {
               Endereço confirmado: {(sale.delivery_address as any)?.label}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* PIX Payment option */}
+      {sale && sale.financial_status !== "paid" && generatedPix && (
+        <div className="px-4 pb-2">
+          {!showPixPayment ? (
+            <button
+              onClick={() => setShowPixPayment(true)}
+              className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <QrCode className="w-4 h-4 text-primary" />
+                Pagar com PIX
+              </span>
+              <span className="text-xs text-muted-foreground">R$ {pixAmount.toFixed(2)}</span>
+            </button>
+          ) : (
+            <div className="p-4 rounded-xl bg-accent border border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm flex items-center gap-2">
+                  <QrCode className="w-4 h-4 text-primary" />
+                  PIX Copia e Cola
+                </h3>
+                <button onClick={() => setShowPixPayment(false)} className="text-xs text-muted-foreground hover:text-foreground">
+                  Fechar
+                </button>
+              </div>
+
+              {tenantPixReceiver && (
+                <p className="text-xs text-muted-foreground">
+                  👤 Recebedor: <span className="font-medium text-foreground">{tenantPixReceiver}</span>
+                </p>
+              )}
+
+              <div className="flex items-center justify-between bg-primary/10 rounded-lg px-3 py-2">
+                <span className="text-sm text-muted-foreground">Valor</span>
+                <span className="text-lg font-bold text-primary">R$ {pixAmount.toFixed(2)}</span>
+              </div>
+
+              <div className="bg-secondary rounded-lg p-3">
+                <p className="text-[10px] text-muted-foreground mb-1">PIX Copia e Cola:</p>
+                <p className="text-xs font-mono break-all text-foreground leading-relaxed select-all">
+                  {generatedPix}
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5"
+                  onClick={handleCopyPix}
+                >
+                  {pixCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {pixCopied ? "Copiado!" : "Copiar PIX"}
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 gap-1.5"
+                  onClick={handleSendPixInChat}
+                  disabled={sendingPix}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  {sendingPix ? "Enviando..." : "Enviar no chat"}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

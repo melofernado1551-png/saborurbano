@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { X, Upload, Loader2, Store, Image, Truck } from "lucide-react";
+import { X, Upload, Loader2, Store, Image, Truck, QrCode } from "lucide-react";
 import { toast } from "sonner";
 
 const CATEGORIES = [
@@ -38,6 +38,8 @@ interface TenantEditForm {
   closing_time: string;
   free_shipping: boolean;
   shipping_fee: string;
+  pix_copy_paste: string;
+  pix_receiver_name: string;
 }
 
 const TenantEditPage = () => {
@@ -50,6 +52,7 @@ const TenantEditPage = () => {
     zip_code: "", cnpj: "", whatsapp_number: "", owner_name: "",
     owner_phone: "", owner_email: "", opening_time: "08:00", closing_time: "22:00",
     free_shipping: false, shipping_fee: "",
+    pix_copy_paste: "", pix_receiver_name: "",
   });
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -92,6 +95,8 @@ const TenantEditPage = () => {
         closing_time: (tenant as any).closing_time || "22:00",
         free_shipping: (tenant as any).free_shipping || false,
         shipping_fee: (tenant as any).shipping_fee != null ? String((tenant as any).shipping_fee) : "",
+        pix_copy_paste: (tenant as any).pix_copy_paste || "",
+        pix_receiver_name: (tenant as any).pix_receiver_name || "",
       });
       setLogoUrl(tenant.logo_url || null);
       setCoverUrl(tenant.cover_url || null);
@@ -160,6 +165,8 @@ const TenantEditPage = () => {
         shipping_fee: !form.free_shipping && form.shipping_fee ? parseFloat(form.shipping_fee) : null,
         logo_url: logoUrl || null,
         cover_url: coverUrl || null,
+        pix_copy_paste: form.pix_copy_paste || null,
+        pix_receiver_name: form.pix_receiver_name || null,
       };
       const { error } = await supabase.from("tenants").update(payload).eq("id", tenantId!);
       if (error) throw error;
@@ -414,6 +421,40 @@ const TenantEditPage = () => {
           <div className="space-y-2">
             <Label>Número</Label>
             <Input value={form.number} onChange={(e) => set("number", e.target.value)} placeholder="Ex: 123" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Responsável */}
+      {/* PIX */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <QrCode className="w-5 h-5" />
+            PIX Copia e Cola
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="space-y-2">
+            <Label>Nome do recebedor</Label>
+            <Input
+              value={form.pix_receiver_name}
+              onChange={(e) => set("pix_receiver_name", e.target.value)}
+              placeholder="Ex: João Silva"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>PIX Copia e Cola (código EMV do banco, sem valor)</Label>
+            <textarea
+              value={form.pix_copy_paste}
+              onChange={(e) => set("pix_copy_paste", e.target.value)}
+              placeholder="Cole aqui o código PIX gerado pelo seu banco (sem valor definido)"
+              rows={4}
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none font-mono text-xs"
+            />
+            <p className="text-xs text-muted-foreground">
+              Gere um QR Code PIX no app do seu banco <strong>sem valor definido</strong> e cole o código aqui. O sistema irá inserir o valor automaticamente em cada pedido.
+            </p>
           </div>
         </CardContent>
       </Card>
