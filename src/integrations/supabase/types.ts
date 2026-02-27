@@ -1344,6 +1344,8 @@ export type Database = {
           owner_email: string | null
           owner_name: string | null
           owner_phone: string | null
+          pix_copy_paste: string | null
+          pix_receiver_name: string | null
           primary_color: string | null
           secondary_color: string | null
           shipping_fee: number | null
@@ -1372,6 +1374,8 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          pix_copy_paste?: string | null
+          pix_receiver_name?: string | null
           primary_color?: string | null
           secondary_color?: string | null
           shipping_fee?: number | null
@@ -1400,6 +1404,8 @@ export type Database = {
           owner_email?: string | null
           owner_name?: string | null
           owner_phone?: string | null
+          pix_copy_paste?: string | null
+          pix_receiver_name?: string | null
           primary_color?: string | null
           secondary_color?: string | null
           shipping_fee?: number | null
