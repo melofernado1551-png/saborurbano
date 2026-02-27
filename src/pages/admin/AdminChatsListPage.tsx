@@ -384,8 +384,8 @@ const KanbanCard = ({
       draggable
       onDragStart={onDragStart}
       onClick={onClick}
-      className={`w-full text-left p-3 rounded-lg bg-card border border-border hover:border-primary/40 hover:shadow-sm transition-all cursor-grab active:cursor-grabbing select-none ${
-        hasUnread ? "animate-pulse ring-2 ring-primary/60 border-primary" : ""
+      className={`w-full text-left p-3 rounded-lg bg-card border border-border hover:border-primary/40 hover:shadow-sm transition-all cursor-grab active:cursor-grabbing select-none relative ${
+        hasUnread ? "ring-2 ring-destructive/60 border-destructive" : ""
       }`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -398,7 +398,12 @@ const KanbanCard = ({
           <div className="min-w-0">
             <p className="font-medium text-sm text-foreground truncate">
               {customerName}
-              {hasUnread && <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-primary animate-ping" />}
+              {hasUnread && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-destructive" />
+                </span>
+              )}
             </p>
             {sale?.sale_number && (
               <p className="text-xs text-muted-foreground">#{sale.sale_number}</p>
