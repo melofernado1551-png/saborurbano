@@ -94,10 +94,6 @@ const Header = ({ location, onLocationClick }: HeaderProps) => {
                     <DropdownMenuItem onClick={() => navigate("/meus-pedidos")}>
                       Meus Pedidos
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/favoritos")}>
-                      <Heart className="w-4 h-4 mr-2" />
-                      Meus Favoritos
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => logout()} className="text-destructive">
                       <LogOut className="w-4 h-4 mr-2" />
                       Sair
