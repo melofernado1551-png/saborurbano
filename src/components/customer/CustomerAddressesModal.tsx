@@ -34,6 +34,23 @@ const CustomerAddressesModal = ({ open, onOpenChange, onSelect, selectMode = fal
     reference: "",
   });
 
+  // Fetch tenant info (city)
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-info-address", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("city")
+        .eq("id", tenantId!)
+        .single();
+      if (error) throw error;
+      return data as { city: string | null };
+    },
+  });
+
+  const tenantCity = tenant?.city || "";
+
   // Fetch tenant neighborhoods for select mode
   const { data: neighborhoods = [] } = useQuery({
     queryKey: ["tenant-neighborhoods-customer", tenantId],
@@ -144,7 +161,7 @@ const CustomerAddressesModal = ({ open, onOpenChange, onSelect, selectMode = fal
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.label || !form.street || !form.number || !form.neighborhood || !form.city) {
+    if (!form.label || !form.street || !form.number || !form.neighborhood || !(form.city || tenantCity)) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
@@ -153,7 +170,7 @@ const CustomerAddressesModal = ({ open, onOpenChange, onSelect, selectMode = fal
       toast.error("Selecione um bairro da lista");
       return;
     }
-    saveMutation.mutate(form);
+    saveMutation.mutate({ ...form, city: form.city || tenantCity });
   };
 
   const hasNeighborhoods = neighborhoods.length > 0;
@@ -199,7 +216,7 @@ const CustomerAddressesModal = ({ open, onOpenChange, onSelect, selectMode = fal
 
               <div className="col-span-2 sm:col-span-1 space-y-1.5">
                 <Label>Cidade *</Label>
-                <Input placeholder="Cidade" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required />
+                <Input placeholder="Cidade" value={form.city || tenantCity} onChange={(e) => setForm({ ...form, city: e.target.value })} required readOnly={!!tenantCity} className={tenantCity ? "bg-muted" : ""} />
               </div>
 
               <div className="col-span-2 sm:col-span-1 space-y-1.5">
