@@ -1,14 +1,15 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { useCart } from "@/contexts/CartContext";
+import { useCart, SelectedAddress } from "@/contexts/CartContext";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
-import { Minus, Plus, Trash2, ShoppingBag, MessageCircle, Truck } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, MessageCircle, Truck, MapPin } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSwipe } from "@/hooks/useSwipe";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import CustomerAuthModal from "@/components/customer/CustomerAuthModal";
+import CustomerAddressesModal from "@/components/customer/CustomerAddressesModal";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -29,6 +30,8 @@ const CartDrawer = () => {
     subtotal,
     deliveryFee,
     totalPrice,
+    selectedAddress,
+    setSelectedAddress,
     removeItem,
     updateQuantity,
     updateObservation,
@@ -41,8 +44,26 @@ const CartDrawer = () => {
   const { customer, session, getOrCreateCustomerForTenant, isInactive } = useCustomerAuth();
   const navigate = useNavigate();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAddressModal, setShowAddressModal] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const swipeHandlers = useSwipe({ onSwipeRight: () => setIsOpen(false) });
+
+  const handleSelectAddress = (addr: any) => {
+    const selected: SelectedAddress = {
+      id: addr.id,
+      label: addr.label,
+      street: addr.street,
+      number: addr.number,
+      complement: addr.complement || undefined,
+      neighborhood: addr.neighborhood,
+      neighborhood_id: addr.neighborhood_id || undefined,
+      city: addr.city,
+      reference: addr.reference || undefined,
+      shipping_fee: addr.shipping_fee ?? null,
+    };
+    setSelectedAddress(selected);
+    setShowAddressModal(false);
+  };
 
   const handleCheckout = async () => {
     if (isInactive) {
@@ -55,6 +76,13 @@ const CartDrawer = () => {
     }
 
     if (!tenantId) return;
+
+    // Require address selection
+    if (!selectedAddress) {
+      toast.error("Selecione um endereço de entrega");
+      setShowAddressModal(true);
+      return;
+    }
 
     let cust = customer;
     if (!cust || cust.tenant_id !== tenantId) {
@@ -83,6 +111,8 @@ const CartDrawer = () => {
             observation: i.observation,
             addons: i.addons || [],
           })),
+          delivery_address: selectedAddress,
+          delivery_fee: deliveryFee,
         },
       });
 
@@ -225,8 +255,32 @@ const CartDrawer = () => {
                 })}
               </div>
 
-              {/* Footer with subtotal, shipping, total */}
+              {/* Footer with address, subtotal, shipping, total */}
               <div className="border-t border-border p-4 space-y-3">
+                {/* Address selection */}
+                <button
+                  onClick={() => {
+                    if (!session?.user) {
+                      setShowAuthModal(true);
+                    } else {
+                      setShowAddressModal(true);
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary transition-colors text-left"
+                >
+                  <MapPin className="w-5 h-5 text-primary flex-shrink-0" />
+                  {selectedAddress ? (
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{selectedAddress.label}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {selectedAddress.street}, {selectedAddress.number} - {selectedAddress.neighborhood}
+                      </p>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Selecionar endereço de entrega</span>
+                  )}
+                </button>
+
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{totalItems} {totalItems === 1 ? "item" : "itens"}</span>
@@ -236,6 +290,9 @@ const CartDrawer = () => {
                     <span className="text-muted-foreground flex items-center gap-1.5">
                       <Truck className="w-3.5 h-3.5" />
                       Frete
+                      {selectedAddress && (
+                        <span className="text-xs">({selectedAddress.neighborhood})</span>
+                      )}
                     </span>
                     {deliveryFee === 0 ? (
                       <span className="text-success font-semibold text-sm">Grátis</span>
@@ -267,6 +324,16 @@ const CartDrawer = () => {
           tenantId={tenantId}
           open={showAuthModal}
           onOpenChange={setShowAuthModal}
+        />
+      )}
+
+      {showAddressModal && tenantId && (
+        <CustomerAddressesModal
+          open={showAddressModal}
+          onOpenChange={setShowAddressModal}
+          selectMode
+          tenantId={tenantId}
+          onSelect={handleSelectAddress}
         />
       )}
     </>

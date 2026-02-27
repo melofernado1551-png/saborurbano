@@ -137,9 +137,11 @@ export type Database = {
           id: string
           label: string
           neighborhood: string
+          neighborhood_id: string | null
           number: string
           reference: string | null
           street: string
+          tenant_id: string | null
         }
         Insert: {
           active?: boolean
@@ -150,9 +152,11 @@ export type Database = {
           id?: string
           label: string
           neighborhood: string
+          neighborhood_id?: string | null
           number: string
           reference?: string | null
           street: string
+          tenant_id?: string | null
         }
         Update: {
           active?: boolean
@@ -163,9 +167,11 @@ export type Database = {
           id?: string
           label?: string
           neighborhood?: string
+          neighborhood_id?: string | null
           number?: string
           reference?: string | null
           street?: string
+          tenant_id?: string | null
         }
         Relationships: [
           {
@@ -173,6 +179,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_addresses_neighborhood_id_fkey"
+            columns: ["neighborhood_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_neighborhoods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_addresses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1179,6 +1199,41 @@ export type Database = {
             foreignKeyName: "tenant_layouts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_neighborhoods: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          shipping_fee: number
+          tenant_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          shipping_fee?: number
+          tenant_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          shipping_fee?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_neighborhoods_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },

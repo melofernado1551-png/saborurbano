@@ -12,6 +12,7 @@ import {
   Tag,
   SlidersHorizontal,
   LayoutGrid,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -66,6 +67,9 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       : []),
     ...(isSuperAdmin || isAdminTenant
       ? [{ label: "Minha Vitrine", icon: LayoutGrid, path: "/admin/meu-perfil" }]
+      : []),
+    ...(isSuperAdmin || isAdminTenant
+      ? [{ label: "Bairros / Frete", icon: MapPin, path: "/admin/bairros" }]
       : []),
     ...(!isContador
       ? [{ label: "Configurações", icon: Settings, path: isAdminTenant ? "/admin/configuracoes" : "/admin/configs-admin" }]

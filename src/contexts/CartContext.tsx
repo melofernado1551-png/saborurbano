@@ -15,7 +15,20 @@ export interface CartItem {
   imageUrl: string | null;
   observation?: string;
   addons?: CartAddon[];
-  cartItemId: string; // unique key for items with different addons
+  cartItemId: string;
+}
+
+export interface SelectedAddress {
+  id: string;
+  label: string;
+  street: string;
+  number: string;
+  complement?: string;
+  neighborhood: string;
+  neighborhood_id?: string;
+  city: string;
+  reference?: string;
+  shipping_fee: number | null;
 }
 
 interface TenantInfo {
@@ -35,6 +48,8 @@ interface CartContextType {
   subtotal: number;
   deliveryFee: number;
   totalPrice: number;
+  selectedAddress: SelectedAddress | null;
+  setSelectedAddress: (address: SelectedAddress | null) => void;
   addItem: (item: Omit<CartItem, "quantity" | "cartItemId"> & { quantity?: number }, tenant: TenantInfo) => boolean;
   removeItem: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
@@ -62,9 +77,11 @@ interface StoredCart {
   tenantName: string;
   items: CartItem[];
   deliveryFee: number;
+  freeShipping?: boolean;
+  baseShippingFee?: number | null;
+  selectedAddress?: SelectedAddress | null;
 }
 
-/** Generate a unique cart item ID based on product + addons + observation */
 const generateCartItemId = (productId: string, addons?: CartAddon[], observation?: string): string => {
   const addonKey = addons?.map(a => a.id).sort().join(",") || "";
   return `${productId}__${addonKey}__${observation || ""}`;
@@ -76,7 +93,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       const stored = localStorage.getItem(CART_KEY);
       if (!stored) return null;
       const parsed = JSON.parse(stored);
-      // Migration: add cartItemId if missing
       if (parsed?.items) {
         parsed.items = parsed.items.map((item: any) => ({
           ...item,
@@ -101,12 +117,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const dismissMismatch = useCallback(() => setTenantMismatch(false), []);
 
-  const computeDeliveryFee = (tenant: TenantInfo): number => {
-    if (tenant.freeShipping) return 0;
-    if (tenant.shippingFee != null && tenant.shippingFee > 0) return tenant.shippingFee;
-    return 0;
-  };
-
   const addItem = useCallback(
     (item: Omit<CartItem, "quantity" | "cartItemId"> & { quantity?: number }, tenant: TenantInfo): boolean => {
       if (cart && cart.tenantId !== tenant.id && cart.items.length > 0) {
@@ -129,18 +139,36 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           newItems = [...existing, { ...item, quantity: item.quantity || 1, cartItemId }];
         }
 
+        // Compute default delivery fee (when no address selected)
+        const baseFee = tenant.freeShipping ? 0 : (tenant.shippingFee ?? 0);
+
         return {
           tenantId: prev?.tenantId || tenant.id,
           tenantSlug: prev?.tenantSlug || tenant.slug,
           tenantName: prev?.tenantName || tenant.name,
           items: newItems,
-          deliveryFee: prev?.deliveryFee ?? computeDeliveryFee(tenant),
+          deliveryFee: prev?.selectedAddress?.shipping_fee ?? prev?.deliveryFee ?? baseFee,
+          freeShipping: prev?.freeShipping ?? tenant.freeShipping,
+          baseShippingFee: prev?.baseShippingFee ?? tenant.shippingFee,
+          selectedAddress: prev?.selectedAddress || null,
         };
       });
       return true;
     },
     [cart]
   );
+
+  const setSelectedAddress = useCallback((address: SelectedAddress | null) => {
+    setCart((prev) => {
+      if (!prev) return null;
+      const fee = address?.shipping_fee ?? (prev.freeShipping ? 0 : (prev.baseShippingFee ?? 0));
+      return {
+        ...prev,
+        selectedAddress: address,
+        deliveryFee: fee,
+      };
+    });
+  }, []);
 
   const removeItem = useCallback((cartItemId: string) => {
     setCart((prev) => {
@@ -201,6 +229,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         subtotal,
         deliveryFee,
         totalPrice,
+        selectedAddress: cart?.selectedAddress || null,
+        setSelectedAddress,
         addItem,
         removeItem,
         updateQuantity,

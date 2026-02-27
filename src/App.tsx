@@ -27,6 +27,7 @@ import ConfiguracoesPage from "./pages/admin/ConfiguracoesPage";
 import ProductsListPage from "./pages/admin/ProductsListPage";
 import ProductFormPage from "./pages/admin/ProductFormPage";
 import MyStorePage from "./pages/admin/MyStorePage";
+import NeighborhoodsPage from "./pages/admin/NeighborhoodsPage";
 
 import RestaurantPage from "./pages/RestaurantPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
@@ -81,6 +82,7 @@ const App = () => (
                 <Route path="tenants/novo" element={<TenantFormPage />} />
                 <Route path="tenants/:id" element={<TenantFormPage />} />
                 <Route path="tags" element={<TagsPage />} />
+                <Route path="bairros" element={<NeighborhoodsPage />} />
                 <Route path="configs-admin" element={<ConfigsAdminPage />} />
               </Route>
               <Route path="/loja/:slug" element={<RestaurantPage />} />

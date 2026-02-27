@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     if (authError || !user) throw new Error("Não autorizado");
 
     const body = await req.json();
-    const { tenant_id, items, observation } = body;
+    const { tenant_id, items, observation, delivery_address, delivery_fee } = body;
 
     if (!tenant_id || !items?.length) throw new Error("Dados incompletos");
 
@@ -44,14 +44,17 @@ Deno.serve(async (req) => {
     // Get next sale number
     const { data: saleNumber } = await supabase.rpc("next_sale_number", { _tenant_id: tenant_id });
 
-    // Calculate total (including addons)
-    const total = items.reduce((sum: number, item: any) => {
+    // Calculate total (including addons + delivery fee)
+    const itemsTotal = items.reduce((sum: number, item: any) => {
       const price = item.promoPrice ?? item.price;
       const addonsTotal = (item.addons || []).reduce((a: number, addon: any) => a + (addon.price || 0), 0);
       return sum + (price + addonsTotal) * item.quantity;
     }, 0);
 
-    // Create sale
+    const finalDeliveryFee = typeof delivery_fee === "number" ? delivery_fee : 0;
+    const total = itemsTotal + finalDeliveryFee;
+
+    // Create sale with address
     const { data: sale, error: saleErr } = await supabase
       .from("sales")
       .insert({
@@ -62,6 +65,7 @@ Deno.serve(async (req) => {
         financial_status: "pending",
         operational_status: "received",
         observacao: observation || null,
+        delivery_address: delivery_address || null,
       })
       .select("id, sale_number")
       .single();
@@ -85,7 +89,7 @@ Deno.serve(async (req) => {
     // Update sale with chat_id
     await supabase.from("sales").update({ chat_id: chat.id }).eq("id", sale.id);
 
-    // Build order summary message (with addons)
+    // Build order summary message (with addons + address)
     const itemLines = items.map((item: any) => {
       const price = item.promoPrice ?? item.price;
       const addons = item.addons || [];
@@ -106,11 +110,23 @@ Deno.serve(async (req) => {
       return lines.join("\n");
     });
 
+    // Address block
+    const addressLines: string[] = [];
+    if (delivery_address) {
+      addressLines.push(`📍 **Endereço de entrega:**`);
+      const addr = delivery_address;
+      addressLines.push(`${addr.street}, ${addr.number}${addr.complement ? ` - ${addr.complement}` : ""}`);
+      addressLines.push(`${addr.neighborhood} - ${addr.city}`);
+      if (addr.reference) addressLines.push(`Ref: ${addr.reference}`);
+    }
+
     const messageContent = [
       `📋 **Pedido #${saleNumber}**`,
       ``,
       ...itemLines,
       ``,
+      ...(addressLines.length > 0 ? [...addressLines, ``] : []),
+      `🚚 Frete: ${finalDeliveryFee === 0 ? "Grátis" : `R$ ${finalDeliveryFee.toFixed(2)}`}`,
       `💰 **Total: R$ ${total.toFixed(2)}**`,
       observation ? `\n📝 Obs: ${observation}` : "",
     ].filter(Boolean).join("\n");
