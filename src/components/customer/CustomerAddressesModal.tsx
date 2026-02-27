@@ -161,6 +161,10 @@ const CustomerAddressesModal = ({ open, onOpenChange, onSelect, selectMode = fal
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!customer?.id) {
+      toast.error("Você precisa estar logado para salvar um endereço");
+      return;
+    }
     if (!form.label || !form.street || !form.number || !form.neighborhood || !(form.city || tenantCity)) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
