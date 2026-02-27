@@ -35,6 +35,7 @@ import CustomerOrdersPage from "./pages/CustomerOrdersPage";
 import AdminChatsListPage from "./pages/admin/AdminChatsListPage";
 import AdminChatPage from "./pages/admin/AdminChatPage";
 import FinishedChatsPage from "./pages/admin/FinishedChatsPage";
+import FavoritesPage from "./pages/FavoritesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -85,6 +86,7 @@ const App = () => (
               <Route path="/loja/:slug" element={<RestaurantPage />} />
               <Route path="/chat/:chatId" element={<CustomerChatPage />} />
               <Route path="/meus-pedidos" element={<CustomerOrdersPage />} />
+              <Route path="/favoritos" element={<FavoritesPage />} />
               <Route path="/:tenantSlug/:productSlug" element={<ProductDetailPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

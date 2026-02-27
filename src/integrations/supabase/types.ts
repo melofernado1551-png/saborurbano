@@ -177,6 +177,45 @@ export type Database = {
           },
         ]
       }
+      customer_favorites: {
+        Row: {
+          active: boolean
+          created_at: string
+          customer_id: string
+          id: string
+          product_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          customer_id: string
+          id?: string
+          product_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          customer_id?: string
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_favorites_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_favorites_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           active: boolean

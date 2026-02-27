@@ -1,8 +1,10 @@
-import { Share2 } from "lucide-react";
+import { useState } from "react";
+import { Share2, Heart } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-
+import { useFavorites } from "@/hooks/useFavorites";
+import CustomerAuthModal from "./customer/CustomerAuthModal";
 interface ProductCardProduct {
   id: string;
   name: string;
@@ -30,6 +32,19 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({ product, index, badgeTag }: ProductCardProps) => {
+  const { isFavorite, toggleFavorite, isLoggedIn } = useFavorites();
+  const [authOpen, setAuthOpen] = useState(false);
+  const fav = isFavorite(product.id);
+
+  const handleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isLoggedIn) {
+      setAuthOpen(true);
+      return;
+    }
+    toggleFavorite.mutate(product.id);
+  };
+
   const navigate = useNavigate();
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -53,7 +68,8 @@ const ProductCard = ({ product, index, badgeTag }: ProductCardProps) => {
     }
   };
 
-  return (
+    return (
+    <>
     <div
       className="group relative bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer animate-fade-in"
       onClick={() => {
@@ -90,15 +106,23 @@ const ProductCard = ({ product, index, badgeTag }: ProductCardProps) => {
           </div>
         )}
 
-        {/* Share button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleShare}
-          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-card/90 backdrop-blur-sm hover:bg-card"
-        >
-          <Share2 className="w-4 h-4" />
-        </Button>
+        {/* Share & Favorite buttons */}
+        <div className="absolute top-3 right-3 flex flex-col gap-1.5">
+          <button
+            onClick={handleFavorite}
+            className="w-8 h-8 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center hover:scale-110 transition-transform"
+          >
+            <Heart className={`w-4 h-4 transition-colors ${fav ? "text-red-500 fill-red-500" : "text-muted-foreground"}`} />
+          </button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleShare}
+            className="w-8 h-8 rounded-full bg-card/90 backdrop-blur-sm hover:bg-card"
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Content */}
@@ -158,6 +182,8 @@ const ProductCard = ({ product, index, badgeTag }: ProductCardProps) => {
         </div>
       </div>
     </div>
+    <CustomerAuthModal open={authOpen} onOpenChange={setAuthOpen} tenantId="" />
+    </>
   );
 };
 

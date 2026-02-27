@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapPin, ShoppingBag, User, Menu, Settings, LogOut } from "lucide-react";
+import { MapPin, ShoppingBag, User, Settings, LogOut, Heart } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { Button } from "./ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -51,7 +51,7 @@ const Header = ({ location, onLocationClick }: HeaderProps) => {
             </button>
 
             {/* Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               {user && (
                 <Button
                   variant="default"
@@ -63,6 +63,9 @@ const Header = ({ location, onLocationClick }: HeaderProps) => {
                    Admin
                 </Button>
               )}
+              <Button variant="ghost" size="icon" onClick={() => navigate("/favoritos")} className="relative">
+                <Heart className="w-5 h-5" />
+              </Button>
               <Button variant="ghost" className="relative gap-2 px-3" onClick={() => setCartOpen(true)}>
                 <ShoppingBag className="w-5 h-5" />
                 {totalItems > 0 && (
@@ -90,6 +93,10 @@ const Header = ({ location, onLocationClick }: HeaderProps) => {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/meus-pedidos")}>
                       Meus Pedidos
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/favoritos")}>
+                      <Heart className="w-4 h-4 mr-2" />
+                      Meus Favoritos
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => logout()} className="text-destructive">
                       <LogOut className="w-4 h-4 mr-2" />
