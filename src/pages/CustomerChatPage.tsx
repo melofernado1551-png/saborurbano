@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Send, MapPin, ChevronDown, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { generatePixWithAmount } from "@/lib/pixUtils";
+import QRCodeLib from "qrcode";
 
 const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Pedido recebido", emoji: "📥" },
@@ -49,6 +50,8 @@ const CustomerChatPage = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
 
   // Fetch chat
   const { data: chat } = useQuery({
@@ -332,6 +335,17 @@ const CustomerChatPage = () => {
     : null;
   const pixAmount = saleAmount - totalPaid > 0 ? saleAmount - totalPaid : saleAmount;
 
+  // Generate QR Code when PIX code changes
+  useEffect(() => {
+    if (!generatedPix) {
+      setQrCodeDataUrl(null);
+      return;
+    }
+    QRCodeLib.toDataURL(generatedPix, { width: 250, margin: 2, errorCorrectionLevel: "M" })
+      .then((url: string) => setQrCodeDataUrl(url))
+      .catch(() => setQrCodeDataUrl(null));
+  }, [generatedPix]);
+
   const handleCopyPix = () => {
     if (!generatedPix) return;
     navigator.clipboard.writeText(generatedPix);
@@ -598,6 +612,13 @@ const CustomerChatPage = () => {
                 <span className="text-sm text-muted-foreground">Valor</span>
                 <span className="text-lg font-bold text-primary">R$ {pixAmount.toFixed(2)}</span>
               </div>
+
+              {/* QR Code */}
+              {qrCodeDataUrl && (
+                <div className="flex justify-center">
+                  <img src={qrCodeDataUrl} alt="QR Code PIX" className="w-48 h-48 rounded-lg border border-border" />
+                </div>
+              )}
 
               <div className="bg-secondary rounded-lg p-3">
                 <p className="text-[10px] text-muted-foreground mb-1">PIX Copia e Cola:</p>
