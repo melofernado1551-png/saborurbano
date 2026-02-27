@@ -32,7 +32,14 @@ const Login = () => {
       await login(username, password);
       // Navigation handled by useEffect above
     } catch (err: any) {
-      setError(err.message || "Erro ao fazer login");
+      const msg = err.message || "";
+      if (msg.includes("non-2xx") || msg.includes("Credenciais inválidas") || msg.includes("401")) {
+        setError("Login ou senha incorretos");
+      } else if (msg.includes("Estabelecimento desativado")) {
+        setError("Estabelecimento desativado");
+      } else {
+        setError(msg || "Erro ao fazer login");
+      }
     } finally {
       setIsLoading(false);
     }
