@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, MapPin, LogOut, LogIn, ShoppingBag } from "lucide-react";
+import { User, MapPin, LogOut, LogIn, ShoppingBag, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -57,6 +57,9 @@ const CustomerMenu = ({ tenantId }: CustomerMenuProps) => {
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => navigate("/meus-pedidos")} className="gap-2 cursor-pointer">
             <ShoppingBag className="w-4 h-4" /> Meus Pedidos
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate("/favoritos")} className="gap-2 cursor-pointer">
+            <Heart className="w-4 h-4" /> Meus Favoritos
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout} className="gap-2 cursor-pointer text-destructive">
