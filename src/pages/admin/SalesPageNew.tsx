@@ -24,6 +24,7 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 const FINANCIAL_LABELS: Record<string, { label: string; color: string }> = {
   pending: { label: "Pendente", color: "bg-destructive text-destructive-foreground" },
+  awaiting_check: { label: "Aguardando conferência", color: "bg-yellow-500 text-white" },
   partial: { label: "Parcial", color: "bg-yellow-500 text-white" },
   paid: { label: "Pago", color: "bg-green-600 text-white" },
 };

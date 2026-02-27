@@ -36,6 +36,7 @@ const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
 
 const FINANCIAL_LABELS: Record<string, { label: string; dotClass: string }> = {
   pending: { label: "Pendente", dotClass: "bg-destructive" },
+  awaiting_check: { label: "Aguardando conferência", dotClass: "bg-yellow-500" },
   partial: { label: "Parcial", dotClass: "bg-yellow-500" },
   paid: { label: "Pago", dotClass: "bg-green-600" },
 };

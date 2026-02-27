@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, MapPin, ChevronDown, Receipt, QrCode, Copy, Check } from "lucide-react";
+import { ArrowLeft, Send, MapPin, ChevronDown, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { generatePixWithAmount } from "@/lib/pixUtils";
 
@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
 
 const FINANCIAL_LABELS: Record<string, { label: string; color: string; emoji: string }> = {
   pending: { label: "Pendente de pagamento", color: "bg-destructive text-destructive-foreground", emoji: "🔴" },
+  awaiting_check: { label: "Aguardando conferência", color: "bg-yellow-500 text-white", emoji: "🟡" },
   partial: { label: "Parcialmente pago", color: "bg-yellow-500 text-white", emoji: "🟡" },
   paid: { label: "Pago / Quitado", color: "bg-green-600 text-white", emoji: "🟢" },
 };
@@ -27,6 +28,9 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cartao_credito: "Cartão Crédito",
   cartao_debito: "Cartão Débito",
 };
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "application/pdf"];
 
 const CustomerChatPage = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -40,9 +44,11 @@ const CustomerChatPage = () => {
   const [showPixPayment, setShowPixPayment] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
   const [sendingPix, setSendingPix] = useState(false);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch chat
   const { data: chat } = useQuery({
@@ -167,7 +173,6 @@ const CustomerChatPage = () => {
     const content = message.trim();
     setMessage("");
 
-    // Optimistic message
     const optimistic = {
       id: `optimistic-${Date.now()}`,
       chat_id: chatId,
@@ -182,7 +187,6 @@ const CustomerChatPage = () => {
     };
     setOptimisticMessages((prev) => [...prev, optimistic]);
 
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -197,7 +201,6 @@ const CustomerChatPage = () => {
         message_type: "text",
       });
       if (error) throw error;
-      // Await refetch to ensure message appears immediately
       await queryClient.refetchQueries({ queryKey: ["chat-messages", chatId] });
     } catch {
       setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
@@ -251,6 +254,69 @@ const CustomerChatPage = () => {
     }
   };
 
+  // Receipt upload handler
+  const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !chatId || !customer || !sale) return;
+
+    // Reset input
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.error("Formato não suportado. Envie JPG, PNG ou PDF.");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("Arquivo muito grande. Limite: 5MB.");
+      return;
+    }
+
+    setUploadingReceipt(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const filePath = `${sale.id}/${Date.now()}.${ext}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("payment-receipts")
+        .upload(filePath, file, { upsert: false });
+      if (uploadErr) throw uploadErr;
+
+      const { data: urlData } = supabase.storage
+        .from("payment-receipts")
+        .getPublicUrl(filePath);
+
+      const fileUrl = urlData.publicUrl;
+      const isImage = file.type.startsWith("image/");
+
+      // Send receipt message
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: customer.id,
+        sender_type: "customer",
+        content: `📎 Comprovante de pagamento enviado pelo cliente`,
+        message_type: "payment_receipt",
+        metadata: {
+          file_url: fileUrl,
+          file_type: isImage ? "image" : "pdf",
+          file_name: file.name,
+          sale_id: sale.id,
+        },
+      });
+
+      // Update sale status to awaiting_check
+      await supabase.from("sales").update({ financial_status: "awaiting_check" }).eq("id", sale.id);
+
+      toast.success("Comprovante enviado com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
+      queryClient.invalidateQueries({ queryKey: ["customer-sale", chat?.sale_id] });
+    } catch (err) {
+      console.error("Erro ao enviar comprovante:", err);
+      toast.error("Erro ao enviar comprovante. Tente novamente.");
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const remaining = sale ? Number(sale.valor_total) - totalPaid : 0;
 
@@ -294,6 +360,45 @@ const CustomerChatPage = () => {
     } finally {
       setSendingPix(false);
     }
+  };
+
+  // Render message content with receipt support
+  const renderMessageContent = (msg: any) => {
+    if (msg.message_type === "payment_receipt") {
+      const meta = msg.metadata as any;
+      const fileUrl = meta?.file_url;
+      const fileType = meta?.file_type;
+      const fileName = meta?.file_name;
+
+      return (
+        <div>
+          <p className="text-sm mb-2">{msg.content}</p>
+          {fileType === "image" && fileUrl ? (
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="block">
+              <img
+                src={fileUrl}
+                alt="Comprovante"
+                className="rounded-lg max-w-[200px] max-h-[250px] object-cover border border-border cursor-pointer hover:opacity-90 transition-opacity"
+              />
+            </a>
+          ) : fileType === "pdf" && fileUrl ? (
+            <a
+              href={fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border hover:bg-secondary transition-colors"
+            >
+              <FileText className="w-5 h-5 text-destructive" />
+              <span className="text-xs font-medium truncate">{fileName || "Comprovante.pdf"}</span>
+              <span className="text-xs text-primary ml-auto">Abrir</span>
+            </a>
+          ) : (
+            <p className="text-sm">{msg.content}</p>
+          )}
+        </div>
+      );
+    }
+    return <p className="whitespace-pre-wrap break-words">{msg.content}</p>;
   };
 
   if (!session?.user || isInactive) {
@@ -390,7 +495,6 @@ const CustomerChatPage = () => {
           return (
             <div key={msg.id} className={`flex ${isCustomer ? "justify-end" : "justify-start"}`}>
               <div className="max-w-[80%]">
-                {/* Sender name for store messages */}
                 {isTenant && senderName && (
                   <p className="text-[11px] text-muted-foreground mb-0.5 text-left px-1">{senderName}</p>
                 )}
@@ -403,7 +507,7 @@ const CustomerChatPage = () => {
                       : "bg-card border border-border text-foreground"
                   } ${msg._optimistic ? "opacity-70" : ""}`}
                 >
-                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  {renderMessageContent(msg)}
                   <p className={`text-[10px] mt-1 ${isCustomer ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                     {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </p>
@@ -524,6 +628,27 @@ const CustomerChatPage = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Upload receipt button */}
+      {sale && (sale.financial_status === "pending" || sale.financial_status === "partial") && (
+        <div className="px-4 pb-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.pdf"
+            className="hidden"
+            onChange={handleUploadReceipt}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingReceipt}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
+          >
+            <Paperclip className="w-4 h-4 text-primary" />
+            {uploadingReceipt ? "Enviando comprovante..." : "Enviar comprovante de pagamento"}
+          </button>
         </div>
       )}
 
