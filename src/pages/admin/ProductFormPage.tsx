@@ -11,8 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// Select removed - categories now use Badge multi-select
-import { ArrowLeft, Loader2, X, ImagePlus, GripVertical, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, X, ImagePlus, GripVertical, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 interface ProductForm {
@@ -25,12 +24,21 @@ interface ProductForm {
   category_ids: string[];
   tag_ids: string[];
   is_featured: boolean;
+  has_addons: boolean;
 }
 
 interface ProductImage {
   id: string;
   image_url: string;
   position: number;
+}
+
+interface AddonItem {
+  id: string;
+  name: string;
+  price: string;
+  active: boolean;
+  isNew?: boolean;
 }
 
 const emptyForm: ProductForm = {
@@ -43,6 +51,7 @@ const emptyForm: ProductForm = {
   category_ids: [],
   tag_ids: [],
   is_featured: false,
+  has_addons: false,
 };
 
 const ProductFormPage = () => {
@@ -58,6 +67,7 @@ const ProductFormPage = () => {
   const [uploading, setUploading] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [addons, setAddons] = useState<AddonItem[]>([]);
 
   // Fetch product if editing
   const { data: product, isLoading: productLoading } = useQuery({
@@ -165,6 +175,21 @@ const ProductFormPage = () => {
     },
   });
 
+  // Fetch existing addons
+  const { data: existingAddons } = useQuery({
+    queryKey: ["product-addons-admin", id],
+    enabled: isEditing,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_addons")
+        .select("id, name, price, active, position")
+        .eq("product_id", id!)
+        .order("position");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Populate form when editing
   useEffect(() => {
     if (product) {
@@ -204,6 +229,19 @@ const ProductFormPage = () => {
     }
   }, [featuredData]);
 
+  useEffect(() => {
+    if (existingAddons) {
+      const mapped = existingAddons.map((a: any) => ({
+        id: a.id,
+        name: a.name,
+        price: a.price?.toString() || "0",
+        active: a.active,
+      }));
+      setAddons(mapped);
+      setForm((prev) => ({ ...prev, has_addons: mapped.length > 0 }));
+    }
+  }, [existingAddons]);
+
   const set = (key: keyof ProductForm, value: any) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -223,6 +261,22 @@ const ProductFormPage = () => {
         ? prev.category_ids.filter((c) => c !== catId)
         : [...prev.category_ids, catId],
     }));
+  };
+
+  // Addon handlers
+  const addAddon = () => {
+    setAddons((prev) => [
+      ...prev,
+      { id: `new-${Date.now()}`, name: "", price: "", active: true, isNew: true },
+    ]);
+  };
+
+  const updateAddon = (idx: number, field: keyof AddonItem, value: any) => {
+    setAddons((prev) => prev.map((a, i) => (i === idx ? { ...a, [field]: value } : a)));
+  };
+
+  const removeAddon = (idx: number) => {
+    setAddons((prev) => prev.filter((_, i) => i !== idx));
   };
 
   // Image upload handler
@@ -353,7 +407,6 @@ const ProductFormPage = () => {
 
       // --- Images ---
       if (isEditing) {
-        // Delete old image records
         await supabase
           .from("product_images")
           .delete()
@@ -371,6 +424,31 @@ const ProductFormPage = () => {
           );
       }
 
+      // --- Addons ---
+      if (isEditing) {
+        // Delete all existing addons and re-insert
+        await supabase
+          .from("product_addons")
+          .delete()
+          .eq("product_id", productId!);
+      }
+      if (form.has_addons && addons.length > 0) {
+        const validAddons = addons.filter((a) => a.name.trim());
+        if (validAddons.length > 0) {
+          await supabase
+            .from("product_addons")
+            .insert(
+              validAddons.map((a, i) => ({
+                product_id: productId!,
+                name: a.name.trim(),
+                price: parseFloat(a.price) || 0,
+                active: a.active,
+                position: i,
+              }))
+            );
+        }
+      }
+
       // --- Featured ---
       if (isEditing) {
         const { data: existingFeatured } = await supabase
@@ -385,6 +463,7 @@ const ProductFormPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
       queryClient.invalidateQueries({ queryKey: ["product-images"] });
+      queryClient.invalidateQueries({ queryKey: ["product-addons-admin"] });
       toast.success(isEditing ? "Produto atualizado!" : "Produto criado!");
       navigate("/admin/produtos");
     },
@@ -591,6 +670,77 @@ const ProductFormPage = () => {
             Arraste as imagens para reordenar. A primeira será a imagem principal.
           </p>
         </CardContent>
+      </Card>
+
+      {/* Addons */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">➕ Adicionais do Produto</CardTitle>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="has-addons-switch" className="text-sm text-muted-foreground">
+                {form.has_addons ? "Ativado" : "Desativado"}
+              </Label>
+              <Switch
+                id="has-addons-switch"
+                checked={form.has_addons}
+                onCheckedChange={(v) => {
+                  set("has_addons", v);
+                  if (v && addons.length === 0) addAddon();
+                }}
+              />
+            </div>
+          </div>
+        </CardHeader>
+        {form.has_addons && (
+          <CardContent className="space-y-3">
+            {addons.map((addon, idx) => (
+              <div key={addon.id} className="flex items-center gap-2">
+                <Input
+                  value={addon.name}
+                  onChange={(e) => updateAddon(idx, "name", e.target.value)}
+                  placeholder="Nome do adicional"
+                  className="flex-1"
+                />
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={addon.price}
+                  onChange={(e) => updateAddon(idx, "price", e.target.value)}
+                  placeholder="Valor"
+                  className="w-24"
+                />
+                <Switch
+                  checked={addon.active}
+                  onCheckedChange={(v) => updateAddon(idx, "active", v)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeAddon(idx)}
+                  className="text-destructive hover:text-destructive flex-shrink-0"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={addAddon}
+            >
+              <Plus className="w-4 h-4" />
+              Adicionar
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Adicionais inativos não aparecem para o cliente.
+            </p>
+          </CardContent>
+        )}
       </Card>
 
       {/* Tags */}
