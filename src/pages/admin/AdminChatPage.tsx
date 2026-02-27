@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Send, ArrowLeft, ChevronDown, DollarSign, CreditCard, Banknote, QrCode, X } from "lucide-react";
+import { Send, ArrowLeft, ChevronDown, DollarSign, CreditCard, Banknote, QrCode, X, FileText, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -28,6 +28,7 @@ const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
 
 const FINANCIAL_LABELS: Record<string, { label: string; color: string; emoji: string }> = {
   pending: { label: "Pendente", color: "bg-destructive text-destructive-foreground", emoji: "🔴" },
+  awaiting_check: { label: "Aguardando conferência", color: "bg-yellow-500 text-white", emoji: "🟡" },
   partial: { label: "Parcial", color: "bg-yellow-500 text-white", emoji: "🟡" },
   paid: { label: "Pago", color: "bg-green-600 text-white", emoji: "🟢" },
 };
@@ -59,6 +60,7 @@ const AdminChatPage = () => {
   const [registeringPayment, setRegisteringPayment] = useState(false);
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
   const [pendingFinishStatus, setPendingFinishStatus] = useState(false);
+  const [confirmingReceipt, setConfirmingReceipt] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -167,7 +169,6 @@ const AdminChatPage = () => {
     const content = message.trim();
     setMessage("");
 
-    // Optimistic message
     const optimistic = {
       id: `optimistic-${Date.now()}`,
       chat_id: chatId,
@@ -182,7 +183,6 @@ const AdminChatPage = () => {
     };
     setOptimisticMessages((prev) => [...prev, optimistic]);
 
-    // Reset textarea height
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -198,12 +198,11 @@ const AdminChatPage = () => {
         metadata: { sender_name: user?.name || user?.login || "Loja" },
       });
       if (error) throw error;
-      // Immediate refetch to ensure message appears
       queryClient.invalidateQueries({ queryKey: ["admin-chat-messages", chatId] });
     } catch {
       setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       toast.error("Erro ao enviar mensagem");
-      setMessage(content); // Restore message
+      setMessage(content);
     } finally {
       setSending(false);
     }
@@ -218,7 +217,6 @@ const AdminChatPage = () => {
 
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.target.value);
-    // Auto-resize
     const textarea = e.target;
     textarea.style.height = "auto";
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
@@ -226,14 +224,11 @@ const AdminChatPage = () => {
 
   const handleUpdateOperationalStatus = async (newStatus: string) => {
     if (!sale) return;
-
-    // If "finished", show confirmation dialog first
     if (newStatus === "finished") {
       setShowStatusMenu(false);
       setPendingFinishStatus(true);
       return;
     }
-
     await executeStatusUpdate(newStatus);
   };
 
@@ -254,7 +249,6 @@ const AdminChatPage = () => {
       });
       if (msgErr) console.error("Erro ao enviar mensagem de status:", msgErr);
 
-      // If finishing, close the chat
       if (newStatus === "finished" && chatId) {
         await supabase.from("chats").update({ active: false, status: "closed" }).eq("id", chatId);
       }
@@ -308,11 +302,98 @@ const AdminChatPage = () => {
     }
   };
 
+  // Confirm payment from receipt
+  const handleConfirmReceiptPayment = async () => {
+    if (!sale || !chatId) return;
+    setConfirmingReceipt(true);
+    try {
+      // Register payment for full remaining amount via PIX
+      const amount = remaining;
+      const { error } = await supabase.from("sale_payments").insert({
+        sale_id: sale.id,
+        tenant_id: sale.tenant_id,
+        amount,
+        payment_method: "pix",
+        registered_by: user?.id || null,
+      });
+      if (error) throw error;
+
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: user?.id || null,
+        sender_type: "system",
+        content: `✅ **Pagamento confirmado**\nComprovante verificado. R$ ${amount.toFixed(2)} via Pix`,
+        message_type: "payment_registered",
+        metadata: { sender_name: user?.name || user?.login || "Sistema" },
+      });
+
+      toast.success("Pagamento confirmado!");
+      queryClient.invalidateQueries({ queryKey: ["sale-payments", sale.id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-sale", chat?.sale_id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-chat-messages", chatId] });
+    } catch {
+      toast.error("Erro ao confirmar pagamento");
+    } finally {
+      setConfirmingReceipt(false);
+    }
+  };
+
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const remaining = sale ? Number(sale.valor_total) - totalPaid : 0;
 
   const operationalStatus = sale ? STATUS_LABELS[sale.operational_status] || { label: sale.operational_status, emoji: "📋" } : null;
   const financialStatus = sale ? FINANCIAL_LABELS[sale.financial_status] || FINANCIAL_LABELS.pending : null;
+
+  // Render message content with receipt support
+  const renderMessageContent = (msg: any) => {
+    if (msg.message_type === "payment_receipt") {
+      const meta = msg.metadata as any;
+      const fileUrl = meta?.file_url;
+      const fileType = meta?.file_type;
+      const fileName = meta?.file_name;
+
+      return (
+        <div>
+          <p className="text-sm mb-2">{msg.content}</p>
+          {fileType === "image" && fileUrl ? (
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="block">
+              <img
+                src={fileUrl}
+                alt="Comprovante"
+                className="rounded-lg max-w-[200px] max-h-[250px] object-cover border border-border cursor-pointer hover:opacity-90 transition-opacity"
+              />
+            </a>
+          ) : fileType === "pdf" && fileUrl ? (
+            <a
+              href={fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border hover:bg-secondary transition-colors"
+            >
+              <FileText className="w-5 h-5 text-destructive" />
+              <span className="text-xs font-medium truncate">{fileName || "Comprovante.pdf"}</span>
+              <span className="text-xs text-primary ml-auto">Abrir</span>
+            </a>
+          ) : (
+            <p className="text-sm">{msg.content}</p>
+          )}
+          {/* Confirm payment button for admin - only show if sale is awaiting_check */}
+          {sale && sale.financial_status !== "paid" && (
+            <Button
+              size="sm"
+              className="mt-2 gap-1.5 w-full"
+              onClick={handleConfirmReceiptPayment}
+              disabled={confirmingReceipt}
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              {confirmingReceipt ? "Confirmando..." : "Confirmar pagamento"}
+            </Button>
+          )}
+        </div>
+      );
+    }
+    return <p className="whitespace-pre-wrap break-words">{msg.content}</p>;
+  };
 
   return (
     <div className="flex flex-col -m-4 lg:-m-6 h-[calc(100vh-64px)]">
@@ -465,7 +546,6 @@ const AdminChatPage = () => {
           return (
             <div key={msg.id} className={`flex ${isCustomer ? "justify-start" : "justify-end"}`}>
               <div className="max-w-[80%]">
-                {/* Sender name for store messages */}
                 {isTenant && senderName && (
                   <p className="text-[11px] text-muted-foreground mb-0.5 text-right px-1">{senderName}</p>
                 )}
@@ -479,7 +559,7 @@ const AdminChatPage = () => {
                   } ${msg._optimistic ? "opacity-70" : ""}`}
                 >
                   {isCustomer && <p className="text-xs font-semibold text-primary mb-1">{customerInfo?.name || "Cliente"}</p>}
-                  <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  {renderMessageContent(msg)}
                   <p className={`text-[10px] mt-1 ${!isCustomer && !isSystem ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                     {new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </p>
