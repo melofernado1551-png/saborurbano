@@ -94,14 +94,30 @@ const AdminChatsListPage = () => {
     queryKey: ["admin-chats-kanban", tenantId],
     enabled: !!tenantId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch active chats (non-finished)
+      const { data: activeChats, error: err1 } = await supabase
         .from("chats")
         .select("*, customers(name, phone), sales!sales_chat_id_fkey(id, sale_number, valor_total, financial_status, operational_status, created_at)")
         .eq("tenant_id", tenantId!)
         .eq("active", true)
         .order("updated_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      if (err1) throw err1;
+
+      // Fetch finished chats (active=false) from today
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const { data: finishedChats, error: err2 } = await supabase
+        .from("chats")
+        .select("*, customers(name, phone), sales!sales_chat_id_fkey(id, sale_number, valor_total, financial_status, operational_status, created_at)")
+        .eq("tenant_id", tenantId!)
+        .eq("active", false)
+        .eq("status", "closed")
+        .gte("updated_at", startOfDay.toISOString())
+        .order("updated_at", { ascending: false })
+        .limit(MAX_FINISHED);
+      if (err2) throw err2;
+
+      return [...(activeChats || []), ...(finishedChats || [])];
     },
   });
 
