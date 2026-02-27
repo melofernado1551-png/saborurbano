@@ -3,10 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSwipe } from "@/hooks/useSwipe";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Share2, ShoppingBag, Minus, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Share2, ShoppingBag, Minus, Plus, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useCart } from "@/contexts/CartContext";
+import { useCart, CartAddon } from "@/contexts/CartContext";
 
 const ProductDetailPage = () => {
   const { tenantSlug, productSlug } = useParams<{ tenantSlug: string; productSlug: string }>();
@@ -15,6 +15,7 @@ const ProductDetailPage = () => {
   const [observation, setObservation] = useState("");
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [selectedAddons, setSelectedAddons] = useState<CartAddon[]>([]);
   const { addItem, totalItems, totalPrice, setIsOpen: setCartOpen } = useCart();
 
   const changeImage = (next: number) => {
@@ -80,6 +81,22 @@ const ProductDetailPage = () => {
     },
   });
 
+  // Fetch product addons
+  const { data: addons = [] } = useQuery({
+    queryKey: ["product-addons", product?.id],
+    enabled: !!product?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_addons")
+        .select("id, name, price, position")
+        .eq("product_id", product!.id)
+        .eq("active", true)
+        .order("position");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Fetch stock
   const { data: stock } = useQuery({
     queryKey: ["product-stock", product?.id],
@@ -98,7 +115,17 @@ const ProductDetailPage = () => {
 
   const mainImage = images[0]?.image_url || null;
   const outOfStock = stock !== null && stock !== undefined && stock.quantity <= 0;
-  const finalPrice = product?.has_discount && product?.promo_price ? Number(product.promo_price) : Number(product?.price || 0);
+  const basePrice = product?.has_discount && product?.promo_price ? Number(product.promo_price) : Number(product?.price || 0);
+  const addonsTotal = selectedAddons.reduce((sum, a) => sum + a.price, 0);
+  const finalUnitPrice = basePrice + addonsTotal;
+
+  const toggleAddon = (addon: { id: string; name: string; price: number }) => {
+    setSelectedAddons((prev) => {
+      const exists = prev.find((a) => a.id === addon.id);
+      if (exists) return prev.filter((a) => a.id !== addon.id);
+      return [...prev, { id: addon.id, name: addon.name, price: Number(addon.price) }];
+    });
+  };
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -257,6 +284,66 @@ const ProductDetailPage = () => {
           )}
         </div>
 
+        {/* Addons section */}
+        {addons.length > 0 && !outOfStock && (
+          <div className="mt-6">
+            <h3 className="text-base font-bold text-foreground mb-3">✨ Personalize seu pedido</h3>
+            <div className="space-y-2">
+              {addons.map((addon) => {
+                const isSelected = selectedAddons.some((a) => a.id === addon.id);
+                return (
+                  <button
+                    key={addon.id}
+                    type="button"
+                    onClick={() => toggleAddon(addon)}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
+                      isSelected
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        : "border-border bg-secondary/30 hover:bg-secondary/60"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                          isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                      </div>
+                      <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>
+                        {addon.name}
+                      </span>
+                    </div>
+                    <span className={`text-sm font-bold ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
+                      +R$ {Number(addon.price).toFixed(2)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Price breakdown */}
+            {selectedAddons.length > 0 && (
+              <div className="mt-3 p-3 rounded-xl bg-secondary/50 space-y-1">
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Preço base</span>
+                  <span>R$ {basePrice.toFixed(2)}</span>
+                </div>
+                {selectedAddons.map((a) => (
+                  <div key={a.id} className="flex justify-between text-sm text-muted-foreground">
+                    <span>+ {a.name}</span>
+                    <span>R$ {a.price.toFixed(2)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between text-sm font-bold text-foreground border-t border-border pt-1">
+                  <span>Valor unitário</span>
+                  <span>R$ {finalUnitPrice.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Observation */}
         {!outOfStock && (
           <div className="mt-6">
@@ -313,6 +400,7 @@ const ProductDetailPage = () => {
                     imageUrl: mainImage,
                     quantity,
                     observation: trimmedObs || undefined,
+                    addons: selectedAddons.length > 0 ? selectedAddons : undefined,
                   },
                   { id: tenant.id, slug: tenant.slug, name: tenant.name, freeShipping: (tenant as any).free_shipping, shippingFee: (tenant as any).shipping_fee ? Number((tenant as any).shipping_fee) : null }
                 );
@@ -320,11 +408,12 @@ const ProductDetailPage = () => {
                   toast.success("✔ Produto adicionado ao carrinho");
                   setQuantity(1);
                   setObservation("");
+                  setSelectedAddons([]);
                 }
               }}
             >
               <ShoppingBag className="w-5 h-5" />
-              Adicionar · R$ {(finalPrice * quantity).toFixed(2)}
+              Adicionar · R$ {(finalUnitPrice * quantity).toFixed(2)}
             </Button>
           </div>
         )}

@@ -44,10 +44,11 @@ Deno.serve(async (req) => {
     // Get next sale number
     const { data: saleNumber } = await supabase.rpc("next_sale_number", { _tenant_id: tenant_id });
 
-    // Calculate total
+    // Calculate total (including addons)
     const total = items.reduce((sum: number, item: any) => {
       const price = item.promoPrice ?? item.price;
-      return sum + price * item.quantity;
+      const addonsTotal = (item.addons || []).reduce((a: number, addon: any) => a + (addon.price || 0), 0);
+      return sum + (price + addonsTotal) * item.quantity;
     }, 0);
 
     // Create sale
@@ -84,10 +85,23 @@ Deno.serve(async (req) => {
     // Update sale with chat_id
     await supabase.from("sales").update({ chat_id: chat.id }).eq("id", sale.id);
 
-    // Build order summary message
+    // Build order summary message (with addons)
     const itemLines = items.map((item: any) => {
       const price = item.promoPrice ?? item.price;
+      const addons = item.addons || [];
+      const addonsTotal = addons.reduce((a: number, addon: any) => a + (addon.price || 0), 0);
+      const itemTotal = (price + addonsTotal) * item.quantity;
+      
       const lines = [`• ${item.quantity}x ${item.name} — R$ ${(price * item.quantity).toFixed(2)}`];
+      
+      for (const addon of addons) {
+        lines.push(`   + ${addon.name} — R$ ${Number(addon.price).toFixed(2)}`);
+      }
+      
+      if (addons.length > 0) {
+        lines.push(`   Total do item: R$ ${itemTotal.toFixed(2)}`);
+      }
+      
       if (item.observation) lines.push(`  📝 ${item.observation}`);
       return lines.join("\n");
     });

@@ -81,6 +81,7 @@ const CartDrawer = () => {
             promoPrice: i.promoPrice,
             quantity: i.quantity,
             observation: i.observation,
+            addons: i.addons || [],
           })),
         },
       });
@@ -157,9 +158,11 @@ const CartDrawer = () => {
               {/* Items list */}
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
                 {items.map((item) => {
-                  const unitPrice = item.promoPrice ?? item.price;
+                  const basePrice = item.promoPrice ?? item.price;
+                  const addonsTotal = item.addons?.reduce((a, addon) => a + addon.price, 0) || 0;
+                  const unitTotal = basePrice + addonsTotal;
                   return (
-                    <div key={item.productId} className="flex gap-3 p-3 bg-secondary/50 rounded-xl">
+                    <div key={item.cartItemId} className="flex gap-3 p-3 bg-secondary/50 rounded-xl">
                       <div className="w-16 h-16 rounded-lg overflow-hidden bg-secondary flex-shrink-0">
                         {item.imageUrl ? (
                           <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
@@ -170,26 +173,35 @@ const CartDrawer = () => {
 
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-sm text-foreground line-clamp-1">{item.name}</h4>
+                        {item.addons && item.addons.length > 0 && (
+                          <div className="mt-0.5 space-y-0">
+                            {item.addons.map((addon) => (
+                              <p key={addon.id} className="text-xs text-muted-foreground">
+                                + {addon.name} (+R$ {addon.price.toFixed(2)})
+                              </p>
+                            ))}
+                          </div>
+                        )}
                         {item.observation && (
                           <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                             📝 {item.observation}
                           </p>
                         )}
                         <p className="text-sm font-bold text-primary mt-0.5">
-                          R$ {unitPrice.toFixed(2)}
+                          R$ {unitTotal.toFixed(2)}
                         </p>
 
                         <div className="flex items-center justify-between mt-2">
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                              onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
                               className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center hover:bg-secondary transition-colors"
                             >
                               <Minus className="w-3 h-3" />
                             </button>
                             <span className="font-bold text-sm w-6 text-center">{item.quantity}</span>
                             <button
-                              onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                              onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
                               className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity"
                             >
                               <Plus className="w-3 h-3" />
@@ -197,10 +209,10 @@ const CartDrawer = () => {
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-bold text-foreground">
-                              R$ {(unitPrice * item.quantity).toFixed(2)}
+                              R$ {(unitTotal * item.quantity).toFixed(2)}
                             </span>
                             <button
-                              onClick={() => removeItem(item.productId)}
+                              onClick={() => removeItem(item.cartItemId)}
                               className="w-7 h-7 rounded-full flex items-center justify-center text-destructive hover:bg-destructive/10 transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
