@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { MapPin, ShoppingBag, User, Settings, LogOut, Heart } from "lucide-react";
+import { toast } from "sonner";
 import logo from "@/assets/logo.png";
 import { Button } from "./ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -100,6 +101,10 @@ const Header = ({ location, onLocationClick }: HeaderProps) => {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              ) : user ? (
+                <Button variant="ghost" size="icon" onClick={() => toast.info("Você está logado com uma conta administrativa. Use o painel Admin para gerenciar.")}>
+                  <User className="w-5 h-5" />
+                </Button>
               ) : (
                 <Button variant="ghost" size="icon" onClick={() => setAuthOpen(true)}>
                   <User className="w-5 h-5" />
