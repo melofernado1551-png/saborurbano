@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Eye, Calendar, Building2, Pencil, User, MapPin, ShoppingBag, CreditCard, Save, X } from "lucide-react";
+import { Plus, Search, Eye, Calendar, Building2, Pencil, User, MapPin, ShoppingBag, CreditCard, Save, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -40,6 +41,8 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly, canEdit }: { sale: 
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState({ observacao: "", forma_pagamento: "", operational_status: "" });
+  const [paymentToCancel, setPaymentToCancel] = useState<any>(null);
+  const [cancellingPayment, setCancellingPayment] = useState(false);
 
   // Fetch customer
   const { data: customer } = useQuery({
@@ -118,6 +121,38 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly, canEdit }: { sale: 
     onError: () => toast.error("Erro ao atualizar"),
   });
 
+  const handleCancelPayment = async () => {
+    if (!paymentToCancel || !sale) return;
+    setCancellingPayment(true);
+    try {
+      const { error } = await supabase
+        .from("sale_payments")
+        .update({ active: false })
+        .eq("id", paymentToCancel.id);
+      if (error) throw error;
+
+      // If there's a chat, send cancellation message
+      if (sale.chat_id) {
+        await supabase.from("chat_messages").insert({
+          chat_id: sale.chat_id,
+          sender_id: null,
+          sender_type: "system",
+          content: `❌ **Pagamento cancelado**\nR$ ${Number(paymentToCancel.amount).toFixed(2)} via ${PAYMENT_LABELS[paymentToCancel.payment_method] || paymentToCancel.payment_method}`,
+          message_type: "payment_cancelled",
+        });
+      }
+
+      setPaymentToCancel(null);
+      toast.success("Pagamento cancelado!");
+      queryClient.invalidateQueries({ queryKey: ["sale-payments-detail", sale.id] });
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+    } catch {
+      toast.error("Erro ao cancelar pagamento");
+    } finally {
+      setCancellingPayment(false);
+    }
+  };
+
   const totalPaid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
   const remaining = sale ? Number(sale.valor_total) - totalPaid : 0;
   const financialInfo = FINANCIAL_LABELS[sale?.financial_status] || FINANCIAL_LABELS.pending;
@@ -127,6 +162,7 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly, canEdit }: { sale: 
   const orderSummaryContent = saleItems.length > 0 ? saleItems[0].content : null;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(o) => { if (!o) { setEditing(false); onClose(); } }}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
@@ -248,12 +284,21 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly, canEdit }: { sale: 
               {payments.length > 0 ? (
                 <div className="space-y-1.5">
                   {payments.map((p: any) => (
-                    <div key={p.id} className="flex items-center justify-between px-3 py-2 rounded-xl bg-secondary/50 border border-border text-sm">
+                    <div key={p.id} className="flex items-center justify-between px-3 py-2 rounded-xl bg-secondary/50 border border-border text-sm gap-2">
                       <span className="font-medium text-foreground">R$ {Number(p.amount).toFixed(2)}</span>
                       <span className="text-muted-foreground">{PAYMENT_LABELS[p.payment_method] || p.payment_method}</span>
                       <span className="text-xs text-muted-foreground">
                         {new Date(p.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                       </span>
+                      {canEdit && (
+                        <button
+                          onClick={() => setPaymentToCancel(p)}
+                          className="text-destructive hover:text-destructive/80 transition-colors"
+                          title="Cancelar pagamento"
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                   <div className="flex justify-between px-3 py-2 text-sm">
@@ -307,6 +352,33 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly, canEdit }: { sale: 
         )}
       </DialogContent>
     </Dialog>
+
+      {/* Confirmation dialog for cancelling payment */}
+      <AlertDialog open={!!paymentToCancel} onOpenChange={(o) => { if (!o) setPaymentToCancel(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja cancelar o pagamento de{" "}
+              <span className="font-semibold">R$ {paymentToCancel ? Number(paymentToCancel.amount).toFixed(2) : "0.00"}</span> via{" "}
+              <span className="font-semibold capitalize">
+                {PAYMENT_LABELS[paymentToCancel?.payment_method] || paymentToCancel?.payment_method}
+              </span>? O status financeiro da venda será recalculado automaticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelPayment}
+              disabled={cancellingPayment}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancellingPayment ? "Cancelando..." : "Sim, cancelar pagamento"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
