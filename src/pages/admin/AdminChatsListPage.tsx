@@ -268,6 +268,52 @@ const AdminChatsListPage = () => {
   // TV Mode: only show active columns (not finished/cancelled), bigger cards
   const TV_COLUMNS = KANBAN_COLUMNS.filter(c => c.key !== "finished" && c.key !== "cancelled");
 
+  // TV Mode: sound notification for new orders
+  const prevReceivedIds = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!tvMode) {
+      prevReceivedIds.current = new Set((grouped.received || []).map((c: any) => c.id));
+      return;
+    }
+    const currentIds = new Set((grouped.received || []).map((c: any) => c.id));
+    const hasNew = [...currentIds].some(id => !prevReceivedIds.current.has(id));
+
+    if (prevReceivedIds.current.size > 0 && hasNew) {
+      // Play alert sound
+      try {
+        const ctx = new AudioContext();
+        const now = ctx.currentTime;
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(880, now);
+        osc1.frequency.setValueAtTime(1100, now + 0.15);
+        osc1.frequency.setValueAtTime(880, now + 0.3);
+
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(660, now);
+        osc2.frequency.setValueAtTime(880, now + 0.15);
+        osc2.frequency.setValueAtTime(660, now + 0.3);
+
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.setValueAtTime(0.5, now + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+        osc1.start(now);
+        osc1.stop(now + 0.5);
+        osc2.start(now);
+        osc2.stop(now + 0.5);
+      } catch { /* Audio not available */ }
+    }
+
+    prevReceivedIds.current = currentIds;
+  }, [tvMode, grouped.received]);
+
   if (tvMode) {
     return (
       <div className="fixed inset-0 z-[100] bg-background flex flex-col">
