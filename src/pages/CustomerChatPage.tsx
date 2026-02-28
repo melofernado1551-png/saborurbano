@@ -44,7 +44,6 @@ const CustomerChatPage = () => {
   const [showPayments, setShowPayments] = useState(false);
   const [showPixPayment, setShowPixPayment] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
-  const [sendingPix, setSendingPix] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -52,7 +51,7 @@ const CustomerChatPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
-  const pixSentRef = useRef(false);
+  
 
   // Fetch chat
   const { data: chat } = useQuery({
@@ -355,31 +354,8 @@ const CustomerChatPage = () => {
     setTimeout(() => setPixCopied(false), 3000);
   };
 
-  const handleSendPixInChat = async () => {
-    if (!generatedPix || !chatId || !customer || !sale) return;
 
-    // Check if a pix_payment message was already sent for this chat
-    const alreadySent = messages.some((m: any) => m.message_type === "pix_payment");
-    if (alreadySent) return;
 
-    setSendingPix(true);
-    try {
-      const content = `💠 **Pagamento via PIX**\n\n💰 Valor: R$ ${pixAmount.toFixed(2)}\n${tenantPixReceiver ? `👤 Recebedor: ${tenantPixReceiver}\n` : ""}\n📋 PIX Copia e Cola:\n\`${generatedPix}\`\n\n_Copie o código acima e cole no app do seu banco._`;
-      await supabase.from("chat_messages").insert({
-        chat_id: chatId,
-        sender_id: null,
-        sender_type: "system",
-        content,
-        message_type: "pix_payment",
-      });
-      // Keep PIX section open
-      queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
-    } catch {
-      toast.error("Erro ao enviar PIX no chat");
-    } finally {
-      setSendingPix(false);
-    }
-  };
 
   // Render message content with receipt support
   const renderMessageContent = (msg: any) => {
@@ -646,10 +622,6 @@ const CustomerChatPage = () => {
             <button
               onClick={() => {
                 setShowPixPayment(true);
-                if (!pixSentRef.current) {
-                  pixSentRef.current = true;
-                  handleSendPixInChat();
-                }
               }}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors"
             >
