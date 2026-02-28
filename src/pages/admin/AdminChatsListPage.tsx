@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Clock, CalendarIcon } from "lucide-react";
+import { MessageCircle, Clock, CalendarIcon, Monitor, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,9 @@ const AdminChatsListPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const tenantId = user?.tenant_id;
+
+  // TV mode
+  const [tvMode, setTvMode] = useState(false);
 
   // Drag state
   const [draggedChat, setDraggedChat] = useState<any>(null);
@@ -262,6 +265,115 @@ const AdminChatsListPage = () => {
   const targetLabel = pendingMove ? KANBAN_COLUMNS.find(c => c.key === pendingMove.toStatus)?.label || pendingMove.toStatus : "";
   const pendingCustomerName = pendingMove?.chat?.customers?.name || "Cliente";
 
+  // TV Mode: only show active columns (not finished/cancelled), bigger cards
+  const TV_COLUMNS = KANBAN_COLUMNS.filter(c => c.key !== "finished" && c.key !== "cancelled");
+
+  if (tvMode) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-background flex flex-col">
+        {/* TV Header */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-card shrink-0">
+          <div className="flex items-center gap-3">
+            <Monitor className="w-6 h-6 text-primary" />
+            <h1 className="text-xl font-bold text-foreground">Modo TV — Pedidos</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => setTvMode(false)} className="gap-1.5">
+              <X className="w-4 h-4" /> Sair
+            </Button>
+          </div>
+        </div>
+
+        {/* TV Kanban */}
+        <div className="flex-1 flex gap-4 p-4 overflow-hidden">
+          {TV_COLUMNS.map((col) => {
+            const items = grouped[col.key] || [];
+            return (
+              <div
+                key={col.key}
+                className={`bg-muted/50 rounded-xl border-t-4 ${col.color} flex flex-col flex-1 min-w-0`}
+              >
+                {/* Column header */}
+                <div className="p-4 flex items-center justify-between border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{col.emoji}</span>
+                    <span className="font-bold text-lg text-foreground">{col.label}</span>
+                  </div>
+                  <span className="text-sm font-semibold bg-secondary text-secondary-foreground rounded-full px-3 py-1">
+                    {items.length}
+                  </span>
+                </div>
+
+                {/* Cards */}
+                <ScrollArea className="flex-1 p-3">
+                  <div className="space-y-3">
+                    {items.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-10">Nenhum pedido</p>
+                    )}
+                    {items.map((chat: any) => {
+                      const salesArr = chat.sales;
+                      const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
+                      const customerName = chat.customers?.name || "Cliente";
+                      const financial = sale ? FINANCIAL_LABELS[sale.financial_status] || FINANCIAL_LABELS.pending : null;
+                      const saleTime = sale?.created_at ? format(new Date(sale.created_at), "HH:mm") : format(new Date(chat.created_at), "HH:mm");
+                      const isUnread = hasUnread(chat.id);
+
+                      return (
+                        <div
+                          key={chat.id}
+                          className={`p-4 rounded-xl bg-card border-2 border-border transition-all ${
+                            isUnread ? "ring-2 ring-destructive/60 border-destructive animate-pulse" : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${
+                                isUnread ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
+                              }`}>
+                                {customerName.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-lg text-foreground truncate">{customerName}</p>
+                                {sale?.sale_number && (
+                                  <p className="text-sm text-muted-foreground">Pedido #{sale.sale_number}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
+                              <Clock className="w-4 h-4" />
+                              <span className="font-medium">{saleTime}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+                            {sale && (
+                              <span className="text-xl font-bold text-foreground">
+                                R$ {Number(sale.valor_total).toFixed(2)}
+                              </span>
+                            )}
+                            {financial && (
+                              <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                <span className={`w-2.5 h-2.5 rounded-full ${financial.dotClass}`} />
+                                {financial.label}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -270,6 +382,10 @@ const AdminChatsListPage = () => {
           Pedidos / Kanban
         </h1>
         <div className="flex items-center gap-2 text-sm">
+          <Button variant="outline" size="sm" onClick={() => setTvMode(true)} className="gap-1.5 mr-2">
+            <Monitor className="w-4 h-4" />
+            Modo TV
+          </Button>
           <span className="text-muted-foreground text-xs">Finalizados/Cancelados:</span>
           <Popover>
             <PopoverTrigger asChild>
