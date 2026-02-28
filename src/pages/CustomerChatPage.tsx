@@ -52,6 +52,7 @@ const CustomerChatPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
+  const pixSentRef = useRef(false);
 
   // Fetch chat
   const { data: chat } = useQuery({
@@ -366,7 +367,7 @@ const CustomerChatPage = () => {
         content,
         message_type: "pix_payment",
       });
-      setShowPixPayment(false);
+      // Keep PIX section open
       toast.success("PIX enviado no chat!");
       queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
     } catch {
@@ -581,7 +582,13 @@ const CustomerChatPage = () => {
         <div className="px-4 pb-2">
           {!showPixPayment ? (
             <button
-              onClick={() => setShowPixPayment(true)}
+              onClick={() => {
+                setShowPixPayment(true);
+                if (!pixSentRef.current) {
+                  pixSentRef.current = true;
+                  handleSendPixInChat();
+                }
+              }}
               className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors"
             >
               <span className="flex items-center gap-2">
@@ -627,26 +634,15 @@ const CustomerChatPage = () => {
                 </p>
               </div>
 
-              <div className="flex gap-2">
-                <Button
+              <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1 gap-1.5"
+                  className="w-full gap-1.5"
                   onClick={handleCopyPix}
                 >
                   {pixCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   {pixCopied ? "Copiado!" : "Copiar PIX"}
                 </Button>
-                <Button
-                  size="sm"
-                  className="flex-1 gap-1.5"
-                  onClick={handleSendPixInChat}
-                  disabled={sendingPix}
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  {sendingPix ? "Enviando..." : "Enviar no chat"}
-                </Button>
-              </div>
             </div>
           )}
         </div>
