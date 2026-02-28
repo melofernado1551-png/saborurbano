@@ -155,36 +155,116 @@ const CaixaOverview = ({
 
     const finalY = (doc as any).lastAutoTable?.finalY || yPos + 50;
     let summaryY = finalY + 10;
-    if (summaryY + 30 > doc.internal.pageSize.getHeight()) { doc.addPage(); summaryY = 20; }
+    if (summaryY + 60 > doc.internal.pageSize.getHeight()) { doc.addPage(); summaryY = 20; }
+
+    // --- Build revenue summary by type ---
+    const revenueByType: Record<string, { count: number; total: number }> = {};
+    (revenues || []).forEach((r: any) => {
+      const typeName = r.revenue_types?.name || "Outros";
+      if (!revenueByType[typeName]) revenueByType[typeName] = { count: 0, total: 0 };
+      revenueByType[typeName].count += 1;
+      revenueByType[typeName].total += Number(r.amount);
+    });
+
+    // --- Build expense summary by type ---
+    const expenseByType: Record<string, { count: number; total: number }> = {};
+    (expenses || []).forEach((e: any) => {
+      const typeName = e.expense_types?.name || "Outros";
+      if (!expenseByType[typeName]) expenseByType[typeName] = { count: 0, total: 0 };
+      expenseByType[typeName].count += 1;
+      expenseByType[typeName].total += Number(e.amount);
+    });
 
     doc.setDrawColor(200, 200, 200);
     doc.line(15, summaryY - 3, pageWidth - 15, summaryY - 3);
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Resumo", 15, summaryY + 4);
-    summaryY += 12;
+    summaryY += 2;
 
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(22, 163, 74);
-    doc.text("Total Receitas:", 20, summaryY);
-    doc.text(`R$ ${totalRevenues.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, pageWidth - 20, summaryY, { align: "right" });
-    summaryY += 6;
+    const halfWidth = (pageWidth - 30) / 2;
+    const leftX = 15;
+    const rightX = 15 + halfWidth + 5;
 
-    doc.setTextColor(220, 38, 38);
-    doc.text("Total Despesas:", 20, summaryY);
-    doc.text(`R$ ${totalExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, pageWidth - 20, summaryY, { align: "right" });
-    summaryY += 8;
-
-    doc.setDrawColor(200, 200, 200);
-    doc.line(15, summaryY - 2, pageWidth - 15, summaryY - 2);
+    // --- Left column: Resumo de Receitas ---
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
+    doc.setTextColor(22, 163, 74);
+    doc.text("Resumo de Receitas", leftX, summaryY + 4);
+    let leftY = summaryY + 12;
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(100, 100, 100);
+    doc.text("Categoria", leftX + 2, leftY);
+    doc.text("Qtd", leftX + halfWidth - 28, leftY, { align: "right" });
+    doc.text("Valor", leftX + halfWidth - 2, leftY, { align: "right" });
+    leftY += 5;
+
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);
-    doc.text("Saldo:", 20, summaryY + 5);
+    const revEntries = Object.entries(revenueByType);
+    revEntries.forEach(([name, data]) => {
+      doc.text(name, leftX + 2, leftY);
+      doc.text(String(data.count), leftX + halfWidth - 28, leftY, { align: "right" });
+      doc.setTextColor(22, 163, 74);
+      doc.text(`R$ ${data.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, leftX + halfWidth - 2, leftY, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      leftY += 5;
+    });
+    leftY += 2;
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(22, 163, 74);
+    doc.text("Total:", leftX + 2, leftY);
+    doc.text(`R$ ${totalRevenues.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, leftX + halfWidth - 2, leftY, { align: "right" });
+
+    // --- Right column: Resumo de Despesas ---
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(220, 38, 38);
+    doc.text("Resumo de Despesas", rightX, summaryY + 4);
+    let rightY = summaryY + 12;
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(100, 100, 100);
+    doc.text("Categoria", rightX + 2, rightY);
+    doc.text("Qtd", rightX + halfWidth - 28, rightY, { align: "right" });
+    doc.text("Valor", rightX + halfWidth - 2, rightY, { align: "right" });
+    rightY += 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(0, 0, 0);
+    const expEntries = Object.entries(expenseByType);
+    expEntries.forEach(([name, data]) => {
+      doc.text(name, rightX + 2, rightY);
+      doc.text(String(data.count), rightX + halfWidth - 28, rightY, { align: "right" });
+      doc.setTextColor(220, 38, 38);
+      doc.text(`R$ ${data.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, rightX + halfWidth - 2, rightY, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      rightY += 5;
+    });
+    rightY += 2;
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(220, 38, 38);
+    doc.text("Total:", rightX + 2, rightY);
+    doc.text(`R$ ${totalExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, rightX + halfWidth - 2, rightY, { align: "right" });
+
+    // --- Vertical divider between columns ---
+    const maxColumnY = Math.max(leftY, rightY) + 4;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(leftX + halfWidth + 2, summaryY - 1, leftX + halfWidth + 2, maxColumnY - 2);
+
+    // --- Balance / Saldo ---
+    let balanceY = maxColumnY + 4;
+    if (balanceY + 15 > doc.internal.pageSize.getHeight()) { doc.addPage(); balanceY = 20; }
+
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, balanceY - 2, pageWidth - 15, balanceY - 2);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 0, 0);
+    doc.text("Saldo Líquido:", 20, balanceY + 6);
     if (balance >= 0) doc.setTextColor(22, 163, 74);
     else doc.setTextColor(220, 38, 38);
-    doc.text(`R$ ${balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, pageWidth - 20, summaryY + 5, { align: "right" });
+    doc.text(`R$ ${balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, pageWidth - 20, balanceY + 6, { align: "right" });
 
     doc.save(`relatorio-caixa-${new Date().toISOString().slice(0, 10)}.pdf`);
     toast.success("Relatório gerado com sucesso!");
