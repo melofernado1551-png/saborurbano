@@ -53,6 +53,7 @@ const formatCurrency = (value: number) =>
 const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] }) => {
   const [chartDateFrom, setChartDateFrom] = useState("");
   const [chartDateTo, setChartDateTo] = useState("");
+  const [activeShortcut, setActiveShortcut] = useState<string | null>(null);
 
   const filteredRevenues = useMemo(() => {
     return (revenues || []).filter((r: any) => {
@@ -133,27 +134,43 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Atalhos:</span>
               {[
-                { label: "Último mês", fn: () => {
+                { label: "Mês atual", key: "current_month", fn: () => {
+                  const now = new Date();
+                  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+                  setChartDateFrom(from.toISOString().slice(0, 10));
+                  setChartDateTo(now.toISOString().slice(0, 10));
+                  setActiveShortcut("current_month");
+                }},
+                { label: "Último mês", key: "last_month", fn: () => {
                   const now = new Date();
                   const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
                   const to = new Date(now.getFullYear(), now.getMonth(), 0);
                   setChartDateFrom(from.toISOString().slice(0, 10));
                   setChartDateTo(to.toISOString().slice(0, 10));
+                  setActiveShortcut("last_month");
                 }},
-                { label: "Últimos 3 meses", fn: () => {
+                { label: "Últimos 3 meses", key: "last_3_months", fn: () => {
                   const now = new Date();
                   const from = new Date(now.getFullYear(), now.getMonth() - 3, 1);
                   setChartDateFrom(from.toISOString().slice(0, 10));
                   setChartDateTo(now.toISOString().slice(0, 10));
+                  setActiveShortcut("last_3_months");
                 }},
-                { label: "Este ano", fn: () => {
+                { label: "Este ano", key: "this_year", fn: () => {
                   const now = new Date();
                   const from = new Date(now.getFullYear(), 0, 1);
                   setChartDateFrom(from.toISOString().slice(0, 10));
                   setChartDateTo(now.toISOString().slice(0, 10));
+                  setActiveShortcut("this_year");
                 }},
               ].map((shortcut) => (
-                <Button key={shortcut.label} variant="outline" size="sm" onClick={shortcut.fn}>
+                <Button
+                  key={shortcut.key}
+                  variant={activeShortcut === shortcut.key ? "default" : "outline"}
+                  size="sm"
+                  className={activeShortcut === shortcut.key ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500" : ""}
+                  onClick={shortcut.fn}
+                >
                   {shortcut.label}
                 </Button>
               ))}
@@ -166,7 +183,7 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
               <Input
                 type="date"
                 value={chartDateFrom}
-                onChange={(e) => setChartDateFrom(e.target.value)}
+                onChange={(e) => { setChartDateFrom(e.target.value); setActiveShortcut(null); }}
                 className="w-40"
                 placeholder="Data inicial"
               />
@@ -174,7 +191,7 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
               <Input
                 type="date"
                 value={chartDateTo}
-                onChange={(e) => setChartDateTo(e.target.value)}
+                onChange={(e) => { setChartDateTo(e.target.value); setActiveShortcut(null); }}
                 className="w-40"
                 placeholder="Data final"
               />
@@ -182,7 +199,7 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => { setChartDateFrom(""); setChartDateTo(""); }}
+                  onClick={() => { setChartDateFrom(""); setChartDateTo(""); setActiveShortcut(null); }}
                 >
                   <X className="w-4 h-4 mr-1" /> Limpar
                 </Button>
