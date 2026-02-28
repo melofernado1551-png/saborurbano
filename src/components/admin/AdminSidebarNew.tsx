@@ -63,13 +63,13 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       ? [{ label: "Tags", icon: Tag, path: "/admin/tags" }]
       : []),
     ...(isSuperAdmin || isAdminTenant
-      ? [{ label: "Usuários", icon: Users, path: "/admin/usuarios" }]
+      ? [{ label: "Bairros / Frete", icon: MapPin, path: "/admin/bairros" }]
       : []),
     ...(isSuperAdmin || isAdminTenant
       ? [{ label: "Minha Vitrine", icon: LayoutGrid, path: "/admin/meu-perfil" }]
       : []),
     ...(isSuperAdmin || isAdminTenant
-      ? [{ label: "Bairros / Frete", icon: MapPin, path: "/admin/bairros" }]
+      ? [{ label: "Usuários", icon: Users, path: "/admin/usuarios" }]
       : []),
     ...(!isContador
       ? [{ label: "Configurações", icon: Settings, path: isAdminTenant ? "/admin/configuracoes" : "/admin/configs-admin" }]
