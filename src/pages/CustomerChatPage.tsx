@@ -748,11 +748,11 @@ const CustomerChatPage = () => {
         </div>
       )}
 
-      {/* Input - hidden when order is finished or cancelled */}
-      {sale && (sale.operational_status === "finished" || sale.operational_status === "cancelled") ? (
+      {/* Input - hidden when order is finished or cancelled or chat is closed */}
+      {(sale && (sale.operational_status === "finished" || sale.operational_status === "cancelled")) || (chat && chat.status === "closed") ? (
         <div className="border-t border-border p-4 bg-secondary/50">
           <p className="text-center text-sm text-muted-foreground">
-            {sale.operational_status === "finished" ? "✅ Pedido finalizado" : "❌ Pedido cancelado"} — chat encerrado.
+            {sale?.operational_status === "cancelled" ? "❌ Pedido cancelado" : "✅ Pedido finalizado"} — chat encerrado.
           </p>
         </div>
       ) : (
