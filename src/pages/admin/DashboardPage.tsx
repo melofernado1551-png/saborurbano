@@ -19,7 +19,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { useEffect } from "react";
 
@@ -302,12 +302,12 @@ const DashboardPage = () => {
                 <CardContent>
                   <div className="h-52">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={financialData.chartData}>
+                      <LineChart data={financialData.chartData}>
                         <XAxis dataKey="day" className="text-xs" />
                         <YAxis className="text-xs" />
                         <Tooltip formatter={(value: number) => [formatCurrency(value), "Total"]} />
-                        <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      </BarChart>
+                        <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))", r: 4 }} />
+                      </LineChart>
                     </ResponsiveContainer>
                   </div>
                 </CardContent>
