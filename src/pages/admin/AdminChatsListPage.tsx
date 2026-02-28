@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Clock } from "lucide-react";
+import { MessageCircle, Clock, CalendarIcon } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
 const KANBAN_COLUMNS = [
@@ -54,6 +58,8 @@ const AdminChatsListPage = () => {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   // Confirmation dialog
   const [pendingMove, setPendingMove] = useState<{ chat: any; toStatus: string } | null>(null);
+  // Finished column date filter (defaults to today)
+  const [finishedDate, setFinishedDate] = useState<Date>(new Date());
   // Track unread chats (chats with customer messages not yet opened by admin)
   const [viewedChats, setViewedChats] = useState<Set<string>>(() => {
     try {
@@ -92,7 +98,7 @@ const AdminChatsListPage = () => {
   }, [tenantId, queryClient]);
 
   const { data: chats = [], isLoading } = useQuery({
-    queryKey: ["admin-chats-kanban", tenantId],
+    queryKey: ["admin-chats-kanban", tenantId, finishedDate.toDateString()],
     enabled: !!tenantId,
     queryFn: async () => {
       // Fetch active chats (non-finished)
@@ -104,16 +110,19 @@ const AdminChatsListPage = () => {
         .order("updated_at", { ascending: false });
       if (err1) throw err1;
 
-      // Fetch finished chats (active=false) from today
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
+      // Fetch finished chats for the selected date
+      const selectedStart = new Date(finishedDate);
+      selectedStart.setHours(0, 0, 0, 0);
+      const selectedEnd = new Date(finishedDate);
+      selectedEnd.setHours(23, 59, 59, 999);
       const { data: finishedChats, error: err2 } = await supabase
         .from("chats")
         .select("*, customers(name, phone), sales!sales_chat_id_fkey(id, sale_number, valor_total, financial_status, operational_status, created_at)")
         .eq("tenant_id", tenantId!)
         .eq("active", false)
         .eq("status", "closed")
-        .gte("updated_at", startOfDay.toISOString())
+        .gte("updated_at", selectedStart.toISOString())
+        .lte("updated_at", selectedEnd.toISOString())
         .order("updated_at", { ascending: false })
         .limit(MAX_FINISHED);
       if (err2) throw err2;
@@ -283,9 +292,31 @@ const AdminChatsListPage = () => {
                     <span className="text-lg">{col.emoji}</span>
                     <span className="font-semibold text-sm text-foreground">{col.label}</span>
                   </div>
-                  <span className="text-xs font-medium bg-secondary text-secondary-foreground rounded-full px-2 py-0.5">
-                    {items.length}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {isFinished && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground">
+                            <CalendarIcon className="w-3.5 h-3.5" />
+                            {format(finishedDate, "dd/MM", { locale: ptBR })}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={finishedDate}
+                            onSelect={(d) => d && setFinishedDate(d)}
+                            disabled={(date) => date > new Date()}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                    <span className="text-xs font-medium bg-secondary text-secondary-foreground rounded-full px-2 py-0.5">
+                      {items.length}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Cards */}
