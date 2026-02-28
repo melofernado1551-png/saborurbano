@@ -1006,6 +1006,61 @@ export type Database = {
           },
         ]
       }
+      sale_reviews: {
+        Row: {
+          active: boolean
+          comment: string | null
+          created_at: string
+          customer_id: string
+          id: string
+          rating: number
+          sale_id: string
+          tenant_id: string
+        }
+        Insert: {
+          active?: boolean
+          comment?: string | null
+          created_at?: string
+          customer_id: string
+          id?: string
+          rating: number
+          sale_id: string
+          tenant_id: string
+        }
+        Update: {
+          active?: boolean
+          comment?: string | null
+          created_at?: string
+          customer_id?: string
+          id?: string
+          rating?: number
+          sale_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sale_reviews_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_reviews_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sale_reviews_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           active: boolean
