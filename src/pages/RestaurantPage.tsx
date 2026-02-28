@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame, ShoppingBag, Settings } from "lucide-react";
+import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame, ShoppingBag, Settings, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,6 +10,7 @@ import CustomerMenu from "@/components/customer/CustomerMenu";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import { useTenantFavorites } from "@/hooks/useTenantFavorites";
 
 // No longer needed - emoji comes from DB
 
@@ -22,6 +23,7 @@ const RestaurantPage = () => {
   const { session, getOrCreateCustomerForTenant } = useCustomerAuth();
   const { user } = useAuth();
   const { addItem, totalItems, totalPrice, setIsOpen: setCartOpen } = useCart();
+  const { isFavorite: isTenantFavorite, toggleFavorite: toggleTenantFavorite, isLoggedIn: isTenantFavLoggedIn } = useTenantFavorites();
 
   // Fetch tenant
   const { data: tenant, isLoading: tenantLoading } = useQuery({
@@ -548,6 +550,19 @@ const RestaurantPage = () => {
             </Button>
             <Button variant="ghost" size="icon" onClick={handleShareRestaurant}>
               <Share2 className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                if (!isTenantFavLoggedIn) {
+                  toast.error("Faça login para favoritar");
+                  return;
+                }
+                toggleTenantFavorite.mutate(tenant.id);
+              }}
+            >
+              <Heart className={`w-5 h-5 transition-colors ${isTenantFavorite(tenant.id) ? "text-red-500 fill-red-500" : ""}`} />
             </Button>
             <CustomerMenu tenantId={tenant.id} />
           </div>
