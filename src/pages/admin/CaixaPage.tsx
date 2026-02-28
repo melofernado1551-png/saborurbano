@@ -284,14 +284,14 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
               <ArrowUpCircle className="w-4 h-4 text-green-600" />
               Receitas por Categoria
             </h3>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
                   data={revenueByCat}
                   cx="50%"
                   cy="50%"
-                  innerRadius={50}
-                  outerRadius={90}
+                  innerRadius={45}
+                  outerRadius={80}
                   dataKey="value"
                   paddingAngle={2}
                   label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
@@ -320,14 +320,14 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
               <ArrowDownCircle className="w-4 h-4 text-red-600" />
               Despesas por Categoria
             </h3>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
                   data={expenseByCat}
                   cx="50%"
                   cy="50%"
-                  innerRadius={50}
-                  outerRadius={90}
+                  innerRadius={45}
+                  outerRadius={80}
                   dataKey="value"
                   paddingAngle={2}
                   label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
