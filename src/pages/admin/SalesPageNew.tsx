@@ -506,7 +506,9 @@ const SalesPageNew = () => {
         String(s.sale_number).includes(q);
     }
     if (filterPayment && filterPayment !== "all" && match) {
-      match = s.forma_pagamento === filterPayment;
+      // Check both forma_pagamento and sale_payments methods
+      const paymentMethods = s.sale_payments?.map((p: any) => p.payment_method).filter(Boolean) || [];
+      match = s.forma_pagamento === filterPayment || paymentMethods.includes(filterPayment);
     }
     return match;
   });
