@@ -485,8 +485,7 @@ const CaixaOverview = ({
         </Card>
       </div>
 
-      {/* Charts */}
-      <CaixaCharts revenues={revenues} expenses={expenses} />
+      {/* Filters */}
       <Card>
         <CardContent className="pt-4">
           <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
@@ -1199,6 +1198,10 @@ const CaixaPage = () => {
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          <TabsTrigger value="charts" className="flex items-center gap-1">
+            <BarChart3 className="w-3.5 h-3.5" />
+            Gráficos
+          </TabsTrigger>
           <TabsTrigger value="revenues">Receitas</TabsTrigger>
           <TabsTrigger value="expenses">Despesas</TabsTrigger>
         </TabsList>
@@ -1220,6 +1223,10 @@ const CaixaPage = () => {
             tenant={tenant}
             userProfile={userProfile}
           />
+        </TabsContent>
+
+        <TabsContent value="charts">
+          <CaixaCharts revenues={revenues} expenses={expenses} />
         </TabsContent>
 
         <TabsContent value="revenues">
