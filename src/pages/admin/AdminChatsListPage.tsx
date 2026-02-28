@@ -314,6 +314,23 @@ const AdminChatsListPage = () => {
     prevReceivedIds.current = currentIds;
   }, [tvMode, grouped.received]);
 
+  // TV Mode: live clock
+  const [tvClock, setTvClock] = useState(() => new Date());
+  useEffect(() => {
+    if (!tvMode) return;
+    const interval = setInterval(() => setTvClock(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, [tvMode]);
+
+  // TV Mode: auto-refresh every 30s
+  useEffect(() => {
+    if (!tvMode) return;
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["admin-chats-kanban", tenantId] });
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [tvMode, tenantId, queryClient]);
+
   if (tvMode) {
     return (
       <div className="fixed inset-0 z-[100] bg-background flex flex-col">
@@ -324,8 +341,11 @@ const AdminChatsListPage = () => {
             <h1 className="text-xl font-bold text-foreground">Modo TV — Pedidos</h1>
           </div>
           <div className="flex items-center gap-3">
+            <span className="text-lg font-mono font-bold text-foreground">
+              {tvClock.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            </span>
             <span className="text-sm text-muted-foreground">
-              {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
+              {tvClock.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
             </span>
             <Button variant="outline" size="sm" onClick={() => setTvMode(false)} className="gap-1.5">
               <X className="w-4 h-4" /> Sair
