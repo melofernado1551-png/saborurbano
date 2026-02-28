@@ -64,6 +64,7 @@ const AdminChatPage = () => {
   const [pendingFinishStatus, setPendingFinishStatus] = useState(false);
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState(false);
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -551,8 +552,8 @@ const AdminChatPage = () => {
                     onClick={() => setPaymentMethod(m.value)}
                     className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border text-xs font-medium transition-all ${
                       paymentMethod === m.value
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-card text-foreground hover:border-primary/30"
+                        ? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-500/30"
+                        : "border-border bg-card text-foreground hover:border-emerald-400/40"
                     }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -570,7 +571,7 @@ const AdminChatPage = () => {
                 size="sm"
                 className="h-9"
                 disabled={!paymentMethod || registeringPayment}
-                onClick={handleRegisterPayment}
+                onClick={() => setPendingPayment(true)}
               >
                 {registeringPayment ? "..." : "Confirmar"}
               </Button>
@@ -665,6 +666,25 @@ const AdminChatPage = () => {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={() => executeStatusUpdate("finished")}>
               Sim, finalizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation dialog for payment */}
+      <AlertDialog open={pendingPayment} onOpenChange={setPendingPayment}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja registrar o pagamento de <span className="font-semibold">R$ {remaining.toFixed(2)}</span> via{" "}
+              <span className="font-semibold capitalize">{PAYMENT_METHODS.find(m => m.value === paymentMethod)?.label || paymentMethod}</span>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setPendingPayment(false); handleRegisterPayment(); }}>
+              Sim, registrar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
