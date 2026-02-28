@@ -44,7 +44,17 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly, canEdit }: { sale: 
   const [paymentToCancel, setPaymentToCancel] = useState<any>(null);
   const [cancellingPayment, setCancellingPayment] = useState(false);
 
-  // Fetch customer
+  // Fetch fresh sale data to keep status in sync
+  const { data: freshSale } = useQuery({
+    queryKey: ["sale-detail-fresh", sale?.id],
+    enabled: !!sale?.id && open,
+    queryFn: async () => {
+      const { data } = await supabase.from("sales").select("*").eq("id", sale.id).single();
+      return data;
+    },
+  });
+  const currentSale = freshSale || sale;
+
   const { data: customer } = useQuery({
     queryKey: ["sale-customer", sale?.customer_id],
     enabled: !!sale?.customer_id && open,
@@ -145,6 +155,7 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly, canEdit }: { sale: 
       setPaymentToCancel(null);
       toast.success("Pagamento cancelado!");
       queryClient.invalidateQueries({ queryKey: ["sale-payments-detail", sale.id] });
+      queryClient.invalidateQueries({ queryKey: ["sale-detail-fresh", sale.id] });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
     } catch {
       toast.error("Erro ao cancelar pagamento");
@@ -154,9 +165,9 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly, canEdit }: { sale: 
   };
 
   const totalPaid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
-  const remaining = sale ? Number(sale.valor_total) - totalPaid : 0;
-  const financialInfo = FINANCIAL_LABELS[sale?.financial_status] || FINANCIAL_LABELS.pending;
-  const opInfo = OP_LABELS[sale?.operational_status] || OP_LABELS.received;
+  const remaining = currentSale ? Number(currentSale.valor_total) - totalPaid : 0;
+  const financialInfo = FINANCIAL_LABELS[currentSale?.financial_status] || FINANCIAL_LABELS.pending;
+  const opInfo = OP_LABELS[currentSale?.operational_status] || OP_LABELS.received;
 
   // Parse order summary content
   const orderSummaryContent = saleItems.length > 0 ? saleItems[0].content : null;
