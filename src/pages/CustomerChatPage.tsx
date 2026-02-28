@@ -581,28 +581,10 @@ const CustomerChatPage = () => {
         </div>
       )}
 
-      {/* PIX Payment option */}
-      {sale && sale.financial_status !== "paid" && generatedPix && (
+      {/* PIX Payment expanded */}
+      {sale && sale.financial_status !== "paid" && generatedPix && showPixPayment && (
         <div className="px-4 pb-2">
-          {!showPixPayment ? (
-            <button
-              onClick={() => {
-                setShowPixPayment(true);
-                if (!pixSentRef.current) {
-                  pixSentRef.current = true;
-                  handleSendPixInChat();
-                }
-              }}
-              className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors"
-            >
-              <span className="flex items-center gap-2">
-                <QrCode className="w-4 h-4 text-primary" />
-                Pagar com PIX
-              </span>
-              <span className="text-xs text-muted-foreground">R$ {pixAmount.toFixed(2)}</span>
-            </button>
-          ) : (
-            <div className="p-4 rounded-xl bg-accent border border-border space-y-3">
+          <div className="p-4 rounded-xl bg-accent border border-border space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-sm flex items-center gap-2">
                   <QrCode className="w-4 h-4 text-primary" />
@@ -624,7 +606,6 @@ const CustomerChatPage = () => {
                 <span className="text-lg font-bold text-primary">R$ {pixAmount.toFixed(2)}</span>
               </div>
 
-              {/* QR Code */}
               {qrCodeDataUrl && (
                 <div className="flex justify-center">
                   <img src={qrCodeDataUrl} alt="QR Code PIX" className="w-48 h-48 rounded-lg border border-border" />
@@ -639,22 +620,21 @@ const CustomerChatPage = () => {
               </div>
 
               <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-1.5"
-                  onClick={handleCopyPix}
-                >
-                  {pixCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  {pixCopied ? "Copiado!" : "Copiar PIX"}
-                </Button>
+                variant="outline"
+                size="sm"
+                className="w-full gap-1.5"
+                onClick={handleCopyPix}
+              >
+                {pixCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {pixCopied ? "Copiado!" : "Copiar PIX"}
+              </Button>
             </div>
-          )}
         </div>
       )}
 
-      {/* Upload receipt button */}
+      {/* PIX + Receipt buttons side by side */}
       {sale && (sale.financial_status === "pending" || sale.financial_status === "partial") && (
-        <div className="px-4 pb-2">
+        <div className="px-4 pb-2 flex gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -662,13 +642,28 @@ const CustomerChatPage = () => {
             className="hidden"
             onChange={handleUploadReceipt}
           />
+          {generatedPix && !showPixPayment && (
+            <button
+              onClick={() => {
+                setShowPixPayment(true);
+                if (!pixSentRef.current) {
+                  pixSentRef.current = true;
+                  handleSendPixInChat();
+                }
+              }}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors"
+            >
+              <QrCode className="w-4 h-4 text-primary" />
+              Pagar com PIX
+            </button>
+          )}
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadingReceipt}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
           >
             <Paperclip className="w-4 h-4 text-primary" />
-            {uploadingReceipt ? "Enviando comprovante..." : "Enviar comprovante de pagamento"}
+            {uploadingReceipt ? "Enviando..." : "Enviar comprovante"}
           </button>
         </div>
       )}
