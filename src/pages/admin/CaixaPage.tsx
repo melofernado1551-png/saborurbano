@@ -973,10 +973,10 @@ const ReceitasTab = ({ tenantId, revenueTypes }: { tenantId: string; revenueType
           <DialogHeader><DialogTitle>Editar Receita</DialogTitle></DialogHeader>
           <div className="space-y-4 mt-2">
             {editingRevenue?.sale_id && (
-              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm">
-                <p className="font-bold text-black dark:text-amber-100">⚠️ Receita vinculada a uma venda do app</p>
-                <p className="text-black/70 dark:text-amber-200 text-xs mt-1 font-medium">
-                  Para cancelar o pagamento e reverter o status para pendente, use o botão abaixo.
+              <div className="p-3 rounded-lg bg-amber-100 border border-amber-300 text-sm">
+                <p className="font-bold text-foreground" style={{ color: '#000' }}>⚠️ Receita vinculada a uma venda do app</p>
+                <p className="text-xs mt-1 font-semibold" style={{ color: '#000' }}>
+                   Para cancelar o pagamento e reverter o status para pendente, use o botão abaixo.
                 </p>
                 <Button
                   variant="destructive"
