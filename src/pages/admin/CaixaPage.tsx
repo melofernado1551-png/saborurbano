@@ -365,6 +365,7 @@ const ReceitasTab = ({ tenantId, revenueTypes }: { tenantId: string; revenueType
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["revenues"] });
+      queryClient.invalidateQueries({ queryKey: ["revenues-overview"] });
       setIsOpen(false);
       setForm({ amount: "", date: new Date().toISOString().slice(0, 10), description: "", revenue_type_id: "" });
       toast.success("Receita cadastrada!");
@@ -379,6 +380,7 @@ const ReceitasTab = ({ tenantId, revenueTypes }: { tenantId: string; revenueType
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["revenues"] });
+      queryClient.invalidateQueries({ queryKey: ["revenues-overview"] });
       toast.success("Receita removida!");
     },
   });
@@ -563,6 +565,7 @@ const DespesasTab = ({ tenantId, expenseTypes }: { tenantId: string; expenseType
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["expenses-overview"] });
       setIsOpen(false);
       setForm({
         amount: "", date: new Date().toISOString().slice(0, 10), description: "", expense_type_id: "",
@@ -619,6 +622,7 @@ const DespesasTab = ({ tenantId, expenseTypes }: { tenantId: string; expenseType
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["expenses-overview"] });
       toast.success("Despesa removida!");
     },
   });
