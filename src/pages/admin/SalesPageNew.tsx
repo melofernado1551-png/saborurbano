@@ -680,7 +680,7 @@ const SalesPageNew = () => {
         ? uniqueMethods[0]
         : s.forma_pagamento || "sem_pagamento";
 
-      const label = PAYMENT_LABELS[method] || method || "Sem pagamento";
+      const label = PAYMENT_LABELS[method] || (method === "sem_pagamento" ? "Sem pagamento" : method);
       paymentTotals[label] = (paymentTotals[label] || 0) + Number(s.valor_total);
       grandTotal += Number(s.valor_total);
     });
