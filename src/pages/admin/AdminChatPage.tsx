@@ -66,6 +66,8 @@ const AdminChatPage = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [pendingPayment, setPendingPayment] = useState(false);
   const [cancellingOrder, setCancellingOrder] = useState(false);
+  const [paymentToCancel, setPaymentToCancel] = useState<any>(null);
+  const [cancellingPayment, setCancellingPayment] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -307,7 +309,39 @@ const AdminChatPage = () => {
     }
   };
 
-  // Confirm payment from receipt
+  // Cancel/reverse a payment
+  const handleCancelPayment = async () => {
+    if (!paymentToCancel || !sale || !chatId) return;
+    setCancellingPayment(true);
+    try {
+      const { error } = await supabase
+        .from("sale_payments")
+        .update({ active: false })
+        .eq("id", paymentToCancel.id);
+      if (error) throw error;
+
+      const methodLabel = PAYMENT_METHODS.find((m) => m.value === paymentToCancel.payment_method)?.label || paymentToCancel.payment_method;
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: user?.id || null,
+        sender_type: "system",
+        content: `❌ **Pagamento cancelado**\nR$ ${Number(paymentToCancel.amount).toFixed(2)} via ${methodLabel}`,
+        message_type: "payment_cancelled",
+        metadata: { sender_name: user?.name || user?.login || "Sistema" },
+      });
+
+      setPaymentToCancel(null);
+      toast.success("Pagamento cancelado!");
+      queryClient.invalidateQueries({ queryKey: ["sale-payments", sale.id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-sale", chat?.sale_id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-chat-messages", chatId] });
+    } catch {
+      toast.error("Erro ao cancelar pagamento");
+    } finally {
+      setCancellingPayment(false);
+    }
+  };
+
   const handleConfirmReceiptPayment = async () => {
     if (!sale || !chatId) return;
     setConfirmingReceipt(true);
@@ -584,12 +618,19 @@ const AdminChatPage = () => {
                 {payments.map((p) => {
                   const methodLabel = PAYMENT_METHODS.find((m) => m.value === p.payment_method)?.label || p.payment_method;
                   return (
-                    <div key={p.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg bg-card">
+                    <div key={p.id} className="flex items-center justify-between text-xs px-2 py-1.5 rounded-lg bg-card gap-2">
                       <span className="text-foreground font-medium">R$ {Number(p.amount).toFixed(2)}</span>
                       <span className="text-muted-foreground capitalize">{methodLabel}</span>
                       <span className="text-muted-foreground">
                         {new Date(p.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                       </span>
+                      <button
+                        onClick={() => setPaymentToCancel(p)}
+                        className="text-destructive hover:text-destructive/80 transition-colors ml-1"
+                        title="Cancelar pagamento"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   );
                 })}
@@ -690,7 +731,31 @@ const AdminChatPage = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Cancel Order Modal */}
+      {/* Confirmation dialog for cancelling payment */}
+      <AlertDialog open={!!paymentToCancel} onOpenChange={(o) => { if (!o) setPaymentToCancel(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar pagamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja cancelar o pagamento de{" "}
+              <span className="font-semibold">R$ {paymentToCancel ? Number(paymentToCancel.amount).toFixed(2) : "0.00"}</span> via{" "}
+              <span className="font-semibold capitalize">
+                {PAYMENT_METHODS.find(m => m.value === paymentToCancel?.payment_method)?.label || paymentToCancel?.payment_method}
+              </span>? O status financeiro da venda será recalculado automaticamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelPayment}
+              disabled={cancellingPayment}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancellingPayment ? "Cancelando..." : "Sim, cancelar pagamento"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <CancelOrderModal
         open={showCancelModal}
         onOpenChange={setShowCancelModal}
