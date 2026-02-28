@@ -4,11 +4,12 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon, XCircle, PackageCheck, Star } from "lucide-react";
+import { ArrowLeft, Send, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon, XCircle, PackageCheck, Star, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { generatePixWithAmount } from "@/lib/pixUtils";
 import QRCodeLib from "qrcode";
 import { CancelOrderModal, CANCEL_REASONS } from "@/components/CancelOrderModal";
+import PaymentMethodModal from "@/components/PaymentMethodModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +57,7 @@ const CustomerChatPage = () => {
   
   const [showPayments, setShowPayments] = useState(false);
   const [showPixPayment, setShowPixPayment] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
   const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
@@ -439,6 +441,79 @@ const CustomerChatPage = () => {
     }
   };
 
+  // Payment method handlers
+  const handleSelectPix = async () => {
+    if (!sale || !chatId || !customer) return;
+    try {
+      await supabase.from("sales").update({ forma_pagamento: "pix" } as any).eq("id", sale.id);
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: customer.id,
+        sender_type: "system",
+        content: "💳 Pagamento via PIX selecionado. Aguardando confirmação.",
+        message_type: "payment_method",
+        metadata: { payment_method: "pix" },
+      });
+      queryClient.invalidateQueries({ queryKey: ["customer-sale", chat?.sale_id] });
+      queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
+    } catch {
+      toast.error("Erro ao registrar forma de pagamento.");
+    }
+  };
+
+  const handleSelectCash = async (needsChange: boolean, changeAmount: number | null) => {
+    if (!sale || !chatId || !customer) return;
+    try {
+      await supabase.from("sales").update({
+        forma_pagamento: "dinheiro",
+        observacao: needsChange && changeAmount
+          ? `Troco para R$ ${changeAmount.toFixed(2)}`
+          : sale.observacao,
+      } as any).eq("id", sale.id);
+
+      let content = "💵 Pagamento em dinheiro selecionado.";
+      if (needsChange && changeAmount) {
+        content += `\n💰 Troco necessário para: R$ ${changeAmount.toFixed(2)}`;
+      } else {
+        content += "\n✅ Não precisa de troco.";
+      }
+
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: customer.id,
+        sender_type: "system",
+        content,
+        message_type: "payment_method",
+        metadata: { payment_method: "dinheiro", needs_change: needsChange, change_amount: changeAmount },
+      });
+      queryClient.invalidateQueries({ queryKey: ["customer-sale", chat?.sale_id] });
+      queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
+      toast.success("Forma de pagamento registrada!");
+    } catch {
+      toast.error("Erro ao registrar forma de pagamento.");
+    }
+  };
+
+  const handleSelectCard = async () => {
+    if (!sale || !chatId || !customer) return;
+    try {
+      await supabase.from("sales").update({ forma_pagamento: "cartao" } as any).eq("id", sale.id);
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: customer.id,
+        sender_type: "system",
+        content: "💳 Pagamento via cartão selecionado. O entregador levará a máquina.",
+        message_type: "payment_method",
+        metadata: { payment_method: "cartao" },
+      });
+      queryClient.invalidateQueries({ queryKey: ["customer-sale", chat?.sale_id] });
+      queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
+      toast.success("Forma de pagamento registrada!");
+    } catch {
+      toast.error("Erro ao registrar forma de pagamento.");
+    }
+  };
+
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const remaining = sale ? Number(sale.valor_total) - totalPaid : 0;
 
@@ -611,7 +686,7 @@ const CustomerChatPage = () => {
         {allMessages.map((msg) => {
           const isCustomer = msg.sender_type === "customer";
           const isTenant = msg.sender_type === "tenant";
-          const isSystem = ["order_summary", "address_confirmation", "status_update", "payment_registered"].includes(msg.message_type);
+          const isSystem = ["order_summary", "address_confirmation", "status_update", "payment_registered", "payment_method"].includes(msg.message_type);
           const senderName = (msg.metadata as any)?.sender_name;
 
           return (
@@ -641,57 +716,6 @@ const CustomerChatPage = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* PIX Payment expanded */}
-      {sale && sale.financial_status !== "paid" && sale.operational_status !== "cancelled" && generatedPix && showPixPayment && (
-        <div className="px-4 pb-2">
-          <div className="p-4 rounded-xl bg-accent border border-border space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm flex items-center gap-2">
-                  <QrCode className="w-4 h-4 text-primary" />
-                  PIX Copia e Cola
-                </h3>
-                <button onClick={() => setShowPixPayment(false)} className="text-xs text-muted-foreground hover:text-foreground">
-                  Fechar
-                </button>
-              </div>
-
-              {tenantPixReceiver && (
-                <p className="text-xs text-muted-foreground">
-                  👤 Recebedor: <span className="font-medium text-foreground">{tenantPixReceiver}</span>
-                </p>
-              )}
-
-              <div className="flex items-center justify-between bg-primary/10 rounded-lg px-3 py-2">
-                <span className="text-sm text-muted-foreground">Valor</span>
-                <span className="text-lg font-bold text-primary">R$ {pixAmount.toFixed(2)}</span>
-              </div>
-
-              {qrCodeDataUrl && (
-                <div className="flex justify-center">
-                  <img src={qrCodeDataUrl} alt="QR Code PIX" className="w-48 h-48 rounded-lg border border-border" />
-                </div>
-              )}
-
-              <div className="bg-secondary rounded-lg p-3">
-                <p className="text-[10px] text-muted-foreground mb-1">PIX Copia e Cola:</p>
-                <p className="text-xs font-mono break-all text-foreground leading-relaxed select-all">
-                  {generatedPix}
-                </p>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-1.5"
-                onClick={handleCopyPix}
-              >
-                {pixCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {pixCopied ? "Copiado!" : "Copiar PIX"}
-              </Button>
-            </div>
-        </div>
-      )}
-
       {/* Confirm delivery button - only when delivering_pending and no existing review */}
       {sale && sale.operational_status === "delivering_pending" && !existingReview && (
         <div className="px-4 pb-2">
@@ -705,36 +729,24 @@ const CustomerChatPage = () => {
         </div>
       )}
 
-      {/* PIX + Receipt + Cancel buttons */}
+      {/* Payment + Cancel buttons */}
       {sale && sale.operational_status !== "cancelled" && sale.operational_status !== "finished" && sale.operational_status !== "delivering_pending" && (
         <div className="px-4 pb-2 space-y-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.pdf"
+            className="hidden"
+            onChange={handleUploadReceipt}
+          />
           {(sale.financial_status === "pending" || sale.financial_status === "partial") && (
-            <div className="flex gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".jpg,.jpeg,.png,.pdf"
-                className="hidden"
-                onChange={handleUploadReceipt}
-              />
-              {generatedPix && !showPixPayment && (
-                <button
-                  onClick={() => setShowPixPayment(true)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors"
-                >
-                  <QrCode className="w-4 h-4 text-primary" />
-                  Pagar com PIX
-                </button>
-              )}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingReceipt}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
-              >
-                <Paperclip className="w-4 h-4 text-primary" />
-                {uploadingReceipt ? "Enviando..." : "Enviar comprovante"}
-              </button>
-            </div>
+            <button
+              onClick={() => setShowPaymentModal(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors shadow-md active:scale-[0.98]"
+            >
+              <Wallet className="w-5 h-5" />
+              PAGAR
+            </button>
           )}
           {canCancel && (
             <button
@@ -866,6 +878,21 @@ const CustomerChatPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Payment Method Modal */}
+      <PaymentMethodModal
+        open={showPaymentModal}
+        onOpenChange={setShowPaymentModal}
+        generatedPix={generatedPix}
+        pixAmount={pixAmount}
+        tenantPixReceiver={tenantPixReceiver}
+        saleTotal={sale ? Number(sale.valor_total) : 0}
+        onSelectPix={handleSelectPix}
+        onSelectCash={handleSelectCash}
+        onSelectCard={handleSelectCard}
+        onUploadReceipt={() => fileInputRef.current?.click()}
+        uploadingReceipt={uploadingReceipt}
+      />
     </div>
   );
 };
