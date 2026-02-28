@@ -974,8 +974,8 @@ const ReceitasTab = ({ tenantId, revenueTypes }: { tenantId: string; revenueType
           <div className="space-y-4 mt-2">
             {editingRevenue?.sale_id && (
               <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm">
-                <p className="font-medium text-amber-800 dark:text-amber-300">⚠️ Receita vinculada a uma venda do app</p>
-                <p className="text-amber-700 dark:text-amber-400 text-xs mt-1">
+                <p className="font-bold text-black dark:text-amber-100">⚠️ Receita vinculada a uma venda do app</p>
+                <p className="text-black/70 dark:text-amber-200 text-xs mt-1 font-medium">
                   Para cancelar o pagamento e reverter o status para pendente, use o botão abaixo.
                 </p>
                 <Button
