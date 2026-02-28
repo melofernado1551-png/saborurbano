@@ -51,7 +51,7 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       : []),
     // Operational pages: hidden from contador
     ...(!isContador
-      ? [{ label: "Pedidos", icon: ClipboardList, path: "/admin/pedidos" }]
+      ? [{ label: "Kanban de Pedidos", icon: ClipboardList, path: "/admin/pedidos" }]
       : []),
     ...(!isContador
       ? [{ label: "Produtos e Categorias", icon: Package, path: "/admin/produtos" }]
