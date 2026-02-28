@@ -734,6 +734,14 @@ const ReceitasTab = ({ tenantId, revenueTypes }: { tenantId: string; revenueType
   const [isOpen, setIsOpen] = useState(false);
   const [form, setForm] = useState({ amount: "", date: new Date().toISOString().slice(0, 10), description: "", revenue_type_id: "" });
 
+  // Edit state
+  const [editingRevenue, setEditingRevenue] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ amount: "", date: "", description: "", revenue_type_id: "" });
+
+  // Cancel payment confirmation
+  const [cancelPaymentRevenue, setCancelPaymentRevenue] = useState<any>(null);
+  const [cancellingPayment, setCancellingPayment] = useState(false);
+
   // Manage revenue types
   const [isTypeOpen, setIsTypeOpen] = useState(false);
   const [newTypeName, setNewTypeName] = useState("");
@@ -774,6 +782,25 @@ const ReceitasTab = ({ tenantId, revenueTypes }: { tenantId: string; revenueType
     onError: () => toast.error("Erro ao cadastrar receita"),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("revenues").update({
+        amount: parseFloat(editForm.amount),
+        date: editForm.date,
+        description: editForm.description || null,
+        revenue_type_id: editForm.revenue_type_id,
+      } as any).eq("id", editingRevenue.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["revenues"] });
+      queryClient.invalidateQueries({ queryKey: ["revenues-overview"] });
+      setEditingRevenue(null);
+      toast.success("Receita atualizada!");
+    },
+    onError: () => toast.error("Erro ao atualizar receita"),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("revenues").update({ active: false } as any).eq("id", id);
@@ -785,6 +812,79 @@ const ReceitasTab = ({ tenantId, revenueTypes }: { tenantId: string; revenueType
       toast.success("Receita removida!");
     },
   });
+
+  const handleCancelSalePayment = async () => {
+    if (!cancelPaymentRevenue) return;
+    setCancellingPayment(true);
+    try {
+      const saleId = cancelPaymentRevenue.sale_id;
+
+      // 1. Deactivate all sale_payments for this sale
+      const { data: payments } = await supabase
+        .from("sale_payments")
+        .select("id, amount, payment_method")
+        .eq("sale_id", saleId)
+        .eq("active", true);
+
+      if (payments && payments.length > 0) {
+        await supabase
+          .from("sale_payments")
+          .update({ active: false } as any)
+          .eq("sale_id", saleId)
+          .eq("active", true);
+      }
+
+      // 2. Deactivate the revenue entry
+      await supabase
+        .from("revenues")
+        .update({ active: false } as any)
+        .eq("id", cancelPaymentRevenue.id);
+
+      // 3. Update sale financial status to pending
+      await supabase
+        .from("sales")
+        .update({ financial_status: "pending" } as any)
+        .eq("id", saleId);
+
+      // 4. Send system message in chat
+      const { data: sale } = await supabase
+        .from("sales")
+        .select("chat_id, sale_number")
+        .eq("id", saleId)
+        .single();
+
+      if (sale?.chat_id) {
+        const totalCancelled = payments?.reduce((sum: number, p: any) => sum + Number(p.amount), 0) || 0;
+        await supabase.from("chat_messages").insert({
+          chat_id: sale.chat_id,
+          sender_id: null,
+          sender_type: "system",
+          content: `❌ **Pagamento cancelado pelo administrador**\nR$ ${totalCancelled.toFixed(2)} estornado — pedido retornou para **Pendente**`,
+          message_type: "payment_cancelled",
+        });
+      }
+
+      setCancelPaymentRevenue(null);
+      queryClient.invalidateQueries({ queryKey: ["revenues"] });
+      queryClient.invalidateQueries({ queryKey: ["revenues-overview"] });
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      toast.success("Pagamento cancelado! Pedido retornou para pendente.");
+    } catch {
+      toast.error("Erro ao cancelar pagamento");
+    } finally {
+      setCancellingPayment(false);
+    }
+  };
+
+  const openEdit = (r: any) => {
+    setEditForm({
+      amount: String(r.amount),
+      date: r.date,
+      description: r.description || "",
+      revenue_type_id: r.revenue_type_id,
+    });
+    setEditingRevenue(r);
+  };
 
   const createTypeMutation = useMutation({
     mutationFn: async () => {
@@ -867,6 +967,80 @@ const ReceitasTab = ({ tenantId, revenueTypes }: { tenantId: string; revenueType
         </div>
       </div>
 
+      {/* Edit Revenue Dialog */}
+      <Dialog open={!!editingRevenue} onOpenChange={(o) => { if (!o) setEditingRevenue(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar Receita</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            {editingRevenue?.sale_id && (
+              <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm">
+                <p className="font-medium text-amber-800 dark:text-amber-300">⚠️ Receita vinculada a uma venda do app</p>
+                <p className="text-amber-700 dark:text-amber-400 text-xs mt-1">
+                  Para cancelar o pagamento e reverter o status para pendente, use o botão abaixo.
+                </p>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => { setEditingRevenue(null); setCancelPaymentRevenue(editingRevenue); }}
+                >
+                  <X className="w-3.5 h-3.5 mr-1" /> Cancelar Pagamento da Venda
+                </Button>
+              </div>
+            )}
+            <div>
+              <label className="text-sm font-medium">Valor (R$)</label>
+              <Input type="number" step="0.01" value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Data</label>
+              <Input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Tipo de Receita</label>
+              <Select value={editForm.revenue_type_id} onValueChange={(v) => setEditForm({ ...editForm, revenue_type_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {(revenueTypes || []).map((t: any) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Descrição</label>
+              <Input value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} placeholder="Opcional" />
+            </div>
+            <Button className="w-full" onClick={() => updateMutation.mutate()} disabled={!editForm.amount || !editForm.revenue_type_id || updateMutation.isPending}>
+              {updateMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Payment Confirmation */}
+      <AlertDialog open={!!cancelPaymentRevenue} onOpenChange={(o) => { if (!o) setCancelPaymentRevenue(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar pagamento da venda?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso irá estornar todos os pagamentos registrados para esta venda e o status financeiro voltará para <strong>Pendente</strong>.
+              O cliente será notificado no chat. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancellingPayment}>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelSalePayment}
+              disabled={cancellingPayment}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {cancellingPayment ? "Cancelando..." : "Confirmar Cancelamento"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -876,7 +1050,7 @@ const ReceitasTab = ({ tenantId, revenueTypes }: { tenantId: string; revenueType
                 <TableHead>Categoria</TableHead>
                 <TableHead>Descrição</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="w-20"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -889,16 +1063,24 @@ const ReceitasTab = ({ tenantId, revenueTypes }: { tenantId: string; revenueType
                   <TableRow key={r.id}>
                     <TableCell className="text-sm">{new Date(r.date).toLocaleDateString("pt-BR")}</TableCell>
                     <TableCell className="text-sm">{r.revenue_types?.name || "—"}</TableCell>
-                    <TableCell className="text-sm max-w-[200px] truncate">{r.description || "—"}</TableCell>
+                    <TableCell className="text-sm max-w-[200px] truncate">
+                      {r.description || "—"}
+                      {r.sale_id && <Badge variant="outline" className="ml-2 text-[10px]">App</Badge>}
+                    </TableCell>
                     <TableCell className="text-right font-semibold text-green-600">
                       + R$ {Number(r.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>
-                      {!r.sale_id && (
-                        <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(r.id)}>
-                          <Trash2 className="w-4 h-4 text-destructive" />
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(r)} title="Editar">
+                          <Pencil className="w-4 h-4" />
                         </Button>
-                      )}
+                        {!r.sale_id && (
+                          <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(r.id)} title="Remover">
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -922,6 +1104,10 @@ const DespesasTab = ({ tenantId, expenseTypes }: { tenantId: string; expenseType
     is_recurring: false, frequency: "", custom_days: "", start_date: "", end_date: "",
   });
 
+  // Edit state
+  const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ amount: "", date: "", description: "", expense_type_id: "" });
+
   const [isTypeOpen, setIsTypeOpen] = useState(false);
   const [newTypeName, setNewTypeName] = useState("");
 
@@ -942,7 +1128,6 @@ const DespesasTab = ({ tenantId, expenseTypes }: { tenantId: string; expenseType
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      // Insert the main expense
       const mainExpense: any = {
         tenant_id: tenantId,
         amount: parseFloat(form.amount),
@@ -959,7 +1144,6 @@ const DespesasTab = ({ tenantId, expenseTypes }: { tenantId: string; expenseType
       const { data: inserted, error } = await supabase.from("expenses").insert(mainExpense).select("id").single();
       if (error) throw error;
 
-      // If recurring, generate future entries
       if (form.is_recurring && inserted) {
         await generateRecurringEntries(inserted.id, mainExpense);
       }
@@ -977,15 +1161,33 @@ const DespesasTab = ({ tenantId, expenseTypes }: { tenantId: string; expenseType
     onError: () => toast.error("Erro ao cadastrar despesa"),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("expenses").update({
+        amount: parseFloat(editForm.amount),
+        date: editForm.date,
+        description: editForm.description || null,
+        expense_type_id: editForm.expense_type_id,
+      } as any).eq("id", editingExpense.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["expenses-overview"] });
+      setEditingExpense(null);
+      toast.success("Despesa atualizada!");
+    },
+    onError: () => toast.error("Erro ao atualizar despesa"),
+  });
+
   const generateRecurringEntries = async (parentId: string, base: any) => {
     const startDate = new Date(base.start_date || base.date);
     const endDate = base.end_date ? new Date(base.end_date) : null;
-    const maxEntries = 12; // Generate up to 12 future entries
+    const maxEntries = 12;
     const entries: any[] = [];
 
     for (let i = 1; i <= maxEntries; i++) {
       const nextDate = new Date(startDate);
-
       switch (base.frequency) {
         case "weekly": nextDate.setDate(nextDate.getDate() + 7 * i); break;
         case "biweekly": nextDate.setDate(nextDate.getDate() + 14 * i); break;
@@ -995,28 +1197,18 @@ const DespesasTab = ({ tenantId, expenseTypes }: { tenantId: string; expenseType
           if (base.custom_days) nextDate.setDate(nextDate.getDate() + base.custom_days * i);
           break;
       }
-
       if (endDate && nextDate > endDate) break;
-
       entries.push({
-        tenant_id: base.tenant_id,
-        amount: base.amount,
-        date: nextDate.toISOString().slice(0, 10),
-        description: base.description,
-        expense_type_id: base.expense_type_id,
-        is_recurring: false,
-        parent_expense_id: parentId,
+        tenant_id: base.tenant_id, amount: base.amount,
+        date: nextDate.toISOString().slice(0, 10), description: base.description,
+        expense_type_id: base.expense_type_id, is_recurring: false, parent_expense_id: parentId,
       });
     }
-
-    if (entries.length > 0) {
-      await supabase.from("expenses").insert(entries as any);
-    }
+    if (entries.length > 0) await supabase.from("expenses").insert(entries as any);
   };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Also deactivate child entries
       await supabase.from("expenses").update({ active: false } as any).eq("parent_expense_id", id);
       const { error } = await supabase.from("expenses").update({ active: false } as any).eq("id", id);
       if (error) throw error;
@@ -1031,26 +1223,28 @@ const DespesasTab = ({ tenantId, expenseTypes }: { tenantId: string; expenseType
   const createTypeMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("expense_types").insert({
-        tenant_id: tenantId,
-        name: newTypeName,
+        tenant_id: tenantId, name: newTypeName,
       } as any);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["expense-types"] });
-      setNewTypeName("");
-      setIsTypeOpen(false);
+      setNewTypeName(""); setIsTypeOpen(false);
       toast.success("Tipo de despesa criado!");
     },
     onError: () => toast.error("Erro ao criar tipo"),
   });
 
+  const openEdit = (e: any) => {
+    setEditForm({
+      amount: String(e.amount), date: e.date,
+      description: e.description || "", expense_type_id: e.expense_type_id,
+    });
+    setEditingExpense(e);
+  };
+
   const FREQUENCY_LABELS: Record<string, string> = {
-    weekly: "Semanal",
-    biweekly: "Quinzenal",
-    monthly: "Mensal",
-    yearly: "Anual",
-    custom: "Personalizado",
+    weekly: "Semanal", biweekly: "Quinzenal", monthly: "Mensal", yearly: "Anual", custom: "Personalizado",
   };
 
   return (
@@ -1167,6 +1361,41 @@ const DespesasTab = ({ tenantId, expenseTypes }: { tenantId: string; expenseType
         </div>
       </div>
 
+      {/* Edit Expense Dialog */}
+      <Dialog open={!!editingExpense} onOpenChange={(o) => { if (!o) setEditingExpense(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar Despesa</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div>
+              <label className="text-sm font-medium">Valor (R$)</label>
+              <Input type="number" step="0.01" value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Data</label>
+              <Input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Tipo de Despesa</label>
+              <Select value={editForm.expense_type_id} onValueChange={(v) => setEditForm({ ...editForm, expense_type_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {(expenseTypes || []).map((t: any) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Descrição</label>
+              <Input value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} placeholder="Opcional" />
+            </div>
+            <Button className="w-full" onClick={() => updateMutation.mutate()} disabled={!editForm.amount || !editForm.expense_type_id || updateMutation.isPending}>
+              {updateMutation.isPending ? "Salvando..." : "Salvar Alterações"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -1177,7 +1406,7 @@ const DespesasTab = ({ tenantId, expenseTypes }: { tenantId: string; expenseType
                 <TableHead>Descrição</TableHead>
                 <TableHead className="text-center">Recorrente</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="w-20"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1209,9 +1438,14 @@ const DespesasTab = ({ tenantId, expenseTypes }: { tenantId: string; expenseType
                       - R$ {Number(e.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(e.id)}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(e)} title="Editar">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(e.id)} title="Remover">
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
