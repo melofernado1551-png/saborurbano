@@ -18,6 +18,7 @@ import {
   Activity,
   CalendarDays,
 } from "lucide-react";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { useEffect } from "react";
@@ -30,13 +31,16 @@ const DashboardPage = () => {
 
   const today = new Date();
   const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-  const startOfWeek = (() => {
-    const d = new Date(today);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.getFullYear(), d.getMonth(), diff).toISOString();
-  })();
+  // Week starts on Sunday
+  const startOfWeekDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
+  const endOfWeekDate = new Date(startOfWeekDate.getFullYear(), startOfWeekDate.getMonth(), startOfWeekDate.getDate() + 6);
+  const startOfWeek = startOfWeekDate.toISOString();
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+  const endOfMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+  const formatDateBR = (d: Date) => d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const weekLabel = `${formatDateBR(startOfWeekDate)} a ${formatDateBR(endOfWeekDate)}`;
+  const monthLabel = `01/${String(today.getMonth() + 1).padStart(2, "0")}/${today.getFullYear()} a ${formatDateBR(endOfMonthDate)}`;
 
   // ─── LAYER 1: OPERATIONAL (real-time) ───
   const { data: opsData, refetch: refetchOps } = useQuery({
@@ -214,7 +218,14 @@ const DashboardPage = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">Faturamento Semana</CardTitle>
-                <CalendarDays className="w-4 h-4 text-primary" />
+                <TooltipProvider>
+                  <UITooltip>
+                    <TooltipTrigger asChild>
+                      <CalendarDays className="w-4 h-4 text-primary cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent><p>{weekLabel}</p></TooltipContent>
+                  </UITooltip>
+                </TooltipProvider>
               </CardHeader>
               <CardContent>
                 <div className="text-xl font-bold">{formatCurrency(financialData?.faturamentoSemana ?? 0)}</div>
@@ -223,7 +234,14 @@ const DashboardPage = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs font-medium text-muted-foreground">Faturamento Mês</CardTitle>
-                <DollarSign className="w-4 h-4 text-primary" />
+                <TooltipProvider>
+                  <UITooltip>
+                    <TooltipTrigger asChild>
+                      <DollarSign className="w-4 h-4 text-primary cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent><p>{monthLabel}</p></TooltipContent>
+                  </UITooltip>
+                </TooltipProvider>
               </CardHeader>
               <CardContent>
                 <div className="text-xl font-bold">{formatCurrency(financialData?.faturamentoMes ?? 0)}</div>
