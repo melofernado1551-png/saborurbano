@@ -8,6 +8,7 @@ const STATUS_LABELS: Record<string, string> = {
   received: "📥 Recebido",
   preparing: "👨‍🍳 Em preparo",
   delivering: "🛵 Saiu para entrega",
+  delivering_pending: "📦 Aguardando sua confirmação",
   finished: "✅ Finalizado",
 };
 
