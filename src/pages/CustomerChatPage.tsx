@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, MapPin, ChevronDown, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Send, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { generatePixWithAmount } from "@/lib/pixUtils";
 import QRCodeLib from "qrcode";
@@ -40,7 +40,7 @@ const CustomerChatPage = () => {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
-  const [showAddresses, setShowAddresses] = useState(false);
+  
   const [showPayments, setShowPayments] = useState(false);
   const [showPixPayment, setShowPixPayment] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
@@ -102,20 +102,6 @@ const CustomerChatPage = () => {
     },
   });
 
-  // Fetch addresses
-  const { data: addresses = [] } = useQuery({
-    queryKey: ["customer-addresses-chat", customer?.id],
-    enabled: !!customer?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("customer_addresses")
-        .select("*")
-        .eq("customer_id", customer!.id)
-        .eq("active", true);
-      if (error) throw error;
-      return data;
-    },
-  });
 
   // Fetch payments
   const { data: payments = [] } = useQuery({
@@ -228,34 +214,6 @@ const CustomerChatPage = () => {
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
   };
 
-  const handleSelectAddress = async (addr: any) => {
-    if (!chatId || !customer || !sale) return;
-    try {
-      const addressData = {
-        label: addr.label,
-        street: addr.street,
-        number: addr.number,
-        complement: addr.complement,
-        neighborhood: addr.neighborhood,
-        city: addr.city,
-        reference: addr.reference,
-      };
-      await supabase.from("sales").update({ delivery_address: addressData }).eq("id", sale.id);
-      const addrText = `${addr.street}, ${addr.number}${addr.complement ? ` - ${addr.complement}` : ""} — ${addr.neighborhood}, ${addr.city}${addr.reference ? ` (Ref: ${addr.reference})` : ""}`;
-      await supabase.from("chat_messages").insert({
-        chat_id: chatId,
-        sender_id: customer.id,
-        sender_type: "customer",
-        content: `📍 **Endereço de entrega:**\n${addr.label}: ${addrText}`,
-        message_type: "address_confirmation",
-      });
-      setShowAddresses(false);
-      toast.success("Endereço confirmado!");
-      queryClient.invalidateQueries({ queryKey: ["customer-sale", sale.id] });
-    } catch {
-      toast.error("Erro ao selecionar endereço");
-    }
-  };
 
   // Receipt upload handler
   const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -514,48 +472,6 @@ const CustomerChatPage = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Address selector */}
-      {sale && !sale.delivery_address && addresses.length > 0 && (
-        <div className="px-4 pb-2">
-          <button
-            onClick={() => setShowAddresses(!showAddresses)}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground"
-          >
-            <span className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-primary" />
-              Selecionar endereço de entrega
-            </span>
-            <ChevronDown className={`w-4 h-4 transition-transform ${showAddresses ? "rotate-180" : ""}`} />
-          </button>
-          {showAddresses && (
-            <div className="mt-2 space-y-2">
-              {addresses.map((addr) => (
-                <button
-                  key={addr.id}
-                  onClick={() => handleSelectAddress(addr)}
-                  className="w-full text-left px-4 py-3 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors"
-                >
-                  <p className="font-medium text-sm text-foreground">{addr.label}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {addr.street}, {addr.number}{addr.complement ? ` - ${addr.complement}` : ""} — {addr.neighborhood}, {addr.city}
-                  </p>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {sale?.delivery_address && (
-        <div className="px-4 pb-2">
-          <div className="px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/20 text-sm">
-            <p className="flex items-center gap-1.5 font-medium text-foreground">
-              <MapPin className="w-3.5 h-3.5 text-green-600" />
-              Endereço confirmado: {(sale.delivery_address as any)?.label}
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* PIX Payment expanded */}
       {sale && sale.financial_status !== "paid" && generatedPix && showPixPayment && (
