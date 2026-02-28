@@ -11,10 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Eye, Calendar, Building2, Pencil, User, MapPin, ShoppingBag, CreditCard, Save, X, XCircle, Star } from "lucide-react";
+import { Plus, Search, Eye, Calendar, Building2, Pencil, User, MapPin, ShoppingBag, CreditCard, Save, X, XCircle, Star, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const PAYMENT_LABELS: Record<string, string> = {
   pix: "Pix",
@@ -466,13 +468,44 @@ const SalesPageNew = () => {
         .eq("sale_payments.active", true)
         .eq("tenant_id", effectiveTenantId!)
         .eq("active", true)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(30);
 
       if (dateFrom) query = query.gte("created_at", dateFrom);
       if (dateTo) query = query.lte("created_at", dateTo + "T23:59:59");
 
       const { data } = await query;
       return (data || []) as any[];
+    },
+  });
+
+  // Fetch tenant info for report
+  const { data: tenant } = useQuery({
+    queryKey: ["tenant-report", effectiveTenantId],
+    enabled: !!effectiveTenantId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("tenants")
+        .select("name, address, city, state, logo_url")
+        .eq("id", effectiveTenantId!)
+        .single();
+      return data;
+    },
+  });
+
+  // Fetch current user profile name
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-profile-report"],
+    queryFn: async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return null;
+      const { data } = await supabase
+        .from("profiles")
+        .select("name, login")
+        .eq("auth_id", authUser.id)
+        .eq("active", true)
+        .maybeSingle();
+      return data;
     },
   });
 
@@ -507,12 +540,173 @@ const SalesPageNew = () => {
         String(s.sale_number).includes(q);
     }
     if (filterPayment && filterPayment !== "all" && match) {
-      // Check both forma_pagamento and sale_payments methods
       const paymentMethods = s.sale_payments?.map((p: any) => p.payment_method).filter(Boolean) || [];
       match = s.forma_pagamento === filterPayment || paymentMethods.includes(filterPayment);
     }
     return match;
   });
+
+  const generateReport = async () => {
+    if (!filteredSales || filteredSales.length === 0) {
+      toast.error("Nenhuma venda para gerar relatório");
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 15;
+
+    // Header: Logo + Store info
+    if (tenant?.logo_url) {
+      try {
+        const response = await fetch(tenant.logo_url);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        const logoData = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        doc.addImage(logoData, "PNG", 15, yPos, 20, 20);
+        yPos += 2;
+      } catch {
+        // Skip logo if it fails
+      }
+    }
+
+    const textX = tenant?.logo_url ? 40 : 15;
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(tenant?.name || "Loja", textX, yPos + 5);
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    const address = [tenant?.address, tenant?.city, tenant?.state].filter(Boolean).join(" - ");
+    if (address) {
+      doc.text(address, textX, yPos + 11);
+    }
+
+    doc.text(`Emitido por: ${userProfile?.name || userProfile?.login || "Admin"}`, textX, yPos + 17);
+    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`, textX, yPos + 22);
+
+    yPos = tenant?.logo_url ? 42 : 45;
+
+    // Line separator
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, yPos, pageWidth - 15, yPos);
+    yPos += 5;
+
+    // Title
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.text("Relatório de Vendas", pageWidth / 2, yPos, { align: "center" });
+    yPos += 3;
+
+    // Date range info
+    if (dateFrom || dateTo) {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      const rangeText = `Período: ${dateFrom ? new Date(dateFrom + "T00:00:00").toLocaleDateString("pt-BR") : "—"} até ${dateTo ? new Date(dateTo + "T00:00:00").toLocaleDateString("pt-BR") : "—"}`;
+      doc.text(rangeText, pageWidth / 2, yPos + 5, { align: "center" });
+      yPos += 5;
+    }
+    yPos += 5;
+
+    // Table data
+    const tableData = filteredSales.map((s: any) => {
+      const paymentMethods = s.sale_payments?.map((p: any) => p.payment_method).filter(Boolean) || [];
+      const uniqueMethods = [...new Set(paymentMethods)] as string[];
+      const paymentLabel = uniqueMethods.length > 0
+        ? uniqueMethods.map((m: string) => PAYMENT_LABELS[m] || m).join(", ")
+        : PAYMENT_LABELS[s.forma_pagamento] || s.forma_pagamento || "—";
+
+      const fin = FINANCIAL_LABELS[s.financial_status] || FINANCIAL_LABELS.pending;
+
+      return [
+        String(s.sale_number || "—"),
+        new Date(s.created_at).toLocaleDateString("pt-BR"),
+        s.customers?.name || "—",
+        `R$ ${Number(s.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+        fin.label,
+        paymentLabel,
+        s.observacao || "",
+      ];
+    });
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["#", "Data", "Cliente", "Valor", "Status", "Pagamento", "Obs"]],
+      body: tableData,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [255, 107, 0], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 248, 248] },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 25 },
+        6: { cellWidth: "auto" },
+      },
+      margin: { left: 15, right: 15 },
+    });
+
+    // Summary section
+    const finalY = (doc as any).lastAutoTable?.finalY || yPos + 50;
+    let summaryY = finalY + 10;
+
+    // Check if summary fits on current page
+    if (summaryY + 40 > doc.internal.pageSize.getHeight()) {
+      doc.addPage();
+      summaryY = 20;
+    }
+
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, summaryY - 3, pageWidth - 15, summaryY - 3);
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Resumo", 15, summaryY + 4);
+    summaryY += 10;
+
+    // Calculate totals by payment method
+    const paymentTotals: Record<string, number> = {};
+    let grandTotal = 0;
+
+    filteredSales.forEach((s: any) => {
+      const paymentMethods = s.sale_payments?.map((p: any) => p.payment_method).filter(Boolean) || [];
+      const uniqueMethods = [...new Set(paymentMethods)] as string[];
+      const method = uniqueMethods.length > 0
+        ? uniqueMethods[0]
+        : s.forma_pagamento || "sem_pagamento";
+
+      const label = PAYMENT_LABELS[method] || method || "Sem pagamento";
+      paymentTotals[label] = (paymentTotals[label] || 0) + Number(s.valor_total);
+      grandTotal += Number(s.valor_total);
+    });
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+
+    Object.entries(paymentTotals).forEach(([method, total]) => {
+      doc.text(`${method}:`, 20, summaryY);
+      doc.text(`R$ ${total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, pageWidth - 20, summaryY, { align: "right" });
+      summaryY += 6;
+    });
+
+    // Grand total
+    summaryY += 2;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(15, summaryY - 2, pageWidth - 15, summaryY - 2);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Total Geral:", 20, summaryY + 5);
+    doc.text(`R$ ${grandTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`, pageWidth - 20, summaryY + 5, { align: "right" });
+
+    // Save
+    doc.save(`relatorio-vendas-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast.success("Relatório gerado com sucesso!");
+  };
 
   if (!effectiveTenantId) {
     return (
@@ -528,6 +722,10 @@ const SalesPageNew = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">Vendas</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={generateReport}>
+            <FileText className="w-4 h-4 mr-1" /> Emitir Relatório
+          </Button>
         {!isReadOnly && (
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
@@ -586,6 +784,7 @@ const SalesPageNew = () => {
             </DialogContent>
           </Dialog>
         )}
+        </div>
       </div>
 
       {/* Filters */}
