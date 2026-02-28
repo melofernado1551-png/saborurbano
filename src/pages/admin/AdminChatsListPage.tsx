@@ -58,8 +58,9 @@ const AdminChatsListPage = () => {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   // Confirmation dialog
   const [pendingMove, setPendingMove] = useState<{ chat: any; toStatus: string } | null>(null);
-  // Finished column date filter (defaults to today)
-  const [finishedDate, setFinishedDate] = useState<Date>(new Date());
+  // Finished column date range filter (defaults to today)
+  const [finishedDateFrom, setFinishedDateFrom] = useState<Date>(new Date());
+  const [finishedDateTo, setFinishedDateTo] = useState<Date>(new Date());
   // Track unread chats (chats with customer messages not yet opened by admin)
   const [viewedChats, setViewedChats] = useState<Set<string>>(() => {
     try {
@@ -98,7 +99,7 @@ const AdminChatsListPage = () => {
   }, [tenantId, queryClient]);
 
   const { data: chats = [], isLoading } = useQuery({
-    queryKey: ["admin-chats-kanban", tenantId, finishedDate.toDateString()],
+    queryKey: ["admin-chats-kanban", tenantId, finishedDateFrom.toDateString(), finishedDateTo.toDateString()],
     enabled: !!tenantId,
     queryFn: async () => {
       // Fetch active chats (non-finished)
@@ -110,10 +111,10 @@ const AdminChatsListPage = () => {
         .order("updated_at", { ascending: false });
       if (err1) throw err1;
 
-      // Fetch finished chats for the selected date
-      const selectedStart = new Date(finishedDate);
+      // Fetch finished chats for the selected date range
+      const selectedStart = new Date(finishedDateFrom);
       selectedStart.setHours(0, 0, 0, 0);
-      const selectedEnd = new Date(finishedDate);
+      const selectedEnd = new Date(finishedDateTo);
       selectedEnd.setHours(23, 59, 59, 999);
       const { data: finishedChats, error: err2 } = await supabase
         .from("chats")
@@ -255,11 +256,61 @@ const AdminChatsListPage = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <MessageCircle className="w-6 h-6 text-primary" />
           Pedidos / Kanban
         </h1>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground text-xs">Finalizados:</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5">
+                <CalendarIcon className="w-3.5 h-3.5" />
+                {format(finishedDateFrom, "dd/MM/yy", { locale: ptBR })}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={finishedDateFrom}
+                onSelect={(d) => {
+                  if (d) {
+                    setFinishedDateFrom(d);
+                    if (d > finishedDateTo) setFinishedDateTo(d);
+                  }
+                }}
+                disabled={(date) => date > new Date()}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          <span className="text-muted-foreground text-xs">até</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5">
+                <CalendarIcon className="w-3.5 h-3.5" />
+                {format(finishedDateTo, "dd/MM/yy", { locale: ptBR })}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={finishedDateTo}
+                onSelect={(d) => {
+                  if (d) {
+                    setFinishedDateTo(d);
+                    if (d < finishedDateFrom) setFinishedDateFrom(d);
+                  }
+                }}
+                disabled={(date) => date > new Date() || date < finishedDateFrom}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
       {isLoading ? (
@@ -292,31 +343,9 @@ const AdminChatsListPage = () => {
                     <span className="text-lg">{col.emoji}</span>
                     <span className="font-semibold text-sm text-foreground">{col.label}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    {isFinished && (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground">
-                            <CalendarIcon className="w-3.5 h-3.5" />
-                            {format(finishedDate, "dd/MM", { locale: ptBR })}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                          <Calendar
-                            mode="single"
-                            selected={finishedDate}
-                            onSelect={(d) => d && setFinishedDate(d)}
-                            disabled={(date) => date > new Date()}
-                            initialFocus
-                            className={cn("p-3 pointer-events-auto")}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                    <span className="text-xs font-medium bg-secondary text-secondary-foreground rounded-full px-2 py-0.5">
-                      {items.length}
-                    </span>
-                  </div>
+                  <span className="text-xs font-medium bg-secondary text-secondary-foreground rounded-full px-2 py-0.5">
+                    {items.length}
+                  </span>
                 </div>
 
                 {/* Cards */}
