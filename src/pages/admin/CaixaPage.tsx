@@ -80,7 +80,7 @@ const CaixaOverview = ({
       );
     }
 
-    return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return combined.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [revenues, expenses, filterDirection, filterType]);
 
   const generateReport = async () => {
