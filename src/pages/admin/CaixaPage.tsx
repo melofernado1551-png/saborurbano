@@ -91,7 +91,18 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [revenues]);
 
-  const PIE_COLORS = ["#16a34a", "#22c55e", "#4ade80", "#86efac", "#bbf7d0", "#dcfce7"];
+  // Expense by category for pie
+  const expenseByCat = useMemo(() => {
+    const map: Record<string, number> = {};
+    (expenses || []).forEach((e: any) => {
+      const name = e.expense_types?.name || "Outros";
+      map[name] = (map[name] || 0) + Number(e.amount);
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
+  }, [expenses]);
+
+  const PIE_COLORS_GREEN = ["#16a34a", "#22c55e", "#4ade80", "#86efac", "#bbf7d0", "#dcfce7"];
+  const PIE_COLORS_RED = ["#dc2626", "#ef4444", "#f87171", "#fca5a5", "#fecaca", "#fee2e2"];
 
   if (monthlyData.length === 0) return null;
 
@@ -158,38 +169,72 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
 
       {/* Pie chart: Receitas por categoria */}
       {revenueByCat.length > 1 && (
-        <Card className="lg:col-span-2">
+        <Card>
           <CardContent className="pt-4">
             <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-muted-foreground" />
+              <ArrowUpCircle className="w-4 h-4 text-green-600" />
               Receitas por Categoria
             </h3>
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={revenueByCat}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={90}
-                    dataKey="value"
-                    paddingAngle={2}
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                  >
-                    {revenueByCat.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <RechartsTooltip
-                    formatter={(value: number) => [
-                      `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-                    ]}
-                    contentStyle={{ borderRadius: 8, fontSize: 12 }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={revenueByCat}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={90}
+                  dataKey="value"
+                  paddingAngle={2}
+                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                >
+                  {revenueByCat.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS_GREEN[i % PIE_COLORS_GREEN.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip
+                  formatter={(value: number) => [
+                    `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+                  ]}
+                  contentStyle={{ borderRadius: 8, fontSize: 12 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pie chart: Despesas por categoria */}
+      {expenseByCat.length > 1 && (
+        <Card>
+          <CardContent className="pt-4">
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <ArrowDownCircle className="w-4 h-4 text-red-600" />
+              Despesas por Categoria
+            </h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={expenseByCat}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={90}
+                  dataKey="value"
+                  paddingAngle={2}
+                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                >
+                  {expenseByCat.map((_, i) => (
+                    <Cell key={i} fill={PIE_COLORS_RED[i % PIE_COLORS_RED.length]} />
+                  ))}
+                </Pie>
+                <RechartsTooltip
+                  formatter={(value: number) => [
+                    `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+                  ]}
+                  contentStyle={{ borderRadius: 8, fontSize: 12 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       )}
