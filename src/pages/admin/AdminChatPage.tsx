@@ -15,15 +15,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Send, ArrowLeft, ChevronDown, DollarSign, CreditCard, Banknote, QrCode, X, FileText, CheckCircle } from "lucide-react";
+import { Send, ArrowLeft, ChevronDown, DollarSign, CreditCard, Banknote, QrCode, X, FileText, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate, useParams } from "react-router-dom";
+import { CancelOrderModal, CANCEL_REASONS } from "@/components/CancelOrderModal";
 
 const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Pedido recebido", emoji: "📥" },
   preparing: { label: "Em preparo", emoji: "👨‍🍳" },
   delivering: { label: "Saiu para entrega", emoji: "🛵" },
   finished: { label: "Finalizado", emoji: "✅" },
+  cancelled: { label: "Cancelado", emoji: "❌" },
 };
 
 const FINANCIAL_LABELS: Record<string, { label: string; color: string; emoji: string }> = {
@@ -61,6 +63,8 @@ const AdminChatPage = () => {
   const [optimisticMessages, setOptimisticMessages] = useState<any[]>([]);
   const [pendingFinishStatus, setPendingFinishStatus] = useState(false);
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -307,7 +311,6 @@ const AdminChatPage = () => {
     if (!sale || !chatId) return;
     setConfirmingReceipt(true);
     try {
-      // Register payment for full remaining amount via PIX
       const amount = remaining;
       const { error } = await supabase.from("sale_payments").insert({
         sale_id: sale.id,
@@ -337,6 +340,50 @@ const AdminChatPage = () => {
       setConfirmingReceipt(false);
     }
   };
+
+  // Cancel order handler (admin)
+  const handleCancelOrder = async (reason: string, comment: string) => {
+    if (!sale || !chatId || !user) return;
+
+    setCancellingOrder(true);
+    try {
+      const reasonLabel = CANCEL_REASONS.find((r) => r.value === reason)?.label || reason;
+
+      const { error: updateErr } = await supabase.from("sales").update({
+        operational_status: "cancelled",
+        cancel_reason: reason,
+        cancel_comment: comment || null,
+        canceled_by: "admin",
+        canceled_at: new Date().toISOString(),
+      } as any).eq("id", sale.id);
+      if (updateErr) throw updateErr;
+
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: user.id || null,
+        sender_type: "system",
+        content: `❌ Pedido cancelado pelo estabelecimento\nMotivo: ${reasonLabel}${comment ? `\nObs: ${comment}` : ""}`,
+        message_type: "status_update",
+        metadata: { sender_name: user.name || user.login || "Sistema" },
+      });
+
+      await supabase.from("chats").update({ active: false, status: "closed" }).eq("id", chatId);
+
+      toast.success("Pedido cancelado.");
+      setShowCancelModal(false);
+      queryClient.invalidateQueries({ queryKey: ["admin-sale", chat?.sale_id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-chat-messages", chatId] });
+      navigate("/admin/pedidos");
+    } catch (err) {
+      console.error("Erro ao cancelar pedido:", err);
+      toast.error("Erro ao cancelar pedido.");
+    } finally {
+      setCancellingOrder(false);
+    }
+  };
+
+  const isAdmin = user?.role === "tenant_admin" || user?.role === "superadmin";
+  const canCancel = sale && sale.operational_status !== "finished" && sale.operational_status !== "cancelled";
 
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const remaining = sale ? Number(sale.valor_total) - totalPaid : 0;
@@ -377,7 +424,7 @@ const AdminChatPage = () => {
           ) : (
             <p className="text-sm">{msg.content}</p>
           )}
-          {/* Confirm payment button for admin - only show if sale is awaiting_check */}
+          {/* Confirm payment button for admin */}
           {sale && sale.financial_status !== "paid" && (
             <Button
               size="sm"
@@ -418,7 +465,7 @@ const AdminChatPage = () => {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {operationalStatus && (
+            {operationalStatus && sale?.operational_status !== "cancelled" && (
               <div className="relative">
                 <button
                   onClick={() => setShowStatusMenu(!showStatusMenu)}
@@ -444,12 +491,17 @@ const AdminChatPage = () => {
                 )}
               </div>
             )}
-            {financialStatus && (
+            {sale?.operational_status === "cancelled" && (
+              <span className="px-2.5 py-1 rounded-full bg-destructive text-destructive-foreground text-xs font-medium">
+                ❌ Cancelado
+              </span>
+            )}
+            {financialStatus && sale?.operational_status !== "cancelled" && (
               <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${financialStatus.color}`}>
                 {financialStatus.emoji} {financialStatus.label}
               </span>
             )}
-            {sale && sale.financial_status !== "paid" && (
+            {sale && sale.financial_status !== "paid" && sale.operational_status !== "cancelled" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -458,6 +510,17 @@ const AdminChatPage = () => {
               >
                 <DollarSign className="w-3 h-3" />
                 Registrar Pagamento
+              </Button>
+            )}
+            {isAdmin && canCancel && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1 border-destructive/30 text-destructive hover:bg-destructive/10"
+                onClick={() => setShowCancelModal(true)}
+              >
+                <XCircle className="w-3 h-3" />
+                Cancelar
               </Button>
             )}
           </div>
@@ -470,7 +533,7 @@ const AdminChatPage = () => {
         )}
 
         {/* Payment form */}
-        {showPaymentForm && sale && (
+        {showPaymentForm && sale && sale.operational_status !== "cancelled" && (
           <div className="mt-3 p-3 rounded-xl bg-secondary/50 border border-border space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-foreground">Registrar Pagamento</p>
@@ -606,6 +669,14 @@ const AdminChatPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Cancel Order Modal */}
+      <CancelOrderModal
+        open={showCancelModal}
+        onOpenChange={setShowCancelModal}
+        onConfirm={handleCancelOrder}
+        isLoading={cancellingOrder}
+      />
     </div>
   );
 };

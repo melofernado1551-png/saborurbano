@@ -1009,6 +1009,10 @@ export type Database = {
       sales: {
         Row: {
           active: boolean
+          cancel_comment: string | null
+          cancel_reason: string | null
+          canceled_at: string | null
+          canceled_by: string | null
           chat_id: string | null
           created_at: string
           customer_id: string | null
@@ -1024,6 +1028,10 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          cancel_comment?: string | null
+          cancel_reason?: string | null
+          canceled_at?: string | null
+          canceled_by?: string | null
           chat_id?: string | null
           created_at?: string
           customer_id?: string | null
@@ -1039,6 +1047,10 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          cancel_comment?: string | null
+          cancel_reason?: string | null
+          canceled_at?: string | null
+          canceled_by?: string | null
           chat_id?: string | null
           created_at?: string
           customer_id?: string | null

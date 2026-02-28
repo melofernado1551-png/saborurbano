@@ -4,16 +4,18 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Send, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { generatePixWithAmount } from "@/lib/pixUtils";
 import QRCodeLib from "qrcode";
+import { CancelOrderModal, CANCEL_REASONS } from "@/components/CancelOrderModal";
 
 const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Pedido recebido", emoji: "📥" },
   preparing: { label: "Em preparo", emoji: "👨‍🍳" },
   delivering: { label: "Saiu para entrega", emoji: "🛵" },
   finished: { label: "Finalizado", emoji: "✅" },
+  cancelled: { label: "Cancelado", emoji: "❌" },
 };
 
 const FINANCIAL_LABELS: Record<string, { label: string; color: string; emoji: string }> = {
@@ -51,7 +53,8 @@ const CustomerChatPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
-  
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
 
   // Fetch chat
   const { data: chat } = useQuery({
@@ -101,7 +104,6 @@ const CustomerChatPage = () => {
       return data;
     },
   });
-
 
   // Fetch payments
   const { data: payments = [] } = useQuery({
@@ -214,13 +216,11 @@ const CustomerChatPage = () => {
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
   };
 
-
   // Receipt upload handler
   const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !chatId || !customer || !sale) return;
 
-    // Reset input
     if (fileInputRef.current) fileInputRef.current.value = "";
 
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -249,7 +249,6 @@ const CustomerChatPage = () => {
       const fileUrl = urlData.publicUrl;
       const isImage = file.type.startsWith("image/");
 
-      // Send receipt message
       await supabase.from("chat_messages").insert({
         chat_id: chatId,
         sender_id: customer.id,
@@ -264,7 +263,6 @@ const CustomerChatPage = () => {
         },
       });
 
-      // Update sale status to awaiting_check
       await supabase.from("sales").update({ financial_status: "awaiting_check" }).eq("id", sale.id);
 
       toast.success("Comprovante enviado com sucesso!");
@@ -277,6 +275,58 @@ const CustomerChatPage = () => {
       setUploadingReceipt(false);
     }
   };
+
+  // Cancel order handler
+  const handleCancelOrder = async (reason: string, comment: string) => {
+    if (!sale || !chatId || !customer) return;
+
+    // Block cancellation if already finished or paid+closed
+    if (sale.operational_status === "finished" || sale.operational_status === "cancelled") {
+      toast.error("Este pedido não pode mais ser cancelado.");
+      return;
+    }
+
+    setCancellingOrder(true);
+    try {
+      const reasonLabel = CANCEL_REASONS.find((r) => r.value === reason)?.label || reason;
+
+      // Update sale
+      const { error: updateErr } = await supabase.from("sales").update({
+        operational_status: "cancelled",
+        cancel_reason: reason,
+        cancel_comment: comment || null,
+        canceled_by: "cliente",
+        canceled_at: new Date().toISOString(),
+      } as any).eq("id", sale.id);
+      if (updateErr) throw updateErr;
+
+      // Send cancellation message
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: customer.id,
+        sender_type: "system",
+        content: `❌ Pedido cancelado pelo cliente\nMotivo: ${reasonLabel}${comment ? `\nObs: ${comment}` : ""}`,
+        message_type: "status_update",
+        metadata: {},
+      });
+
+      // Close chat
+      await supabase.from("chats").update({ active: false, status: "closed" }).eq("id", chatId);
+
+      toast.success("Pedido cancelado com sucesso.");
+      setShowCancelModal(false);
+      queryClient.invalidateQueries({ queryKey: ["customer-sale", chat?.sale_id] });
+      queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
+      queryClient.invalidateQueries({ queryKey: ["customer-chat", chatId] });
+    } catch (err) {
+      console.error("Erro ao cancelar pedido:", err);
+      toast.error("Erro ao cancelar pedido. Tente novamente.");
+    } finally {
+      setCancellingOrder(false);
+    }
+  };
+
+  const canCancel = sale && sale.operational_status !== "finished" && sale.operational_status !== "cancelled" && sale.financial_status !== "paid";
 
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const remaining = sale ? Number(sale.valor_total) - totalPaid : 0;
@@ -311,9 +361,6 @@ const CustomerChatPage = () => {
     toast.success("PIX copiado!");
     setTimeout(() => setPixCopied(false), 3000);
   };
-
-
-
 
   // Render message content with receipt support
   const renderMessageContent = (msg: any) => {
@@ -401,16 +448,16 @@ const CustomerChatPage = () => {
           {sale && (
             <div className="flex items-center gap-2 flex-wrap pl-1">
               {operationalStatus && (
-                <span className="px-2.5 py-1 rounded-full bg-secondary text-foreground text-xs font-medium">
+                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${sale.operational_status === "cancelled" ? "bg-destructive text-destructive-foreground" : "bg-secondary text-foreground"}`}>
                   {operationalStatus.emoji} {operationalStatus.label}
                 </span>
               )}
-              {financialStatus && (
+              {financialStatus && sale.operational_status !== "cancelled" && (
                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${financialStatus.color}`}>
                   {financialStatus.emoji} {financialStatus.label}
                 </span>
               )}
-              {sale.financial_status !== "paid" && totalPaid > 0 && (
+              {sale.financial_status !== "paid" && totalPaid > 0 && sale.operational_status !== "cancelled" && (
                 <span className="text-xs text-muted-foreground">
                   💰 R$ {totalPaid.toFixed(2)} / R$ {Number(sale.valor_total).toFixed(2)}
                 </span>
@@ -420,7 +467,7 @@ const CustomerChatPage = () => {
         </div>
 
         {/* Payment details - always visible when there are payments */}
-        {sale && payments.length > 0 && (
+        {sale && payments.length > 0 && sale.operational_status !== "cancelled" && (
           <div className="px-4 py-2 border-t border-border bg-secondary/30">
             <div className="space-y-1.5 px-1">
               {payments.map((p) => (
@@ -472,9 +519,8 @@ const CustomerChatPage = () => {
         <div ref={messagesEndRef} />
       </div>
 
-
       {/* PIX Payment expanded */}
-      {sale && sale.financial_status !== "paid" && generatedPix && showPixPayment && (
+      {sale && sale.financial_status !== "paid" && sale.operational_status !== "cancelled" && generatedPix && showPixPayment && (
         <div className="px-4 pb-2">
           <div className="p-4 rounded-xl bg-accent border border-border space-y-3">
               <div className="flex items-center justify-between">
@@ -524,35 +570,46 @@ const CustomerChatPage = () => {
         </div>
       )}
 
-      {/* PIX + Receipt buttons side by side */}
-      {sale && (sale.financial_status === "pending" || sale.financial_status === "partial") && (
-        <div className="px-4 pb-2 flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".jpg,.jpeg,.png,.pdf"
-            className="hidden"
-            onChange={handleUploadReceipt}
-          />
-          {generatedPix && !showPixPayment && (
+      {/* PIX + Receipt + Cancel buttons */}
+      {sale && sale.operational_status !== "cancelled" && sale.operational_status !== "finished" && (
+        <div className="px-4 pb-2 space-y-2">
+          {(sale.financial_status === "pending" || sale.financial_status === "partial") && (
+            <div className="flex gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".jpg,.jpeg,.png,.pdf"
+                className="hidden"
+                onChange={handleUploadReceipt}
+              />
+              {generatedPix && !showPixPayment && (
+                <button
+                  onClick={() => setShowPixPayment(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors"
+                >
+                  <QrCode className="w-4 h-4 text-primary" />
+                  Pagar com PIX
+                </button>
+              )}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingReceipt}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
+              >
+                <Paperclip className="w-4 h-4 text-primary" />
+                {uploadingReceipt ? "Enviando..." : "Enviar comprovante"}
+              </button>
+            </div>
+          )}
+          {canCancel && (
             <button
-              onClick={() => {
-                setShowPixPayment(true);
-              }}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors"
+              onClick={() => setShowCancelModal(true)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-destructive/30 text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
             >
-              <QrCode className="w-4 h-4 text-primary" />
-              Pagar com PIX
+              <XCircle className="w-4 h-4" />
+              Cancelar pedido
             </button>
           )}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingReceipt}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-border text-sm font-medium text-foreground hover:border-primary/50 transition-colors disabled:opacity-50"
-          >
-            <Paperclip className="w-4 h-4 text-primary" />
-            {uploadingReceipt ? "Enviando..." : "Enviar comprovante"}
-          </button>
         </div>
       )}
 
@@ -578,6 +635,14 @@ const CustomerChatPage = () => {
           </Button>
         </div>
       </div>
+
+      {/* Cancel Order Modal */}
+      <CancelOrderModal
+        open={showCancelModal}
+        onOpenChange={setShowCancelModal}
+        onConfirm={handleCancelOrder}
+        isLoading={cancellingOrder}
+      />
     </div>
   );
 };
