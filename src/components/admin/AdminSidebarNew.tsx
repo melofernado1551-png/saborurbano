@@ -47,7 +47,7 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
     { label: "Dashboard", icon: LayoutDashboard, path: "/admin" },
     // Monetary pages: hidden from colaborador
     ...(!isColaborador
-      ? [{ label: "Vendas", icon: ShoppingCart, path: "/admin/vendas" }]
+      ? [{ label: "Caixa", icon: ShoppingCart, path: "/admin/caixa" }]
       : []),
     // Operational pages: hidden from contador
     ...(!isContador

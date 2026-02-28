@@ -15,6 +15,7 @@ import ChangePassword from "./pages/ChangePassword";
 import AdminLayout from "./components/admin/AdminLayout";
 import DashboardPage from "./pages/admin/DashboardPage";
 import SalesPageNew from "./pages/admin/SalesPageNew";
+import CaixaPage from "./pages/admin/CaixaPage";
 import PlaceholderPage from "./pages/admin/PlaceholderPage";
 import TenantsListPage from "./pages/admin/TenantsListPage";
 import TenantFormPage from "./pages/admin/TenantFormPage";
@@ -64,7 +65,8 @@ const App = () => (
               <Route path="/alterar-senha" element={<ChangePassword />} />
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<DashboardPage />} />
-                <Route path="vendas" element={<SalesPageNew />} />
+                <Route path="caixa" element={<CaixaPage />} />
+                <Route path="vendas" element={<CaixaPage />} />
                 <Route path="pedidos" element={<AdminChatsListPage />} />
                 <Route path="pedidos/finalizados" element={<FinishedChatsPage />} />
                 <Route path="pedidos/:chatId" element={<AdminChatPage />} />
