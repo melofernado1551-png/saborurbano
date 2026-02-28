@@ -1016,7 +1016,10 @@ export type Database = {
           chat_id: string | null
           created_at: string
           customer_id: string | null
+          delivered_confirmed_at: string | null
+          delivered_confirmed_by: string | null
           delivery_address: Json | null
+          delivery_code: string | null
           financial_status: string
           forma_pagamento: string | null
           id: string
@@ -1035,7 +1038,10 @@ export type Database = {
           chat_id?: string | null
           created_at?: string
           customer_id?: string | null
+          delivered_confirmed_at?: string | null
+          delivered_confirmed_by?: string | null
           delivery_address?: Json | null
+          delivery_code?: string | null
           financial_status?: string
           forma_pagamento?: string | null
           id?: string
@@ -1054,7 +1060,10 @@ export type Database = {
           chat_id?: string | null
           created_at?: string
           customer_id?: string | null
+          delivered_confirmed_at?: string | null
+          delivered_confirmed_by?: string | null
           delivery_address?: Json | null
+          delivery_code?: string | null
           financial_status?: string
           forma_pagamento?: string | null
           id?: string

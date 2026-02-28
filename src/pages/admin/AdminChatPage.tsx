@@ -24,6 +24,7 @@ const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Pedido recebido", emoji: "📥" },
   preparing: { label: "Em preparo", emoji: "👨‍🍳" },
   delivering: { label: "Saiu para entrega", emoji: "🛵" },
+  delivering_pending: { label: "Aguardando confirmação", emoji: "📦" },
   finished: { label: "Finalizado", emoji: "✅" },
   cancelled: { label: "Cancelado", emoji: "❌" },
 };
@@ -46,6 +47,7 @@ const OP_STATUSES = [
   { value: "received", label: "Pedido recebido", emoji: "📥" },
   { value: "preparing", label: "Em preparo", emoji: "👨‍🍳" },
   { value: "delivering", label: "Saiu para entrega", emoji: "🛵" },
+  { value: "delivering_pending", label: "Aguardando confirmação", emoji: "📦" },
   { value: "finished", label: "Finalizado", emoji: "✅" },
 ];
 
@@ -68,6 +70,9 @@ const AdminChatPage = () => {
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [paymentToCancel, setPaymentToCancel] = useState<any>(null);
   const [cancellingPayment, setCancellingPayment] = useState(false);
+  const [deliveryCodeInput, setDeliveryCodeInput] = useState("");
+  const [showDeliveryCodeModal, setShowDeliveryCodeModal] = useState(false);
+  const [validatingCode, setValidatingCode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -236,7 +241,50 @@ const AdminChatPage = () => {
       setPendingFinishStatus(true);
       return;
     }
+    if (newStatus === "delivering_pending") {
+      // Open delivery code validation modal
+      setShowStatusMenu(false);
+      setDeliveryCodeInput("");
+      setShowDeliveryCodeModal(true);
+      return;
+    }
     await executeStatusUpdate(newStatus);
+  };
+
+  const handleValidateDeliveryCode = async () => {
+    if (!sale || !chatId || !deliveryCodeInput.trim()) return;
+    setValidatingCode(true);
+    try {
+      if (deliveryCodeInput.trim() !== (sale as any).delivery_code) {
+        toast.error("Código de recebimento incorreto!");
+        setValidatingCode(false);
+        return;
+      }
+      // Code is correct — update status
+      const { error: updateErr } = await supabase.from("sales").update({
+        operational_status: "delivering_pending",
+      } as any).eq("id", sale.id);
+      if (updateErr) throw updateErr;
+
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: user?.id || null,
+        sender_type: "system",
+        content: "📦 Pedido entregue. Aguardando confirmação do cliente.",
+        message_type: "status_update",
+        metadata: { sender_name: user?.name || user?.login || "Sistema" },
+      });
+
+      setShowDeliveryCodeModal(false);
+      toast.success("Código validado! Aguardando confirmação do cliente.");
+      queryClient.invalidateQueries({ queryKey: ["admin-sale", sale.id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-chat-messages", chatId] });
+    } catch (err) {
+      console.error("Erro ao validar código:", err);
+      toast.error("Erro ao validar código");
+    } finally {
+      setValidatingCode(false);
+    }
   };
 
   const executeStatusUpdate = async (newStatus: string) => {
@@ -418,7 +466,7 @@ const AdminChatPage = () => {
   };
 
   const isAdmin = user?.role === "tenant_admin" || user?.role === "superadmin";
-  const canCancel = sale && sale.operational_status !== "finished" && sale.operational_status !== "cancelled";
+  const canCancel = sale && sale.operational_status !== "finished" && sale.operational_status !== "cancelled" && sale.operational_status !== "delivering_pending";
 
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const remaining = sale ? Number(sale.valor_total) - totalPaid : 0;
@@ -560,6 +608,14 @@ const AdminChatPage = () => {
             )}
           </div>
         </div>
+
+        {/* Delivery code display */}
+        {sale && (sale.operational_status === "delivering" || sale.operational_status === "delivering_pending") && (sale as any).delivery_code && (
+          <div className="mt-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-between">
+            <span className="text-xs text-foreground">🔑 Código de recebimento:</span>
+            <span className="font-mono font-bold text-lg text-primary tracking-widest">{(sale as any).delivery_code}</span>
+          </div>
+        )}
 
         {sale?.delivery_address && (
           <div className="mt-2 px-3 py-2 rounded-lg bg-secondary/50 text-xs text-muted-foreground">
@@ -762,6 +818,37 @@ const AdminChatPage = () => {
         onConfirm={handleCancelOrder}
         isLoading={cancellingOrder}
       />
+
+      {/* Delivery code validation modal */}
+      <AlertDialog open={showDeliveryCodeModal} onOpenChange={setShowDeliveryCodeModal}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Validar código de recebimento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Informe o código de 6 dígitos que o cliente apresentou ao entregador.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex justify-center py-4">
+            <Input
+              value={deliveryCodeInput}
+              onChange={(e) => setDeliveryCodeInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+              className="text-center font-mono text-2xl tracking-[0.3em] max-w-[200px] h-14"
+              maxLength={6}
+              autoFocus
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleValidateDeliveryCode}
+              disabled={deliveryCodeInput.length < 4 || validatingCode}
+            >
+              {validatingCode ? "Validando..." : "Confirmar entrega"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

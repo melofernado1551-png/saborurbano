@@ -28,6 +28,7 @@ const KANBAN_COLUMNS = [
   { key: "received", label: "Aguardando", emoji: "📥", color: "border-t-blue-500" },
   { key: "preparing", label: "Em preparo", emoji: "👨‍🍳", color: "border-t-yellow-500" },
   { key: "delivering", label: "Saiu p/ entrega", emoji: "🛵", color: "border-t-orange-500" },
+  { key: "delivering_pending", label: "Aguard. confirmação", emoji: "📦", color: "border-t-purple-500" },
   { key: "finished", label: "Finalizado", emoji: "✅", color: "border-t-green-600" },
   { key: "cancelled", label: "Cancelado", emoji: "❌", color: "border-t-red-500" },
 ];
@@ -36,6 +37,7 @@ const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Pedido recebido", emoji: "📥" },
   preparing: { label: "Em preparo", emoji: "👨‍🍳" },
   delivering: { label: "Saiu para entrega", emoji: "🛵" },
+  delivering_pending: { label: "Aguardando confirmação", emoji: "📦" },
   finished: { label: "Finalizado", emoji: "✅" },
   cancelled: { label: "Cancelado", emoji: "❌" },
 };
@@ -172,7 +174,7 @@ const AdminChatsListPage = () => {
   }, []);
 
   // Group chats by operational status
-  const grouped: Record<string, any[]> = { received: [], preparing: [], delivering: [], finished: [], cancelled: [] };
+  const grouped: Record<string, any[]> = { received: [], preparing: [], delivering: [], delivering_pending: [], finished: [], cancelled: [] };
   chats.forEach((chat: any) => {
     const salesArr = chat.sales;
     const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
@@ -214,9 +216,15 @@ const AdminChatsListPage = () => {
       setDraggedChat(null);
       return;
     }
-    // Don't allow drag from cancelled or finished
-    if (currentStatus === "cancelled" || currentStatus === "finished") {
-      toast.error("Pedidos finalizados ou cancelados não podem ser movidos.");
+    // Don't allow drag to delivering_pending (requires code validation in chat)
+    if (colKey === "delivering_pending") {
+      toast.error("Use a validação de código no chat do pedido.");
+      setDraggedChat(null);
+      return;
+    }
+    // Don't allow drag from cancelled, finished, or delivering_pending
+    if (currentStatus === "cancelled" || currentStatus === "finished" || currentStatus === "delivering_pending") {
+      toast.error("Pedidos finalizados, cancelados ou aguardando confirmação não podem ser movidos.");
       setDraggedChat(null);
       return;
     }
@@ -554,7 +562,7 @@ const AdminChatsListPage = () => {
                           navigate(`/admin/pedidos/${chat.id}`);
                         }}
                         onDragStart={() => handleDragStart(chat)}
-                        isCancelled={col.key === "cancelled"}
+                        isCancelled={col.key === "cancelled" || col.key === "delivering_pending"}
                       />
                     ))}
                   </div>

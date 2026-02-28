@@ -34,6 +34,7 @@ const OP_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Recebido", emoji: "📥" },
   preparing: { label: "Em preparo", emoji: "👨‍🍳" },
   delivering: { label: "Saiu p/ entrega", emoji: "🛵" },
+  delivering_pending: { label: "Aguard. confirmação", emoji: "📦" },
   finished: { label: "Finalizado", emoji: "✅" },
 };
 

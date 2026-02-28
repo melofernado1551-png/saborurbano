@@ -4,16 +4,27 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon, XCircle } from "lucide-react";
+import { ArrowLeft, Send, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon, XCircle, PackageCheck } from "lucide-react";
 import { toast } from "sonner";
 import { generatePixWithAmount } from "@/lib/pixUtils";
 import QRCodeLib from "qrcode";
 import { CancelOrderModal, CANCEL_REASONS } from "@/components/CancelOrderModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Pedido recebido", emoji: "📥" },
   preparing: { label: "Em preparo", emoji: "👨‍🍳" },
   delivering: { label: "Saiu para entrega", emoji: "🛵" },
+  delivering_pending: { label: "Aguardando sua confirmação", emoji: "📦" },
   finished: { label: "Finalizado", emoji: "✅" },
   cancelled: { label: "Cancelado", emoji: "❌" },
 };
@@ -55,6 +66,8 @@ const CustomerChatPage = () => {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancellingOrder, setCancellingOrder] = useState(false);
+  const [showConfirmDelivery, setShowConfirmDelivery] = useState(false);
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
 
   // Fetch chat
   const { data: chat } = useQuery({
@@ -326,7 +339,47 @@ const CustomerChatPage = () => {
     }
   };
 
-  const canCancel = sale && sale.operational_status !== "finished" && sale.operational_status !== "cancelled" && sale.financial_status !== "paid";
+  const canCancel = sale && sale.operational_status !== "finished" && sale.operational_status !== "cancelled" && sale.operational_status !== "delivering_pending" && sale.financial_status !== "paid";
+
+  // Confirm delivery handler
+  const handleConfirmDelivery = async () => {
+    if (!sale || !chatId || !customer) return;
+    if (sale.operational_status !== "delivering_pending") {
+      toast.error("O pedido não está aguardando confirmação.");
+      return;
+    }
+    setConfirmingDelivery(true);
+    try {
+      const { error: updateErr } = await supabase.from("sales").update({
+        operational_status: "finished",
+        delivered_confirmed_at: new Date().toISOString(),
+        delivered_confirmed_by: "cliente",
+      } as any).eq("id", sale.id);
+      if (updateErr) throw updateErr;
+
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId,
+        sender_id: customer.id,
+        sender_type: "system",
+        content: "✅ Pedido finalizado. Obrigado por comprar conosco!",
+        message_type: "status_update",
+        metadata: {},
+      });
+
+      await supabase.from("chats").update({ active: false, status: "closed", updated_at: new Date().toISOString() }).eq("id", chatId);
+
+      setShowConfirmDelivery(false);
+      toast.success("Entrega confirmada! Obrigado!");
+      queryClient.invalidateQueries({ queryKey: ["customer-sale", chat?.sale_id] });
+      queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
+      queryClient.invalidateQueries({ queryKey: ["customer-chat", chatId] });
+    } catch (err) {
+      console.error("Erro ao confirmar entrega:", err);
+      toast.error("Erro ao confirmar entrega. Tente novamente.");
+    } finally {
+      setConfirmingDelivery(false);
+    }
+  };
 
   const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
   const remaining = sale ? Number(sale.valor_total) - totalPaid : 0;
@@ -482,6 +535,17 @@ const CustomerChatPage = () => {
             </div>
           </div>
         )}
+
+        {/* Delivery code display */}
+        {sale && (sale.operational_status === "delivering" || sale.operational_status === "delivering_pending") && (sale as any).delivery_code && (
+          <div className="px-4 py-2 border-t border-border bg-primary/5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-foreground">🔑 Seu código de recebimento:</span>
+              <span className="font-mono font-bold text-lg text-primary tracking-widest">{(sale as any).delivery_code}</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">Apresente este código ao entregador</p>
+          </div>
+        )}
       </header>
 
       {/* Messages */}
@@ -570,8 +634,21 @@ const CustomerChatPage = () => {
         </div>
       )}
 
+      {/* Confirm delivery button */}
+      {sale && sale.operational_status === "delivering_pending" && (
+        <div className="px-4 pb-2">
+          <button
+            onClick={() => setShowConfirmDelivery(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors shadow-md"
+          >
+            <PackageCheck className="w-5 h-5" />
+            Confirmar recebimento
+          </button>
+        </div>
+      )}
+
       {/* PIX + Receipt + Cancel buttons */}
-      {sale && sale.operational_status !== "cancelled" && sale.operational_status !== "finished" && (
+      {sale && sale.operational_status !== "cancelled" && sale.operational_status !== "finished" && sale.operational_status !== "delivering_pending" && (
         <div className="px-4 pb-2 space-y-2">
           {(sale.financial_status === "pending" || sale.financial_status === "partial") && (
             <div className="flex gap-2">
@@ -643,6 +720,27 @@ const CustomerChatPage = () => {
         onConfirm={handleCancelOrder}
         isLoading={cancellingOrder}
       />
+
+      {/* Confirm delivery modal */}
+      <AlertDialog open={showConfirmDelivery} onOpenChange={setShowConfirmDelivery}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar recebimento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você confirma que recebeu o pedido corretamente?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelivery}
+              disabled={confirmingDelivery}
+            >
+              {confirmingDelivery ? "Confirmando..." : "Confirmar entrega"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

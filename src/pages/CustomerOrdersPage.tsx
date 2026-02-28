@@ -9,6 +9,7 @@ const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Recebido", emoji: "📥" },
   preparing: { label: "Em preparo", emoji: "👨‍🍳" },
   delivering: { label: "Entrega", emoji: "🛵" },
+  delivering_pending: { label: "Confirmar entrega", emoji: "📦" },
   finished: { label: "Finalizado", emoji: "✅" },
 };
 
