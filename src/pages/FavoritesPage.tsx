@@ -3,15 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useTenantFavorites } from "@/hooks/useTenantFavorites";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Heart, Plus, ShoppingBag } from "lucide-react";
+import { ArrowLeft, Heart, Plus, ShoppingBag, Store } from "lucide-react";
 import { toast } from "sonner";
 
 const FavoritesPage = () => {
   const navigate = useNavigate();
   const { customer, session } = useCustomerAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const { isFavorite: isTenantFav, toggleFavorite: toggleTenantFav } = useTenantFavorites();
   const { addItem, tenantId: cartTenantId } = useCart();
   const isLoggedIn = !!session?.user && !!customer;
 
@@ -90,6 +92,33 @@ const FavoritesPage = () => {
     },
   });
 
+  // Fetch favorite tenants
+  const { data: favoriteTenants = [] } = useQuery({
+    queryKey: ["customer-favorite-tenants-full", customer?.id],
+    enabled: !!customer?.id,
+    queryFn: async () => {
+      const { data: favs, error } = await supabase
+        .from("customer_favorite_tenants")
+        .select("tenant_id, created_at")
+        .eq("customer_id", customer!.id)
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      if (!favs?.length) return [];
+
+      const tenantIds = (favs as any[]).map((f: any) => f.tenant_id);
+      const { data: tenants } = await supabase
+        .from("tenants")
+        .select("id, name, slug, logo_url, category, city")
+        .in("id", tenantIds)
+        .eq("active", true);
+
+      return tenants || [];
+    },
+  });
+
+  const hasAnyFavorite = favoriteTenants.length > 0 || groupedFavorites.length > 0;
+
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
@@ -130,7 +159,7 @@ const FavoritesPage = () => {
               </div>
             ))}
           </div>
-        ) : groupedFavorites.length === 0 ? (
+        ) : !hasAnyFavorite ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Heart className="w-20 h-20 text-muted-foreground/20 mb-4" />
             <h2 className="text-lg font-semibold text-foreground mb-1">Nenhum favorito ainda</h2>
@@ -143,6 +172,46 @@ const FavoritesPage = () => {
           </div>
         ) : (
           <div className="space-y-8">
+            {/* Favorite Stores Section */}
+            {favoriteTenants.length > 0 && (
+              <section>
+                <h2 className="text-base font-bold text-foreground mb-3 flex items-center gap-2">
+                  <Store className="w-4 h-4 text-primary" />
+                  Lojas Favoritas
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {favoriteTenants.map((tenant: any) => (
+                    <div
+                      key={tenant.id}
+                      className="relative bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 cursor-pointer p-4 flex flex-col items-center text-center"
+                      onClick={() => navigate(`/loja/${tenant.slug}`)}
+                    >
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleTenantFav.mutate(tenant.id); }}
+                        className="absolute top-2 right-2 w-7 h-7 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center hover:scale-110 transition-transform"
+                      >
+                        <Heart className={`w-3.5 h-3.5 ${isTenantFav(tenant.id) ? "text-red-500 fill-red-500" : "text-muted-foreground"}`} />
+                      </button>
+                      <div className="w-16 h-16 rounded-full bg-secondary overflow-hidden flex-shrink-0 border-2 border-primary/20 mb-2">
+                        {tenant.logo_url ? (
+                          <img src={tenant.logo_url} alt={tenant.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xl font-bold text-muted-foreground">
+                            {tenant.name.charAt(0)}
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="text-sm font-bold text-foreground line-clamp-1">{tenant.name}</h3>
+                      {tenant.category && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{tenant.category}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Favorite Products Section */}
             {groupedFavorites.map((group: any) => (
               <section key={group.tenant.id}>
                 {/* Tenant header */}
