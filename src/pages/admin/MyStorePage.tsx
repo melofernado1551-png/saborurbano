@@ -556,10 +556,10 @@ const MyStorePage = () => {
   return (
     <div className="pb-28">
       {/* ── Top bar ── */}
-      <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5 flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+      <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2.5 flex items-center gap-2 text-sm">
         <span className="text-base">🛠️</span>
-        <span className="font-medium">Modo edição da sua loja</span>
-        <span className="text-xs opacity-70">— alterações só serão salvas ao final</span>
+        <span className="font-bold text-black">Modo edição da sua loja</span>
+        <span className="text-xs text-black/60 font-semibold">— alterações só serão salvas ao final</span>
         {isDirty && (
           <Badge variant="outline" className="ml-auto border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs">
             Não salvo
