@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, Eye, Calendar, Building2, Pencil, User, MapPin, ShoppingBag, CreditCard, Save, X, XCircle } from "lucide-react";
+import { Plus, Search, Eye, Calendar, Building2, Pencil, User, MapPin, ShoppingBag, CreditCard, Save, X, XCircle, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -44,6 +44,21 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly, canEdit }: { sale: 
   const [editData, setEditData] = useState({ observacao: "", forma_pagamento: "", operational_status: "" });
   const [paymentToCancel, setPaymentToCancel] = useState<any>(null);
   const [cancellingPayment, setCancellingPayment] = useState(false);
+
+  // Fetch review for this sale
+  const { data: saleReview } = useQuery({
+    queryKey: ["sale-review-detail", sale?.id],
+    enabled: !!sale?.id && open,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("sale_reviews")
+        .select("*, customers!sale_reviews_customer_id_fkey(name)")
+        .eq("sale_id", sale.id)
+        .eq("active", true)
+        .maybeSingle();
+      return data as any;
+    },
+  });
 
   // Fetch fresh sale data to keep status in sync
   const { data: freshSale } = useQuery({
@@ -343,6 +358,34 @@ const SaleDetailDialog = ({ sale, open, onClose, isReadOnly, canEdit }: { sale: 
                 <p className="text-sm text-foreground">{sale.observacao || "—"}</p>
               )}
             </div>
+
+            {/* Review */}
+            {saleReview && (
+              <div className="space-y-1.5">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5" /> Avaliação do Cliente
+                </h4>
+                <div className="px-3 py-2.5 rounded-xl bg-secondary/50 border border-border">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          className={`w-4 h-4 ${s <= saleReview.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/30"}`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-sm font-medium">{saleReview.rating}/5</span>
+                  </div>
+                  {saleReview.comment && (
+                    <p className="text-sm text-muted-foreground italic">"{saleReview.comment}"</p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    por {saleReview.customers?.name || "Cliente"} em {new Date(saleReview.created_at).toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Info */}
             <div className="text-xs text-muted-foreground">
