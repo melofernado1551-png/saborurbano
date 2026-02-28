@@ -978,14 +978,15 @@ const ReceitasTab = ({ tenantId, revenueTypes }: { tenantId: string; revenueType
                 <p className="text-xs mt-1 font-semibold" style={{ color: '#000' }}>
                    Para cancelar o pagamento e reverter o status para pendente, use o botão abaixo.
                 </p>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => { setEditingRevenue(null); setCancelPaymentRevenue(editingRevenue); }}
-                >
-                  <X className="w-3.5 h-3.5 mr-1" /> Cancelar Pagamento da Venda
-                </Button>
+                <div className="flex justify-center mt-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => { setEditingRevenue(null); setCancelPaymentRevenue(editingRevenue); }}
+                  >
+                    <X className="w-3.5 h-3.5 mr-1" /> Cancelar Pagamento da Venda
+                  </Button>
+                </div>
               </div>
             )}
             <div>
