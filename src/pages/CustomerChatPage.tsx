@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon, XCircle, PackageCheck } from "lucide-react";
+import { ArrowLeft, Send, Receipt, QrCode, Copy, Check, Paperclip, FileText, Image as ImageIcon, XCircle, PackageCheck, Star } from "lucide-react";
 import { toast } from "sonner";
 import { generatePixWithAmount } from "@/lib/pixUtils";
 import QRCodeLib from "qrcode";
@@ -68,6 +68,11 @@ const CustomerChatPage = () => {
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [showConfirmDelivery, setShowConfirmDelivery] = useState(false);
   const [confirmingDelivery, setConfirmingDelivery] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   // Fetch chat
   const { data: chat } = useQuery({
@@ -369,15 +374,55 @@ const CustomerChatPage = () => {
       await supabase.from("chats").update({ active: false, status: "closed", updated_at: new Date().toISOString() }).eq("id", chatId);
 
       setShowConfirmDelivery(false);
-      toast.success("Entrega confirmada! Obrigado!");
       queryClient.invalidateQueries({ queryKey: ["customer-sale", chat?.sale_id] });
       queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
       queryClient.invalidateQueries({ queryKey: ["customer-chat", chatId] });
+
+      // Show review screen
+      setReviewRating(0);
+      setReviewComment("");
+      setShowReview(true);
     } catch (err) {
       console.error("Erro ao confirmar entrega:", err);
       toast.error("Erro ao confirmar entrega. Tente novamente.");
     } finally {
       setConfirmingDelivery(false);
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!sale || !customer || !chat || reviewRating === 0) return;
+    setSubmittingReview(true);
+    try {
+      const { error } = await supabase.from("sale_reviews").insert({
+        sale_id: sale.id,
+        customer_id: customer.id,
+        tenant_id: chat.tenant_id,
+        rating: reviewRating,
+        comment: reviewComment.trim() || null,
+      } as any);
+      if (error) throw error;
+
+      // Send review message in chat
+      const stars = "⭐".repeat(reviewRating);
+      const reviewMsg = `${stars} Avaliação: ${reviewRating}/5${reviewComment.trim() ? `\n💬 "${reviewComment.trim()}"` : ""}`;
+      await supabase.from("chat_messages").insert({
+        chat_id: chatId!,
+        sender_id: customer.id,
+        sender_type: "system",
+        content: reviewMsg,
+        message_type: "review",
+        metadata: { rating: reviewRating },
+      });
+
+      toast.success("Obrigado pela sua avaliação!");
+      setShowReview(false);
+      queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
+    } catch (err) {
+      console.error("Erro ao enviar avaliação:", err);
+      toast.error("Erro ao enviar avaliação.");
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -738,6 +783,65 @@ const CustomerChatPage = () => {
             >
               {confirmingDelivery ? "Confirmando..." : "Confirmar entrega"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Review modal */}
+      <AlertDialog open={showReview} onOpenChange={(open) => { if (!open) setShowReview(false); }}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center">Como foi seu pedido?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Avalie sua experiência com {tenant?.name || "o estabelecimento"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {/* Stars */}
+          <div className="flex justify-center gap-2 py-4">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setReviewRating(star)}
+                onMouseEnter={() => setReviewHover(star)}
+                onMouseLeave={() => setReviewHover(0)}
+                className="transition-transform hover:scale-110 active:scale-95"
+              >
+                <Star
+                  className={`w-9 h-9 transition-colors ${
+                    star <= (reviewHover || reviewRating)
+                      ? "fill-yellow-400 text-yellow-400"
+                      : "text-muted-foreground/30"
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+
+          {/* Comment */}
+          <textarea
+            value={reviewComment}
+            onChange={(e) => setReviewComment(e.target.value)}
+            placeholder="Deixe um comentário (opcional)..."
+            rows={3}
+            className="w-full px-3 py-2 rounded-lg bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+          />
+
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+            <AlertDialogAction
+              onClick={handleSubmitReview}
+              disabled={reviewRating === 0 || submittingReview}
+              className="w-full"
+            >
+              {submittingReview ? "Enviando..." : "Enviar avaliação"}
+            </AlertDialogAction>
+            <AlertDialogCancel
+              onClick={() => setShowReview(false)}
+              className="w-full mt-0"
+            >
+              Pular
+            </AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
