@@ -463,6 +463,7 @@ const SalesPageNew = () => {
       let query = supabase
         .from("sales")
         .select("*, customers(name), sale_payments(payment_method)")
+        .eq("sale_payments.active", true)
         .eq("tenant_id", effectiveTenantId!)
         .eq("active", true)
         .order("created_at", { ascending: false });
