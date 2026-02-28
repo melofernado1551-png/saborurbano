@@ -322,6 +322,114 @@ export type Database = {
           },
         ]
       }
+      expense_types: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          tenant_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          tenant_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          active: boolean
+          amount: number
+          created_at: string
+          created_by: string | null
+          custom_days: number | null
+          date: string
+          description: string | null
+          end_date: string | null
+          expense_type_id: string
+          frequency: string | null
+          id: string
+          is_recurring: boolean
+          parent_expense_id: string | null
+          start_date: string | null
+          tenant_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          custom_days?: number | null
+          date?: string
+          description?: string | null
+          end_date?: string | null
+          expense_type_id: string
+          frequency?: string | null
+          id?: string
+          is_recurring?: boolean
+          parent_expense_id?: string | null
+          start_date?: string | null
+          tenant_id: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          custom_days?: number | null
+          date?: string
+          description?: string | null
+          end_date?: string | null
+          expense_type_id?: string
+          frequency?: string | null
+          id?: string
+          is_recurring?: boolean
+          parent_expense_id?: string | null
+          start_date?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_expense_type_id_fkey"
+            columns: ["expense_type_id"]
+            isOneToOne: false
+            referencedRelation: "expense_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_parent_expense_id_fkey"
+            columns: ["parent_expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       featured_products: {
         Row: {
           active: boolean
@@ -954,6 +1062,99 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revenue_types: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          tenant_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          tenant_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenue_types_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      revenues: {
+        Row: {
+          active: boolean
+          amount: number
+          created_at: string
+          created_by: string | null
+          date: string
+          description: string | null
+          id: string
+          revenue_type_id: string
+          sale_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          active?: boolean
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          revenue_type_id: string
+          sale_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          revenue_type_id?: string
+          sale_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "revenues_revenue_type_id_fkey"
+            columns: ["revenue_type_id"]
+            isOneToOne: false
+            referencedRelation: "revenue_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenues_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "revenues_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
