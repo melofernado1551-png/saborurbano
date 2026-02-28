@@ -19,7 +19,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { useEffect } from "react";
 
@@ -108,15 +108,19 @@ const DashboardPage = () => {
       const qtdVendasPagas = sales.length;
       const ticketMedio = qtdVendasPagas > 0 ? faturamentoMes / qtdVendasPagas : 0;
 
-      // Chart by day
-      const byDay: Record<string, number> = {};
+      // Chart grouped by week of month
+      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+      const byWeek: Record<number, number> = {};
       sales.forEach((s: any) => {
-        const day = new Date(s.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-        byDay[day] = (byDay[day] || 0) + Number(s.valor_total);
+        const saleDate = new Date(s.created_at);
+        const dayOfMonth = saleDate.getDate();
+        const firstDayWeekday = monthStart.getDay(); // 0=Sun
+        const weekNum = Math.floor((dayOfMonth + firstDayWeekday - 1) / 7) + 1;
+        byWeek[weekNum] = (byWeek[weekNum] || 0) + Number(s.valor_total);
       });
-      const chartData = Object.entries(byDay)
-        .map(([day, total]) => ({ day, total }))
-        .reverse();
+      const chartData = Object.entries(byWeek)
+        .sort(([a], [b]) => Number(a) - Number(b))
+        .map(([week, total]) => ({ day: `Sem ${week}`, total }));
 
       // Recent sales
       const recentSales = todaySales.slice(0, 5);
@@ -297,17 +301,17 @@ const DashboardPage = () => {
             {financialData?.chartData && financialData.chartData.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Vendas por Dia (Mês)</CardTitle>
+                  <CardTitle className="text-base">Vendas por Semana (Mês)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="h-52">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={financialData.chartData}>
+                      <BarChart data={financialData.chartData}>
                         <XAxis dataKey="day" className="text-xs" />
                         <YAxis className="text-xs" />
                         <Tooltip formatter={(value: number) => [formatCurrency(value), "Total"]} />
-                        <Line type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))", r: 4 }} />
-                      </LineChart>
+                        <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </CardContent>
