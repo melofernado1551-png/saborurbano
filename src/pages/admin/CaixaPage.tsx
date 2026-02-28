@@ -16,13 +16,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Plus, Search, Eye, Calendar, Building2, Pencil, Save, X,
   TrendingUp, TrendingDown, DollarSign, ArrowUpCircle, ArrowDownCircle,
-  FileText, Repeat, Trash2,
+  FileText, Repeat, Trash2, BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell,
+} from "recharts";
 
 const PAYMENT_LABELS: Record<string, string> = {
   pix: "Pix",
@@ -30,6 +34,167 @@ const PAYMENT_LABELS: Record<string, string> = {
   cartao: "Cartão",
   cartao_credito: "Cartão de Crédito",
   cartao_debito: "Cartão de Débito",
+};
+
+const CHART_COLORS = {
+  revenue: "#16a34a",
+  expense: "#dc2626",
+  balance: "#2563eb",
+};
+
+const MONTHS_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+const formatCurrency = (value: number) =>
+  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+// =============================================
+// CHARTS COMPONENT
+// =============================================
+const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] }) => {
+  const monthlyData = useMemo(() => {
+    const map: Record<string, { month: string; receitas: number; despesas: number; sortKey: string }> = {};
+
+    (revenues || []).forEach((r: any) => {
+      const d = new Date(r.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
+      const label = `${MONTHS_PT[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
+      if (!map[key]) map[key] = { month: label, receitas: 0, despesas: 0, sortKey: key };
+      map[key].receitas += Number(r.amount);
+    });
+
+    (expenses || []).forEach((e: any) => {
+      const d = new Date(e.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
+      const label = `${MONTHS_PT[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
+      if (!map[key]) map[key] = { month: label, receitas: 0, despesas: 0, sortKey: key };
+      map[key].despesas += Number(e.amount);
+    });
+
+    return Object.values(map).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  }, [revenues, expenses]);
+
+  const balanceData = useMemo(() => {
+    let cumulative = 0;
+    return monthlyData.map((m) => {
+      cumulative += m.receitas - m.despesas;
+      return { month: m.month, saldo: cumulative };
+    });
+  }, [monthlyData]);
+
+  // Revenue by category for pie
+  const revenueByCat = useMemo(() => {
+    const map: Record<string, number> = {};
+    (revenues || []).forEach((r: any) => {
+      const name = r.revenue_types?.name || "Outros";
+      map[name] = (map[name] || 0) + Number(r.amount);
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
+  }, [revenues]);
+
+  const PIE_COLORS = ["#16a34a", "#22c55e", "#4ade80", "#86efac", "#bbf7d0", "#dcfce7"];
+
+  if (monthlyData.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Bar chart: Receitas vs Despesas */}
+      <Card>
+        <CardContent className="pt-4">
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-muted-foreground" />
+            Receitas vs Despesas por Mês
+          </h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={monthlyData} barGap={2}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={formatCurrency} tick={{ fontSize: 10 }} width={70} />
+              <RechartsTooltip
+                formatter={(value: number, name: string) => [
+                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+                  name === "receitas" ? "Receitas" : "Despesas",
+                ]}
+                contentStyle={{ borderRadius: 8, fontSize: 12 }}
+              />
+              <Legend formatter={(v) => (v === "receitas" ? "Receitas" : "Despesas")} />
+              <Bar dataKey="receitas" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="despesas" fill={CHART_COLORS.expense} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Line chart: Saldo acumulado */}
+      <Card>
+        <CardContent className="pt-4">
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-muted-foreground" />
+            Saldo Acumulado
+          </h3>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={balanceData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={formatCurrency} tick={{ fontSize: 10 }} width={70} />
+              <RechartsTooltip
+                formatter={(value: number) => [
+                  `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+                  "Saldo",
+                ]}
+                contentStyle={{ borderRadius: 8, fontSize: 12 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="saldo"
+                stroke={CHART_COLORS.balance}
+                strokeWidth={2.5}
+                dot={{ r: 4, fill: CHART_COLORS.balance }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Pie chart: Receitas por categoria */}
+      {revenueByCat.length > 1 && (
+        <Card className="lg:col-span-2">
+          <CardContent className="pt-4">
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-muted-foreground" />
+              Receitas por Categoria
+            </h3>
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={revenueByCat}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={90}
+                    dataKey="value"
+                    paddingAngle={2}
+                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                  >
+                    {revenueByCat.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip
+                    formatter={(value: number) => [
+                      `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+                    ]}
+                    contentStyle={{ borderRadius: 8, fontSize: 12 }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
 };
 
 // =============================================
@@ -320,7 +485,8 @@ const CaixaOverview = ({
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Charts */}
+      <CaixaCharts revenues={revenues} expenses={expenses} />
       <Card>
         <CardContent className="pt-4">
           <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
