@@ -96,6 +96,16 @@ const CustomerChatPage = () => {
     },
   });
 
+  // Check if review already exists
+  const { data: existingReview } = useQuery({
+    queryKey: ["customer-sale-review", chat?.sale_id],
+    enabled: !!chat?.sale_id && !!customer,
+    queryFn: async () => {
+      const { data } = await supabase.from("sale_reviews").select("id").eq("sale_id", chat!.sale_id!).eq("customer_id", customer!.id).maybeSingle();
+      return data;
+    },
+  });
+
   // Fetch tenant
   const { data: tenant } = useQuery({
     queryKey: ["chat-tenant", chat?.tenant_id],
@@ -371,8 +381,6 @@ const CustomerChatPage = () => {
         metadata: {},
       });
 
-      await supabase.from("chats").update({ active: false, status: "closed", updated_at: new Date().toISOString() }).eq("id", chatId);
-
       setShowConfirmDelivery(false);
       queryClient.invalidateQueries({ queryKey: ["customer-sale", chat?.sale_id] });
       queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
@@ -415,9 +423,14 @@ const CustomerChatPage = () => {
         metadata: { rating: reviewRating },
       });
 
+      // Close chat after review
+      await supabase.from("chats").update({ active: false, status: "closed", updated_at: new Date().toISOString() }).eq("id", chatId!);
+
       toast.success("Obrigado pela sua avaliação!");
       setShowReview(false);
       queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
+      queryClient.invalidateQueries({ queryKey: ["customer-sale-review", chat?.sale_id] });
+      queryClient.invalidateQueries({ queryKey: ["customer-chat", chatId] });
     } catch (err) {
       console.error("Erro ao enviar avaliação:", err);
       toast.error("Erro ao enviar avaliação.");
@@ -679,8 +692,8 @@ const CustomerChatPage = () => {
         </div>
       )}
 
-      {/* Confirm delivery button */}
-      {sale && sale.operational_status === "delivering_pending" && (
+      {/* Confirm delivery button - only when delivering_pending and no existing review */}
+      {sale && sale.operational_status === "delivering_pending" && !existingReview && (
         <div className="px-4 pb-2">
           <button
             onClick={() => setShowConfirmDelivery(true)}
