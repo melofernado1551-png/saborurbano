@@ -129,35 +129,65 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
       {/* Date filters */}
       <Card>
         <CardContent className="pt-4 pb-4">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Período:</span>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground">Atalhos:</span>
+              {[
+                { label: "Último mês", fn: () => {
+                  const now = new Date();
+                  const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                  const to = new Date(now.getFullYear(), now.getMonth(), 0);
+                  setChartDateFrom(from.toISOString().slice(0, 10));
+                  setChartDateTo(to.toISOString().slice(0, 10));
+                }},
+                { label: "Últimos 3 meses", fn: () => {
+                  const now = new Date();
+                  const from = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+                  setChartDateFrom(from.toISOString().slice(0, 10));
+                  setChartDateTo(now.toISOString().slice(0, 10));
+                }},
+                { label: "Este ano", fn: () => {
+                  const now = new Date();
+                  const from = new Date(now.getFullYear(), 0, 1);
+                  setChartDateFrom(from.toISOString().slice(0, 10));
+                  setChartDateTo(now.toISOString().slice(0, 10));
+                }},
+              ].map((shortcut) => (
+                <Button key={shortcut.label} variant="outline" size="sm" onClick={shortcut.fn}>
+                  {shortcut.label}
+                </Button>
+              ))}
             </div>
-            <Input
-              type="date"
-              value={chartDateFrom}
-              onChange={(e) => setChartDateFrom(e.target.value)}
-              className="w-40"
-              placeholder="Data inicial"
-            />
-            <span className="text-muted-foreground text-sm">até</span>
-            <Input
-              type="date"
-              value={chartDateTo}
-              onChange={(e) => setChartDateTo(e.target.value)}
-              className="w-40"
-              placeholder="Data final"
-            />
-            {(chartDateFrom || chartDateTo) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => { setChartDateFrom(""); setChartDateTo(""); }}
-              >
-                <X className="w-4 h-4 mr-1" /> Limpar
-              </Button>
-            )}
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Período:</span>
+              </div>
+              <Input
+                type="date"
+                value={chartDateFrom}
+                onChange={(e) => setChartDateFrom(e.target.value)}
+                className="w-40"
+                placeholder="Data inicial"
+              />
+              <span className="text-muted-foreground text-sm">até</span>
+              <Input
+                type="date"
+                value={chartDateTo}
+                onChange={(e) => setChartDateTo(e.target.value)}
+                className="w-40"
+                placeholder="Data final"
+              />
+              {(chartDateFrom || chartDateTo) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setChartDateFrom(""); setChartDateTo(""); }}
+                >
+                  <X className="w-4 h-4 mr-1" /> Limpar
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
