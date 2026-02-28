@@ -357,18 +357,22 @@ const CustomerChatPage = () => {
 
   const handleSendPixInChat = async () => {
     if (!generatedPix || !chatId || !customer || !sale) return;
+
+    // Check if a pix_payment message was already sent for this chat
+    const alreadySent = messages.some((m: any) => m.message_type === "pix_payment");
+    if (alreadySent) return;
+
     setSendingPix(true);
     try {
       const content = `💠 **Pagamento via PIX**\n\n💰 Valor: R$ ${pixAmount.toFixed(2)}\n${tenantPixReceiver ? `👤 Recebedor: ${tenantPixReceiver}\n` : ""}\n📋 PIX Copia e Cola:\n\`${generatedPix}\`\n\n_Copie o código acima e cole no app do seu banco._`;
       await supabase.from("chat_messages").insert({
         chat_id: chatId,
-        sender_id: customer.id,
-        sender_type: "customer",
+        sender_id: null,
+        sender_type: "system",
         content,
         message_type: "pix_payment",
       });
       // Keep PIX section open
-      toast.success("PIX enviado no chat!");
       queryClient.invalidateQueries({ queryKey: ["chat-messages", chatId] });
     } catch {
       toast.error("Erro ao enviar PIX no chat");
