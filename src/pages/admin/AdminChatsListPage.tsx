@@ -322,13 +322,13 @@ const AdminChatsListPage = () => {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="flex gap-4 overflow-x-auto pb-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-64 w-full rounded-xl" />
+            <Skeleton key={i} className="h-64 min-w-[240px] w-full rounded-xl" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="flex gap-4 overflow-x-auto pb-2">
           {KANBAN_COLUMNS.map((col) => {
             const items = grouped[col.key] || [];
             const isClosed = col.key === "finished" || col.key === "cancelled";
@@ -338,7 +338,7 @@ const AdminChatsListPage = () => {
             return (
               <div
                 key={col.key}
-                className={`bg-muted/50 rounded-xl border-t-4 ${col.color} flex flex-col min-h-[300px] transition-all ${
+                className={`bg-muted/50 rounded-xl border-t-4 ${col.color} flex flex-col min-h-[300px] min-w-[240px] w-full transition-all ${
                   isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""
                 }`}
                 onDragOver={(e) => handleDragOver(e, col.key)}
