@@ -367,7 +367,7 @@ const AdminChatPage = () => {
         metadata: { sender_name: user.name || user.login || "Sistema" },
       });
 
-      await supabase.from("chats").update({ active: false, status: "closed" }).eq("id", chatId);
+      await supabase.from("chats").update({ active: false, status: "closed", updated_at: new Date().toISOString() }).eq("id", chatId);
 
       toast.success("Pedido cancelado.");
       setShowCancelModal(false);
