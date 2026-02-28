@@ -166,8 +166,8 @@ const CustomerOrdersPage = () => {
                       </span>
                     )}
                     {operational && (
-                      <span className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-xs">
-                        {operational.emoji}
+                      <span className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-xs flex items-center gap-1">
+                        {operational.emoji} {operational.label}
                       </span>
                     )}
                   </div>
