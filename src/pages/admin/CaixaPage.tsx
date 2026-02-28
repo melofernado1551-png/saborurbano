@@ -51,10 +51,28 @@ const formatCurrency = (value: number) =>
 // CHARTS COMPONENT
 // =============================================
 const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] }) => {
+  const [chartDateFrom, setChartDateFrom] = useState("");
+  const [chartDateTo, setChartDateTo] = useState("");
+
+  const filteredRevenues = useMemo(() => {
+    return (revenues || []).filter((r: any) => {
+      if (chartDateFrom && r.date < chartDateFrom) return false;
+      if (chartDateTo && r.date > chartDateTo) return false;
+      return true;
+    });
+  }, [revenues, chartDateFrom, chartDateTo]);
+
+  const filteredExpenses = useMemo(() => {
+    return (expenses || []).filter((e: any) => {
+      if (chartDateFrom && e.date < chartDateFrom) return false;
+      if (chartDateTo && e.date > chartDateTo) return false;
+      return true;
+    });
+  }, [expenses, chartDateFrom, chartDateTo]);
   const monthlyData = useMemo(() => {
     const map: Record<string, { month: string; receitas: number; despesas: number; sortKey: string }> = {};
 
-    (revenues || []).forEach((r: any) => {
+    (filteredRevenues).forEach((r: any) => {
       const d = new Date(r.date);
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
       const label = `${MONTHS_PT[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
@@ -62,7 +80,7 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
       map[key].receitas += Number(r.amount);
     });
 
-    (expenses || []).forEach((e: any) => {
+    (filteredExpenses).forEach((e: any) => {
       const d = new Date(e.date);
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
       const label = `${MONTHS_PT[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
@@ -71,7 +89,7 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
     });
 
     return Object.values(map).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
-  }, [revenues, expenses]);
+  }, [filteredRevenues, filteredExpenses]);
 
   const balanceData = useMemo(() => {
     let cumulative = 0;
@@ -84,30 +102,74 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
   // Revenue by category for pie
   const revenueByCat = useMemo(() => {
     const map: Record<string, number> = {};
-    (revenues || []).forEach((r: any) => {
+    (filteredRevenues).forEach((r: any) => {
       const name = r.revenue_types?.name || "Outros";
       map[name] = (map[name] || 0) + Number(r.amount);
     });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [revenues]);
+  }, [filteredRevenues]);
 
   // Expense by category for pie
   const expenseByCat = useMemo(() => {
     const map: Record<string, number> = {};
-    (expenses || []).forEach((e: any) => {
+    (filteredExpenses).forEach((e: any) => {
       const name = e.expense_types?.name || "Outros";
       map[name] = (map[name] || 0) + Number(e.amount);
     });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [expenses]);
+  }, [filteredExpenses]);
 
   const PIE_COLORS_GREEN = ["#16a34a", "#22c55e", "#4ade80", "#86efac", "#bbf7d0", "#dcfce7"];
   const PIE_COLORS_RED = ["#dc2626", "#ef4444", "#f87171", "#fca5a5", "#fecaca", "#fee2e2"];
 
-  if (monthlyData.length === 0) return null;
+  if (monthlyData.length === 0 && !chartDateFrom && !chartDateTo) return null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="space-y-4">
+      {/* Date filters */}
+      <Card>
+        <CardContent className="pt-4 pb-4">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Período:</span>
+            </div>
+            <Input
+              type="date"
+              value={chartDateFrom}
+              onChange={(e) => setChartDateFrom(e.target.value)}
+              className="w-40"
+              placeholder="Data inicial"
+            />
+            <span className="text-muted-foreground text-sm">até</span>
+            <Input
+              type="date"
+              value={chartDateTo}
+              onChange={(e) => setChartDateTo(e.target.value)}
+              className="w-40"
+              placeholder="Data final"
+            />
+            {(chartDateFrom || chartDateTo) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => { setChartDateFrom(""); setChartDateTo(""); }}
+              >
+                <X className="w-4 h-4 mr-1" /> Limpar
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {monthlyData.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            Nenhuma movimentação encontrada no período selecionado
+          </CardContent>
+        </Card>
+      ) : (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Bar chart: Receitas vs Despesas */}
       <Card>
         <CardContent className="pt-4">
@@ -237,6 +299,8 @@ const CaixaCharts = ({ revenues, expenses }: { revenues: any[]; expenses: any[] 
             </ResponsiveContainer>
           </CardContent>
         </Card>
+      )}
+    </div>
       )}
     </div>
   );
