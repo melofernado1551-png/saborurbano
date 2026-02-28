@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 const PAYMENT_LABELS: Record<string, string> = {
   pix: "Pix",
   dinheiro: "Dinheiro",
+  cartao: "Cartão",
   cartao_credito: "Cartão de Crédito",
   cartao_debito: "Cartão de Débito",
 };
@@ -605,6 +606,7 @@ const SalesPageNew = () => {
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="dinheiro">Dinheiro</SelectItem>
                 <SelectItem value="pix">Pix</SelectItem>
+                <SelectItem value="cartao">Cartão</SelectItem>
                 <SelectItem value="cartao_credito">Cartão Crédito</SelectItem>
                 <SelectItem value="cartao_debito">Cartão Débito</SelectItem>
               </SelectContent>
