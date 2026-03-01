@@ -618,13 +618,31 @@ const printReceipt = async (chat: any, e: React.MouseEvent) => {
       .order("created_at", { ascending: false })
       .limit(1);
 
+    // Fetch payment methods from sale_payments
+    const { data: payments } = await supabase
+      .from("sale_payments")
+      .select("payment_method, amount")
+      .eq("sale_id", sale.id)
+      .eq("active", true)
+      .order("created_at", { ascending: true });
+
+    const PAYMENT_METHOD_LABELS: Record<string, string> = {
+      pix: "Pix",
+      cash: "Dinheiro",
+      card: "Cartão",
+      credit: "Crédito",
+      debit: "Débito",
+    };
+
     // Fetch customer address from sale
     const customerName = chat.customers?.name || "Cliente";
     const customerPhone = chat.customers?.phone || "";
     const saleNumber = sale.sale_number || "-";
     const saleDate = sale.created_at ? format(new Date(sale.created_at), "dd/MM/yyyy HH:mm") : "-";
     const total = Number(sale.valor_total || 0).toFixed(2);
-    const paymentMethod = sale.forma_pagamento || "-";
+    const paymentMethod = payments && payments.length > 0
+      ? payments.map((p: any) => `${PAYMENT_METHOD_LABELS[p.payment_method] || p.payment_method} (R$ ${Number(p.amount).toFixed(2)})`).join(", ")
+      : "-";
     const financialLabel = FINANCIAL_LABELS[sale.financial_status]?.label || "Pendente";
     const deliveryAddress = sale.delivery_address;
     const obs = sale.observacao || "";
