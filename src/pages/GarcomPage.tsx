@@ -458,12 +458,18 @@ const GarcomPage = () => {
     },
     onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ["garcom-mesa-sales"] });
-      setSelectedMesa(null);
       setSendingPayment(false);
       if (status === "waiting_payment") {
+        setSelectedMesa(null);
         toast.success("Pedido enviado para pagamento!");
       } else if (status === "finished") {
+        setSelectedMesa(null);
         toast.success("Pedido finalizado!");
+      } else if (status === "cancelled") {
+        setSelectedMesa(null);
+        toast.success("Pedido cancelado!");
+      } else if (status === "received") {
+        toast.success("Pedido reaberto! Você pode adicionar mais itens.");
       }
     },
     onError: (e: any) => toast.error(e.message || "Erro ao atualizar status"),
@@ -636,13 +642,25 @@ const GarcomPage = () => {
                 </>
               )}
               {currentSale && isPagamento && (
-                <Button
-                  size="sm"
-                  onClick={handleOpenPayment}
-                  className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  <DollarSign className="w-4 h-4" /> Pagar
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (currentSale) updateSaleStatusMutation.mutate({ saleId: currentSale.id, status: "received" });
+                    }}
+                    className="gap-1"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Reabrir
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleOpenPayment}
+                    className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <DollarSign className="w-4 h-4" /> Pagar
+                  </Button>
+                </>
               )}
             </div>
           </div>
