@@ -35,10 +35,17 @@ import {
   X,
   Loader2,
   Search,
+  QrCode,
+  Banknote,
+  Copy,
+  Check,
+  DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Navigate, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
+import { generatePixWithAmount } from "@/lib/pixUtils";
+import QRCodeLib from "qrcode";
 
 interface Mesa {
   id: string;
@@ -112,6 +119,11 @@ const GarcomPage = () => {
   const [sendingPayment, setSendingPayment] = useState(false);
   const [showProductSearch, setShowProductSearch] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentStep, setPaymentStep] = useState<"choose" | "pix" | "cash_change" | "cash_amount" | "card_confirm">("choose");
+  const [pixCopied, setPixCopied] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
+  const [changeAmount, setChangeAmount] = useState("");
 
   const tenantId = user?.tenant_id;
 
@@ -179,6 +191,109 @@ const GarcomPage = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [tenantId, queryClient]);
+
+  // Fetch tenant PIX data
+  const { data: tenantData } = useQuery({
+    queryKey: ["garcom-tenant-pix", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("pix_copy_paste, pix_receiver_name")
+        .eq("id", tenantId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const generatedPix = tenantData?.pix_copy_paste && currentSale
+    ? generatePixWithAmount(tenantData.pix_copy_paste, Number(currentSale.valor_total))
+    : null;
+
+  // Generate QR code when payment modal shows pix step
+  useEffect(() => {
+    if (paymentStep === "pix" && generatedPix) {
+      QRCodeLib.toDataURL(generatedPix, { width: 220, margin: 2, errorCorrectionLevel: "M" })
+        .then((url: string) => setQrCodeDataUrl(url))
+        .catch(() => setQrCodeDataUrl(null));
+    }
+  }, [paymentStep, generatedPix]);
+
+  // Register payment mutation
+  const registerPaymentMutation = useMutation({
+    mutationFn: async ({ method, changeInfo }: { method: string; changeInfo?: string }) => {
+      if (!currentSale || !tenantId) throw new Error("Dados inválidos");
+
+      // Insert sale_payment
+      const { error: payError } = await supabase
+        .from("sale_payments" as any)
+        .insert({
+          sale_id: currentSale.id,
+          tenant_id: tenantId,
+          payment_method: method,
+          amount: currentSale.valor_total,
+        });
+      if (payError) throw payError;
+
+      // Update sale financial + operational status
+      const updateData: any = {
+        financial_status: "paid",
+        forma_pagamento: method,
+        operational_status: "finished",
+      };
+      if (changeInfo) {
+        updateData.observacao = changeInfo;
+      }
+      const { error: saleError } = await supabase
+        .from("sales")
+        .update(updateData)
+        .eq("id", currentSale.id);
+      if (saleError) throw saleError;
+
+      // Create revenue entry
+      const { data: revenueType } = await supabase
+        .from("revenue_types")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("name", "Venda App")
+        .eq("active", true)
+        .maybeSingle();
+
+      if (revenueType) {
+        await supabase.from("revenues").insert({
+          tenant_id: tenantId,
+          revenue_type_id: revenueType.id,
+          amount: currentSale.valor_total,
+          description: `Venda #${currentSale.sale_number || ""} - Mesa ${selectedMesa?.numero}`,
+          sale_id: currentSale.id,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["garcom-mesa-sales"] });
+      setShowPaymentModal(false);
+      setSelectedMesa(null);
+      toast.success("Pagamento registrado com sucesso!");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao registrar pagamento"),
+  });
+
+  const handleOpenPayment = () => {
+    setPaymentStep("choose");
+    setPixCopied(false);
+    setQrCodeDataUrl(null);
+    setChangeAmount("");
+    setShowPaymentModal(true);
+  };
+
+  const handleCopyPix = () => {
+    if (!generatedPix) return;
+    navigator.clipboard.writeText(generatedPix);
+    setPixCopied(true);
+    toast.success("PIX copiado!");
+    setTimeout(() => setPixCopied(false), 3000);
+  };
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
@@ -520,6 +635,15 @@ const GarcomPage = () => {
                   </Button>
                 </>
               )}
+              {currentSale && isPagamento && (
+                <Button
+                  size="sm"
+                  onClick={handleOpenPayment}
+                  className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <DollarSign className="w-4 h-4" /> Pagar
+                </Button>
+              )}
             </div>
           </div>
 
@@ -831,6 +955,217 @@ const GarcomPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Payment Modal */}
+      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+        <DialogContent className="max-w-sm p-0 gap-0 rounded-2xl overflow-hidden">
+          <DialogHeader className="px-5 pt-5 pb-3">
+            <div className="flex items-center gap-2">
+              {paymentStep !== "choose" && (
+                <button
+                  onClick={() => {
+                    if (paymentStep === "cash_amount") setPaymentStep("cash_change");
+                    else setPaymentStep("choose");
+                  }}
+                  className="p-1 rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </button>
+              )}
+              <DialogTitle className="text-base">
+                {paymentStep === "choose" && "Forma de pagamento"}
+                {paymentStep === "pix" && "Pagamento via PIX"}
+                {paymentStep === "cash_change" && "Pagamento em dinheiro"}
+                {paymentStep === "cash_amount" && "Troco"}
+                {paymentStep === "card_confirm" && "Pagamento via cartão"}
+              </DialogTitle>
+            </div>
+          </DialogHeader>
+
+          <div className="px-5 pb-5">
+            {/* Choose method */}
+            {paymentStep === "choose" && currentSale && (
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground mb-3">
+                  Valor do pedido: <span className="font-bold text-foreground">R$ {Number(currentSale.valor_total).toFixed(2)}</span>
+                </p>
+
+                {generatedPix && (
+                  <button
+                    onClick={() => setPaymentStep("pix")}
+                    className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary/50 bg-card transition-all active:scale-[0.98]"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                      <QrCode className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div className="text-left">
+                      <span className="font-semibold text-sm text-foreground">PIX</span>
+                      <p className="text-xs text-muted-foreground">QR Code ou Copia e Cola</p>
+                    </div>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => { setChangeAmount(""); setPaymentStep("cash_change"); }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary/50 bg-card transition-all active:scale-[0.98]"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center flex-shrink-0">
+                    <Banknote className="w-6 h-6 text-yellow-600" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-semibold text-sm text-foreground">Dinheiro</span>
+                    <p className="text-xs text-muted-foreground">Pagamento em espécie</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setPaymentStep("card_confirm")}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-primary/50 bg-card transition-all active:scale-[0.98]"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                    <CreditCard className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-semibold text-sm text-foreground">Cartão</span>
+                    <p className="text-xs text-muted-foreground">Crédito ou débito</p>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {/* PIX */}
+            {paymentStep === "pix" && generatedPix && currentSale && (
+              <div className="space-y-3">
+                {tenantData?.pix_receiver_name && (
+                  <p className="text-xs text-muted-foreground">
+                    👤 Recebedor: <span className="font-medium text-foreground">{tenantData.pix_receiver_name}</span>
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between bg-primary/10 rounded-lg px-3 py-2">
+                  <span className="text-sm text-muted-foreground">Valor</span>
+                  <span className="text-lg font-bold text-primary">R$ {Number(currentSale.valor_total).toFixed(2)}</span>
+                </div>
+
+                {qrCodeDataUrl && (
+                  <div className="flex justify-center">
+                    <img src={qrCodeDataUrl} alt="QR Code PIX" className="w-44 h-44 rounded-lg border border-border" />
+                  </div>
+                )}
+
+                <div className="bg-secondary rounded-lg p-3">
+                  <p className="text-[10px] text-muted-foreground mb-1">PIX Copia e Cola:</p>
+                  <p className="text-xs font-mono break-all text-foreground leading-relaxed select-all">
+                    {generatedPix}
+                  </p>
+                </div>
+
+                <Button variant="outline" size="sm" className="w-full gap-1.5" onClick={handleCopyPix}>
+                  {pixCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {pixCopied ? "Copiado!" : "Copiar PIX"}
+                </Button>
+
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => registerPaymentMutation.mutate({ method: "pix" })}
+                  disabled={registerPaymentMutation.isPending}
+                >
+                  {registerPaymentMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                  Confirmar pagamento PIX
+                </Button>
+              </div>
+            )}
+
+            {/* Cash - needs change? */}
+            {paymentStep === "cash_change" && (
+              <div className="space-y-4">
+                <div className="text-center py-4">
+                  <div className="w-16 h-16 rounded-full bg-yellow-500/10 flex items-center justify-center mx-auto mb-3">
+                    <Banknote className="w-8 h-8 text-yellow-600" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">Será necessário troco?</p>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1 h-12 text-base"
+                    onClick={() => registerPaymentMutation.mutate({ method: "dinheiro" })}
+                    disabled={registerPaymentMutation.isPending}
+                  >
+                    Não
+                  </Button>
+                  <Button
+                    className="flex-1 h-12 text-base"
+                    onClick={() => setPaymentStep("cash_amount")}
+                  >
+                    Sim
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Cash - change amount */}
+            {paymentStep === "cash_amount" && currentSale && (
+              <div className="space-y-4">
+                <div className="text-center py-2">
+                  <p className="text-sm text-muted-foreground mb-1">Valor do pedido: <span className="font-bold text-foreground">R$ {Number(currentSale.valor_total).toFixed(2)}</span></p>
+                  <p className="text-sm font-medium text-foreground mt-3">Troco para quanto?</p>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">R$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={changeAmount}
+                    onChange={(e) => setChangeAmount(e.target.value.replace(/[^0-9.,]/g, ""))}
+                    placeholder="0,00"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-secondary border border-border text-foreground text-lg font-semibold text-center focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    autoFocus
+                  />
+                </div>
+                <Button
+                  className="w-full h-12 text-base"
+                  onClick={() => {
+                    const amount = parseFloat(changeAmount.replace(",", "."));
+                    if (isNaN(amount) || amount <= Number(currentSale.valor_total)) {
+                      toast.error(`Informe um valor maior que R$ ${Number(currentSale.valor_total).toFixed(2)}`);
+                      return;
+                    }
+                    const troco = (amount - Number(currentSale.valor_total)).toFixed(2);
+                    registerPaymentMutation.mutate({ method: "dinheiro", changeInfo: `Troco para R$ ${amount.toFixed(2)} (troco: R$ ${troco})` });
+                  }}
+                  disabled={registerPaymentMutation.isPending}
+                >
+                  {registerPaymentMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                  Confirmar
+                </Button>
+              </div>
+            )}
+
+            {/* Card confirm */}
+            {paymentStep === "card_confirm" && (
+              <div className="space-y-4">
+                <div className="text-center py-4">
+                  <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-3">
+                    <CreditCard className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground mb-2">Pagamento via cartão</p>
+                  <p className="text-xs text-muted-foreground">Crédito ou débito na máquina.</p>
+                </div>
+                <Button
+                  className="w-full h-12 text-base"
+                  onClick={() => registerPaymentMutation.mutate({ method: "cartao" })}
+                  disabled={registerPaymentMutation.isPending}
+                >
+                  {registerPaymentMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                  Confirmar pagamento via cartão
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
