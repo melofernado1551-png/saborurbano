@@ -460,7 +460,6 @@ const GarcomPage = () => {
       queryClient.invalidateQueries({ queryKey: ["garcom-mesa-sales"] });
       setSendingPayment(false);
       if (status === "waiting_payment") {
-        setSelectedMesa(null);
         toast.success("Pedido enviado para pagamento!");
       } else if (status === "finished") {
         setSelectedMesa(null);
