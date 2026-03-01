@@ -651,10 +651,18 @@ const printReceipt = async (chat: any, e: React.MouseEvent) => {
     let itemsHtml = "";
     if (saleItems && saleItems.length > 0) {
       const content = saleItems[0].content;
-      // Parse the order summary message content
+      // Filter out header (Pedido #X), total line, delivery fee, and empty lines
       itemsHtml = content
         .split("\n")
-        .filter((line: string) => line.trim())
+        .filter((line: string) => {
+          const trimmed = line.trim();
+          if (!trimmed) return false;
+          if (/^\*?\*?Pedido\s*#/i.test(trimmed) || /📋/.test(trimmed)) return false;
+          if (/\*?\*?Total:/i.test(trimmed) || /💰/.test(trimmed)) return false;
+          if (/🚚/.test(trimmed)) return false;
+          if (/📝\s*Obs:/i.test(trimmed)) return false;
+          return true;
+        })
         .map((line: string) => `<div style="font-size:12px;padding:1px 0">${line}</div>`)
         .join("");
     }
