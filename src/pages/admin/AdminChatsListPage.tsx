@@ -3,7 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Clock, CalendarIcon, Monitor, X, Printer, UtensilsCrossed, Truck } from "lucide-react";
+import { MessageCircle, Clock, CalendarIcon, Monitor, X, Printer, UtensilsCrossed, Truck, User, DollarSign } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +68,7 @@ const AdminChatsListPage = () => {
   // Drag state
   const [draggedChat, setDraggedChat] = useState<any>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [selectedMesaSale, setSelectedMesaSale] = useState<any>(null);
   // Confirmation dialog
   const [pendingMove, setPendingMove] = useState<{ chat: any; toStatus: string } | null>(null);
   // Finished/cancelled column date range filter (defaults to today)
@@ -634,7 +637,13 @@ const AdminChatsListPage = () => {
                         hasUnread={hasUnread(chat.id)}
                         onClick={() => {
                           markAsViewed(chat.id);
-                          navigate(`/admin/pedidos/${chat.id}`);
+                          if (chat._isMesaSale) {
+                            const salesArr = chat.sales;
+                            const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
+                            setSelectedMesaSale({ ...sale, _mesaNumero: chat.customers?.name });
+                          } else {
+                            navigate(`/admin/pedidos/${chat.id}`);
+                          }
                         }}
                         onDragStart={() => handleDragStart(chat)}
                         isCancelled={col.key === "cancelled" || col.key === "delivering_pending"}
@@ -669,7 +678,162 @@ const AdminChatsListPage = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Mesa Sale Detail Modal */}
+      <MesaSaleDetailDialog
+        sale={selectedMesaSale}
+        open={!!selectedMesaSale}
+        onClose={() => setSelectedMesaSale(null)}
+      />
     </div>
+  );
+};
+
+const PAYMENT_LABELS_KANBAN: Record<string, string> = {
+  pix: "Pix",
+  dinheiro: "Dinheiro",
+  cartao: "Cartão",
+  cartao_credito: "Cartão de Crédito",
+  cartao_debito: "Cartão de Débito",
+};
+
+const MesaSaleDetailDialog = ({ sale, open, onClose }: { sale: any; open: boolean; onClose: () => void }) => {
+  const { data: saleItems = [] } = useQuery({
+    queryKey: ["mesa-sale-items-kanban", sale?.id],
+    enabled: !!sale?.id && open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sale_items")
+        .select("*")
+        .eq("sale_id", sale.id)
+        .eq("active", true)
+        .order("created_at");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: payments = [] } = useQuery({
+    queryKey: ["mesa-sale-payments-kanban", sale?.id],
+    enabled: !!sale?.id && open,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("sale_payments")
+        .select("*")
+        .eq("sale_id", sale.id)
+        .eq("active", true)
+        .order("created_at");
+      return data || [];
+    },
+  });
+
+  const { data: freshSale } = useQuery({
+    queryKey: ["mesa-sale-fresh-kanban", sale?.id],
+    enabled: !!sale?.id && open,
+    queryFn: async () => {
+      const { data } = await supabase.from("sales").select("*").eq("id", sale.id).single();
+      return data;
+    },
+  });
+
+  const currentSale = freshSale || sale;
+  if (!sale) return null;
+
+  const financial = FINANCIAL_LABELS[currentSale?.financial_status] || FINANCIAL_LABELS.pending;
+  const opInfo = STATUS_LABELS[currentSale?.operational_status] || STATUS_LABELS.received;
+  const saleDate = currentSale?.created_at ? format(new Date(currentSale.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "";
+  const totalPaid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+  const remaining = Number(currentSale?.valor_total || 0) - totalPaid;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UtensilsCrossed className="w-5 h-5" />
+            {sale._mesaNumero || `Mesa ${currentSale?.numero_mesa}`}
+            {currentSale?.sale_number && <span className="text-muted-foreground font-normal text-sm">#{currentSale.sale_number}</span>}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Status badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1.5 text-xs"><span className={`w-2 h-2 rounded-full ${financial.dotClass}`} />{financial.label}</span>
+            <Badge variant="outline" className="text-xs">{opInfo.emoji} {opInfo.label}</Badge>
+            {currentSale?.representante && (
+              <Badge variant="secondary" className="text-xs gap-1">
+                <User className="w-3 h-3" /> {currentSale.representante}
+              </Badge>
+            )}
+          </div>
+
+          {saleDate && <p className="text-xs text-muted-foreground">{saleDate}</p>}
+
+          <Separator />
+
+          {/* Items */}
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Itens do pedido</h4>
+            {saleItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">Nenhum item encontrado</p>
+            ) : (
+              <div className="space-y-1">
+                {saleItems.map((item: any) => (
+                  <div key={item.id} className="flex justify-between items-start p-2 rounded-lg bg-secondary/30">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">
+                        <span className="text-primary font-bold">{item.quantity}x</span> {item.product_name}
+                      </p>
+                      {item.observacao && (
+                        <p className="text-xs text-muted-foreground">Obs: {item.observacao}</p>
+                      )}
+                    </div>
+                    <span className="text-sm font-semibold shrink-0 ml-2">
+                      R$ {(Number(item.unit_price) * item.quantity).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Total */}
+          <div className="flex justify-between items-center">
+            <span className="font-semibold">Total</span>
+            <span className="text-xl font-bold">R$ {Number(currentSale?.valor_total || 0).toFixed(2)}</span>
+          </div>
+
+          {/* Payments */}
+          {payments.length > 0 && (
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <DollarSign className="w-3.5 h-3.5" /> Pagamentos
+              </h4>
+              {payments.map((p: any) => (
+                <div key={p.id} className="flex justify-between items-center p-2 rounded-lg bg-secondary/30">
+                  <span className="text-sm">{PAYMENT_LABELS_KANBAN[p.payment_method] || p.payment_method}</span>
+                  <span className="text-sm font-semibold">R$ {Number(p.amount).toFixed(2)}</span>
+                </div>
+              ))}
+              {remaining > 0.01 && (
+                <p className="text-xs text-destructive font-medium">Falta: R$ {remaining.toFixed(2)}</p>
+              )}
+            </div>
+          )}
+
+          {/* Observacao */}
+          {currentSale?.observacao && (
+            <div className="space-y-1">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Observação</h4>
+              <p className="text-sm bg-secondary/30 p-2 rounded-lg">{currentSale.observacao}</p>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
