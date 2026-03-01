@@ -89,14 +89,24 @@ Deno.serve(async (req) => {
     // Update sale with chat_id
     await supabase.from("sales").update({ chat_id: chat.id }).eq("id", sale.id);
 
-    // Build order summary message (with addons + address)
+    // Build order summary message (with addons, combos + address)
     const itemLines = items.map((item: any) => {
       const price = item.promoPrice ?? item.price;
       const addons = item.addons || [];
       const addonsTotal = addons.reduce((a: number, addon: any) => a + (addon.price || 0), 0);
       const itemTotal = (price + addonsTotal) * item.quantity;
       
-      const lines = [`• ${item.quantity}x ${item.name} — R$ ${(price * item.quantity).toFixed(2)}`];
+      const lines: string[] = [];
+      
+      if (item.isCombo) {
+        lines.push(`• ${item.quantity}x 📦 ${item.name} — R$ ${(price * item.quantity).toFixed(2)}`);
+        const comboProducts = item.comboProducts || [];
+        for (const cp of comboProducts) {
+          lines.push(`   → ${cp.quantity}x ${cp.name}`);
+        }
+      } else {
+        lines.push(`• ${item.quantity}x ${item.name} — R$ ${(price * item.quantity).toFixed(2)}`);
+      }
       
       for (const addon of addons) {
         lines.push(`   + ${addon.name} — R$ ${Number(addon.price).toFixed(2)}`);

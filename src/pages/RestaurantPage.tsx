@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame, ShoppingBag, Settings, Heart } from "lucide-react";
+import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame, ShoppingBag, Settings, Heart, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -154,6 +154,22 @@ const RestaurantPage = () => {
         .eq("active", true);
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Fetch combos
+  const { data: combos = [] } = useQuery({
+    queryKey: ["tenant-combos", tenant?.id],
+    enabled: !!tenant?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("combos")
+        .select("*, combo_products(product_id, quantity, products(name))")
+        .eq("tenant_id", tenant!.id)
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
     },
   });
 
@@ -368,6 +384,80 @@ const RestaurantPage = () => {
     if (added) {
       toast.success("✔ Produto adicionado ao carrinho");
     }
+  };
+  const handleAddComboToCart = (combo: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const comboProducts = (combo.combo_products || []).map((cp: any) => ({
+      productId: cp.product_id,
+      name: cp.products?.name || "",
+      quantity: cp.quantity,
+    }));
+    const added = addItem(
+      {
+        productId: `combo_${combo.id}`,
+        name: combo.name,
+        price: Number(combo.price),
+        promoPrice: combo.promo_price ? Number(combo.promo_price) : null,
+        imageUrl: combo.image_url || null,
+        isCombo: true,
+        comboProducts,
+      },
+      { id: tenant.id, slug: tenant.slug, name: tenant.name, freeShipping: (tenant as any).free_shipping, shippingFee: (tenant as any).shipping_fee ? Number((tenant as any).shipping_fee) : null }
+    );
+    if (added) {
+      toast.success("✔ Combo adicionado ao carrinho");
+    }
+  };
+
+  const ComboCard = ({ combo }: { combo: any }) => {
+    const comboItems = (combo.combo_products || [])
+      .map((cp: any) => `${cp.quantity}x ${cp.products?.name}`)
+      .join(" + ");
+
+    return (
+      <div
+        className="group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 border-2 border-primary/20"
+      >
+        <div className="relative h-40 overflow-hidden bg-white">
+          {combo.image_url ? (
+            <img src={combo.image_url} alt={combo.name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-primary/10 to-secondary">
+              <Package className="w-12 h-12 text-primary/50" />
+            </div>
+          )}
+          <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1 shadow-md">
+            <Package className="w-3 h-3" />
+            Combo
+          </div>
+        </div>
+        <div className="p-3">
+          <h4 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">{combo.name}</h4>
+          <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{comboItems}</p>
+          {combo.description && (
+            <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{combo.description}</p>
+          )}
+          <div className="flex items-center justify-between mt-2">
+            <div className="flex items-center gap-2">
+              {combo.promo_price ? (
+                <>
+                  <span className="text-base font-bold text-primary">R$ {Number(combo.promo_price).toFixed(2)}</span>
+                  <span className="text-xs text-muted-foreground line-through">R$ {Number(combo.price).toFixed(2)}</span>
+                </>
+              ) : (
+                <span className="text-base font-bold text-foreground">R$ {Number(combo.price).toFixed(2)}</span>
+              )}
+            </div>
+            <button
+              onClick={(e) => handleAddComboToCart(combo, e)}
+              className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-110 transition-transform shadow-md"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const ProductGridCard = ({ product }: { product: typeof products[0] }) => {
@@ -713,6 +803,20 @@ const RestaurantPage = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {featuredProducts.map((p) => (
                     <FeaturedCard key={p.id} product={p} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Combos section */}
+            {combos.length > 0 && activeCategories.length === 0 && !showFeaturedOnly && !searchQuery && (
+              <section>
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  📦 Combos
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {combos.map((combo: any) => (
+                    <ComboCard key={combo.id} combo={combo} />
                   ))}
                 </div>
               </section>

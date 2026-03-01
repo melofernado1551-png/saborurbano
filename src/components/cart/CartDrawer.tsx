@@ -100,20 +100,22 @@ const CartDrawer = () => {
       if (!currentSession?.access_token) throw new Error("Sessão expirada");
 
       const response = await supabase.functions.invoke("create-checkout", {
-        body: {
-          tenant_id: tenantId,
-          items: items.map((i) => ({
-            productId: i.productId,
-            name: i.name,
-            price: i.price,
-            promoPrice: i.promoPrice,
-            quantity: i.quantity,
-            observation: i.observation,
-            addons: i.addons || [],
-          })),
-          delivery_address: selectedAddress,
-          delivery_fee: deliveryFee,
-        },
+          body: {
+            tenant_id: tenantId,
+            items: items.map((i) => ({
+              productId: i.productId,
+              name: i.name,
+              price: i.price,
+              promoPrice: i.promoPrice,
+              quantity: i.quantity,
+              observation: i.observation,
+              addons: i.addons || [],
+              isCombo: i.isCombo || false,
+              comboProducts: i.comboProducts || [],
+            })),
+            delivery_address: selectedAddress,
+            delivery_fee: deliveryFee,
+          },
       });
 
       if (response.error) throw new Error(response.error.message || "Erro no checkout");
@@ -203,7 +205,16 @@ const CartDrawer = () => {
 
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-sm text-foreground line-clamp-1">{item.name}</h4>
-                        {item.addons && item.addons.length > 0 && (
+                        {item.isCombo && item.comboProducts && item.comboProducts.length > 0 && (
+                          <div className="mt-0.5 space-y-0">
+                            {item.comboProducts.map((cp, i) => (
+                              <p key={i} className="text-xs text-muted-foreground">
+                                {cp.quantity}x {cp.name}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        {!item.isCombo && item.addons && item.addons.length > 0 && (
                           <div className="mt-0.5 space-y-0">
                             {item.addons.map((addon) => (
                               <p key={addon.id} className="text-xs text-muted-foreground">

@@ -16,6 +16,8 @@ export interface CartItem {
   observation?: string;
   addons?: CartAddon[];
   cartItemId: string;
+  isCombo?: boolean;
+  comboProducts?: { productId: string; name: string; quantity: number }[];
 }
 
 export interface SelectedAddress {
