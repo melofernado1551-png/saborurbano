@@ -622,16 +622,14 @@ const GarcomPage = () => {
             <div className="flex gap-2">
               {currentSale && !isPagamento && (
                 <>
-                  {existingSaleItems.length > 0 && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => setShowCancelConfirm(true)}
-                      className="gap-1"
-                    >
-                      <X className="w-4 h-4" /> Cancelar
-                    </Button>
-                  )}
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowCancelConfirm(true)}
+                    className="gap-1"
+                  >
+                    <X className="w-4 h-4" /> Cancelar
+                  </Button>
                   {existingSaleItems.length > 0 && (
                     <Button
                       variant="outline"
