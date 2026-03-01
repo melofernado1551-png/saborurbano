@@ -255,51 +255,6 @@ const GarcomPage = () => {
         .update({ valor_total: newTotal } as any)
         .eq("id", saleId);
       if (updateError) throw updateError;
-
-      // Create a chat for this sale if it doesn't exist, and add order summary message
-      let chatId: string;
-      const { data: existingChat } = await supabase
-        .from("chats")
-        .select("id")
-        .eq("sale_id", saleId)
-        .eq("active", true)
-        .maybeSingle();
-
-      if (existingChat) {
-        chatId = existingChat.id;
-      } else {
-        // Create an internal chat for the mesa order
-        // Use a system customer or the first customer for the tenant
-        const { data: newChat, error: chatError } = await supabase
-          .from("chats")
-          .insert({
-            tenant_id: tenantId!,
-            customer_id: user!.id, // using the waiter's profile id as placeholder
-            sale_id: saleId,
-            status: "open",
-          } as any)
-          .select("id")
-          .single();
-        if (chatError) throw chatError;
-        chatId = newChat.id;
-
-        // Link chat to sale
-        await supabase.from("sales").update({ chat_id: chatId } as any).eq("id", saleId);
-      }
-
-      // Send items as chat message
-      const itemsText = items
-        .map((item) => `${item.quantity}x ${item.product_name} - R$ ${(item.unit_price * item.quantity).toFixed(2)}${item.observacao ? ` (Obs: ${item.observacao})` : ""}`)
-        .join("\n");
-
-      const messageContent = `🍽️ Itens adicionados:\n${itemsText}\n\n💰 Subtotal: R$ ${itemsTotal.toFixed(2)}\n💰 Total acumulado: R$ ${newTotal.toFixed(2)}`;
-
-      await supabase.from("chat_messages").insert({
-        chat_id: chatId,
-        content: messageContent,
-        sender_type: "system",
-        message_type: "order_items",
-      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["garcom-mesa-sales"] });
