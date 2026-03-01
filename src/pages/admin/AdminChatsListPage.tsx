@@ -746,7 +746,11 @@ const KanbanCard = ({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock className="w-3 h-3" />
+            {saleTime}
+          </div>
           <button
             onClick={(e) => printReceipt(chat, e)}
             className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
@@ -754,10 +758,6 @@ const KanbanCard = ({
           >
             <Printer className="w-3.5 h-3.5" />
           </button>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Clock className="w-3 h-3" />
-            {saleTime}
-          </div>
         </div>
       </div>
 
