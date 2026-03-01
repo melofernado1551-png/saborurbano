@@ -329,8 +329,8 @@ const GarcomPage = () => {
         .eq("id", currentSale.id);
       if (saleError) throw saleError;
 
-      // Create revenue entry
-      const { data: revenueType } = await supabase
+      // Create revenue entry - find or create revenue type
+      let { data: revenueType } = await supabase
         .from("revenue_types")
         .select("id")
         .eq("tenant_id", tenantId)
@@ -338,12 +338,21 @@ const GarcomPage = () => {
         .eq("active", true)
         .maybeSingle();
 
+      if (!revenueType) {
+        const { data: newType } = await supabase
+          .from("revenue_types")
+          .insert({ tenant_id: tenantId, name: "Venda App" })
+          .select("id")
+          .single();
+        revenueType = newType;
+      }
+
       if (revenueType) {
         await supabase.from("revenues").insert({
           tenant_id: tenantId,
           revenue_type_id: revenueType.id,
           amount: currentSale.valor_total,
-          description: `Venda #${currentSale.sale_number || ""} - Mesa ${selectedMesa?.numero}`,
+          description: `Venda #${currentSale.sale_number || ""} - Mesa ${selectedMesa?.numero} - ${method}`,
           sale_id: currentSale.id,
         });
       }
