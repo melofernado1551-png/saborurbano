@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useSwipe } from "@/hooks/useSwipe";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Share2, ShoppingBag, Minus, Plus, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { ArrowLeft, Share2, ShoppingBag, Minus, Plus, ChevronLeft, ChevronRight, Check, Clock } from "lucide-react";
+import { isStoreOpen, formatStoreHours } from "@/lib/storeHours";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useCart, CartAddon } from "@/contexts/CartContext";
@@ -115,6 +116,8 @@ const ProductDetailPage = () => {
 
   const mainImage = images[0]?.image_url || null;
   const outOfStock = stock !== null && stock !== undefined && stock.quantity <= 0;
+  const storeOpen = tenant ? isStoreOpen(tenant.opening_time, tenant.closing_time) : true;
+  const hoursLabel = tenant ? formatStoreHours(tenant.opening_time, tenant.closing_time) : "";
   const basePrice = product?.has_discount && product?.promo_price ? Number(product.promo_price) : Number(product?.price || 0);
   const addonsTotal = selectedAddons.reduce((sum, a) => sum + a.price, 0);
   const finalUnitPrice = basePrice + addonsTotal;
@@ -386,35 +389,45 @@ const ProductDetailPage = () => {
               </Button>
             </div>
 
-            <Button
-              className="flex-1 h-12 gap-2 rounded-xl text-base font-bold"
-              disabled={outOfStock}
-              onClick={() => {
-                const trimmedObs = observation.trim();
-                const added = addItem(
-                  {
-                    productId: product.id,
-                    name: product.name,
-                    price: Number(product.price),
-                    promoPrice: product.promo_price ? Number(product.promo_price) : null,
-                    imageUrl: mainImage,
-                    quantity,
-                    observation: trimmedObs || undefined,
-                    addons: selectedAddons.length > 0 ? selectedAddons : undefined,
-                  },
-                  { id: tenant.id, slug: tenant.slug, name: tenant.name, freeShipping: (tenant as any).free_shipping, shippingFee: (tenant as any).shipping_fee ? Number((tenant as any).shipping_fee) : null }
-                );
-                if (added) {
-                  toast.success("✔ Produto adicionado ao carrinho");
-                  setQuantity(1);
-                  setObservation("");
-                  setSelectedAddons([]);
-                }
-              }}
-            >
-              <ShoppingBag className="w-5 h-5" />
-              Adicionar · R$ {(finalUnitPrice * quantity).toFixed(2)}
-            </Button>
+            {!storeOpen ? (
+              <div className="flex-1 flex items-center gap-2 h-12 px-4 rounded-xl bg-destructive/10 border border-destructive/20">
+                <Clock className="w-4 h-4 text-destructive shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-destructive">Loja fechada</p>
+                  {hoursLabel && <p className="text-[10px] text-muted-foreground">{hoursLabel}</p>}
+                </div>
+              </div>
+            ) : (
+              <Button
+                className="flex-1 h-12 gap-2 rounded-xl text-base font-bold"
+                disabled={outOfStock}
+                onClick={() => {
+                  const trimmedObs = observation.trim();
+                  const added = addItem(
+                    {
+                      productId: product.id,
+                      name: product.name,
+                      price: Number(product.price),
+                      promoPrice: product.promo_price ? Number(product.promo_price) : null,
+                      imageUrl: mainImage,
+                      quantity,
+                      observation: trimmedObs || undefined,
+                      addons: selectedAddons.length > 0 ? selectedAddons : undefined,
+                    },
+                    { id: tenant.id, slug: tenant.slug, name: tenant.name, freeShipping: (tenant as any).free_shipping, shippingFee: (tenant as any).shipping_fee ? Number((tenant as any).shipping_fee) : null }
+                  );
+                  if (added) {
+                    toast.success("✔ Produto adicionado ao carrinho");
+                    setQuantity(1);
+                    setObservation("");
+                    setSelectedAddons([]);
+                  }
+                }}
+              >
+                <ShoppingBag className="w-5 h-5" />
+                Adicionar · R$ {(finalUnitPrice * quantity).toFixed(2)}
+              </Button>
+            )}
           </div>
         )}
       </div>
