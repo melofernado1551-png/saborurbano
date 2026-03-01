@@ -487,7 +487,7 @@ const Index = () => {
               </div>
             ) : tagsWithProducts.length > 0 ? (
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide justify-center">
-                {tagsWithProducts.map((tag) => (
+                {tagsWithProducts.filter((tag) => tag.slug !== "destaque").map((tag) => (
                   <button
                     key={tag.id}
                     onClick={() => handleTagClick(tag)}
