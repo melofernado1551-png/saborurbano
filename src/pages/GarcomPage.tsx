@@ -564,10 +564,21 @@ const GarcomPage = () => {
   const handleMesaClick = async (mesa: Mesa) => {
     const status = getMesaStatus(mesa);
     if (status === "livre") {
-      await createSaleMutation.mutateAsync(mesa);
+      // For free tables, ask for representative name first
+      setSelectedMesa(mesa);
+      setOrderItems([]);
+      setRepresentanteInput("");
+      setShowRepresentanteModal(true);
+      return;
     }
     setSelectedMesa(mesa);
     setOrderItems([]);
+    // If existing sale has no representative, prompt for it
+    const sale = mesaSales.find((s) => s.mesa_id === mesa.id);
+    if (sale && !sale.representante) {
+      setRepresentanteInput("");
+      setShowRepresentanteModal(true);
+    }
   };
 
   const addToOrder = () => {
@@ -597,6 +608,38 @@ const GarcomPage = () => {
     setAddingProduct(null);
     setItemQty(1);
     setItemObs("");
+  };
+
+  const handleSaveRepresentante = async () => {
+    const name = representanteInput.trim();
+    if (!name || !selectedMesa) return;
+
+    if (!currentSale) {
+      // Free table: create sale first, then save representative
+      try {
+        await createSaleMutation.mutateAsync(selectedMesa);
+        const { data: newSale } = await supabase
+          .from("sales")
+          .select("id")
+          .eq("mesa_id", selectedMesa.id)
+          .eq("tenant_id", tenantId!)
+          .eq("active", true)
+          .not("operational_status", "in", '("finished","cancelled")')
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        if (newSale) {
+          await supabase.from("sales").update({ representante: name } as any).eq("id", newSale.id);
+        }
+        queryClient.invalidateQueries({ queryKey: ["garcom-mesa-sales"] });
+        setShowRepresentanteModal(false);
+        toast.success("Mesa aberta!");
+      } catch {
+        toast.error("Erro ao abrir mesa");
+      }
+    } else {
+      saveRepresentanteMutation.mutate({ saleId: currentSale.id, representante: name });
+    }
   };
 
   const removeFromOrder = (index: number) => {
@@ -1308,10 +1351,16 @@ const GarcomPage = () => {
         </DialogContent>
       </Dialog>
       {/* Representante Modal */}
-      <Dialog open={showRepresentanteModal} onOpenChange={setShowRepresentanteModal}>
+      <Dialog open={showRepresentanteModal} onOpenChange={(open) => {
+        if (!open && !currentSale) {
+          // If closing without saving on a free table, go back to table list
+          setSelectedMesa(null);
+        }
+        setShowRepresentanteModal(open);
+      }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Representante da Mesa</DialogTitle>
+            <DialogTitle>Representante da Mesa {selectedMesa?.numero}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <div>
@@ -1321,21 +1370,25 @@ const GarcomPage = () => {
                 onChange={(e) => setRepresentanteInput(e.target.value)}
                 placeholder="Nome da pessoa..."
                 autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && representanteInput.trim()) {
+                    handleSaveRepresentante();
+                  }
+                }}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRepresentanteModal(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => {
+              if (!currentSale) setSelectedMesa(null);
+              setShowRepresentanteModal(false);
+            }}>Cancelar</Button>
             <Button
-              onClick={() => {
-                if (currentSale) {
-                  saveRepresentanteMutation.mutate({ saleId: currentSale.id, representante: representanteInput.trim() });
-                }
-              }}
-              disabled={saveRepresentanteMutation.isPending}
+              onClick={handleSaveRepresentante}
+              disabled={!representanteInput.trim() || saveRepresentanteMutation.isPending || createSaleMutation.isPending}
             >
-              {saveRepresentanteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-              Salvar
+              {(saveRepresentanteMutation.isPending || createSaleMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              Confirmar
             </Button>
           </DialogFooter>
         </DialogContent>
