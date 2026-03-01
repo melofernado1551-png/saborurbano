@@ -1,0 +1,1 @@
+ALTER TABLE public.sales ADD COLUMN representante text DEFAULT null;
