@@ -137,7 +137,39 @@ const AdminChatsListPage = () => {
         .limit(MAX_FINISHED * 2);
       if (err2) throw err2;
 
-      return [...(activeChats || []), ...(closedChats || [])];
+      // Fetch mesa sales WITHOUT chat (they don't go through chat flow)
+      const existingChatSaleIds = new Set<string>();
+      [...(activeChats || []), ...(closedChats || [])].forEach((chat: any) => {
+        const salesArr = chat.sales;
+        const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
+        if (sale?.id) existingChatSaleIds.add(sale.id);
+      });
+
+      const { data: mesaSales, error: err3 } = await supabase
+        .from("sales")
+        .select("id, sale_number, valor_total, financial_status, operational_status, created_at, tipo_pedido, numero_mesa, customer_id")
+        .eq("tenant_id", tenantId!)
+        .eq("active", true)
+        .eq("tipo_pedido", "mesa")
+        .is("chat_id", null)
+        .order("created_at", { ascending: false });
+      if (err3) throw err3;
+
+      // Convert mesa sales to chat-like objects for unified rendering
+      const mesaChatLike = (mesaSales || []).map((sale: any) => ({
+        id: `mesa-sale-${sale.id}`,
+        tenant_id: tenantId,
+        customer_id: sale.customer_id,
+        status: "open",
+        active: !["finished", "cancelled"].includes(sale.operational_status),
+        created_at: sale.created_at,
+        updated_at: sale.created_at,
+        customers: { name: `Mesa ${sale.numero_mesa}`, phone: null },
+        sales: sale,
+        _isMesaSale: true,
+      }));
+
+      return [...(activeChats || []), ...(closedChats || []), ...mesaChatLike];
     },
   });
 
