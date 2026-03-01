@@ -150,7 +150,7 @@ const AdminChatsListPage = () => {
 
       const { data: mesaSales, error: err3 } = await supabase
         .from("sales")
-        .select("id, sale_number, valor_total, financial_status, operational_status, created_at, tipo_pedido, numero_mesa, customer_id")
+        .select("id, sale_number, valor_total, financial_status, operational_status, created_at, tipo_pedido, numero_mesa, customer_id, representante")
         .eq("tenant_id", tenantId!)
         .eq("active", true)
         .eq("tipo_pedido", "mesa")
@@ -167,7 +167,7 @@ const AdminChatsListPage = () => {
         active: !["finished", "cancelled"].includes(sale.operational_status),
         created_at: sale.created_at,
         updated_at: sale.created_at,
-        customers: { name: `Mesa ${sale.numero_mesa}`, phone: null },
+        customers: { name: sale.representante ? `${sale.representante} - Mesa ${sale.numero_mesa}` : `Mesa ${sale.numero_mesa}`, phone: null },
         sales: sale,
         _isMesaSale: true,
       }));
