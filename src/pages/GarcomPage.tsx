@@ -301,6 +301,37 @@ const GarcomPage = () => {
     onError: (e: any) => toast.error(e.message || "Erro ao adicionar itens"),
   });
 
+  // Remove existing sale item
+  const removeItemMutation = useMutation({
+    mutationFn: async (item: SaleItem) => {
+      const { error } = await supabase
+        .from("sale_items" as any)
+        .update({ active: false } as any)
+        .eq("id", item.id);
+      if (error) throw error;
+
+      // Update sale total
+      const { data: saleData } = await supabase
+        .from("sales")
+        .select("valor_total")
+        .eq("id", currentSale!.id)
+        .single();
+
+      const newTotal = Math.max(0, (saleData?.valor_total || 0) - item.unit_price * item.quantity);
+      const { error: updateError } = await supabase
+        .from("sales")
+        .update({ valor_total: newTotal } as any)
+        .eq("id", currentSale!.id);
+      if (updateError) throw updateError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["garcom-mesa-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["garcom-sale-items"] });
+      toast.success("Item removido!");
+    },
+    onError: (e: any) => toast.error(e.message || "Erro ao remover item"),
+  });
+
   const updateSaleStatusMutation = useMutation({
     mutationFn: async ({ saleId, status }: { saleId: string; status: string }) => {
       const { error } = await supabase
@@ -554,9 +585,20 @@ const GarcomPage = () => {
                           <p className="text-xs text-muted-foreground">Obs: {item.observacao}</p>
                         )}
                       </div>
-                      <p className="text-sm font-semibold">
-                        R$ {(item.unit_price * item.quantity).toFixed(2)}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold">
+                          R$ {(item.unit_price * item.quantity).toFixed(2)}
+                        </p>
+                        {!isPagamento && (
+                          <button
+                            onClick={() => removeItemMutation.mutate(item)}
+                            disabled={removeItemMutation.isPending}
+                            className="text-destructive hover:bg-destructive/10 rounded p-1 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
 
