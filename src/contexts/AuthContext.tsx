@@ -5,7 +5,7 @@ interface AppUser {
   id: string;
   login: string;
   name: string | null;
-  role: "superadmin" | "tenant_admin" | "colaborador" | "contador" | "user";
+  role: "superadmin" | "tenant_admin" | "colaborador" | "contador" | "garcom" | "user";
   tenant_id: string | null;
 }
 
