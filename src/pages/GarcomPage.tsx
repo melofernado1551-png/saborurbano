@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAdmin } from "@/contexts/AdminContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -17,12 +16,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -36,12 +29,12 @@ import {
   UtensilsCrossed,
   Plus,
   Minus,
-  ShoppingBag,
   CreditCard,
   LogOut,
   ArrowLeft,
   X,
   Loader2,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -77,6 +70,16 @@ interface OrderItem {
   observacao?: string;
 }
 
+interface SaleItem {
+  id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  observacao: string | null;
+  created_at: string;
+}
+
 interface MesaSale {
   id: string;
   sale_number: number | null;
@@ -106,10 +109,9 @@ const GarcomPage = () => {
   const [addingProduct, setAddingProduct] = useState<Product | null>(null);
   const [itemQty, setItemQty] = useState(1);
   const [itemObs, setItemObs] = useState("");
-  const [closingOrder, setClosingOrder] = useState(false);
   const [sendingPayment, setSendingPayment] = useState(false);
+  const [showProductSearch, setShowProductSearch] = useState(false);
 
-  // Get tenant_id from user
   const tenantId = user?.tenant_id;
 
   // Fetch mesas
@@ -146,6 +148,25 @@ const GarcomPage = () => {
     },
   });
 
+  // Get current sale for selected mesa
+  const currentSale = selectedMesa ? mesaSales.find((s) => s.mesa_id === selectedMesa.id) : null;
+
+  // Fetch existing sale items
+  const { data: existingSaleItems = [] } = useQuery({
+    queryKey: ["garcom-sale-items", currentSale?.id],
+    enabled: !!currentSale?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sale_items" as any)
+        .select("*")
+        .eq("sale_id", currentSale!.id)
+        .eq("active", true)
+        .order("created_at");
+      if (error) throw error;
+      return data as unknown as SaleItem[];
+    },
+  });
+
   // Realtime for sales updates
   useEffect(() => {
     if (!tenantId) return;
@@ -158,7 +179,7 @@ const GarcomPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [tenantId, queryClient]);
 
-  // Fetch categories for selected tenant
+  // Fetch categories
   const { data: categories = [] } = useQuery({
     queryKey: ["garcom-categories", tenantId],
     enabled: !!tenantId,
@@ -190,7 +211,6 @@ const GarcomPage = () => {
     },
   });
 
-  // Get mesa status
   const getMesaStatus = (mesa: Mesa): string => {
     const sale = mesaSales.find((s) => s.mesa_id === mesa.id);
     if (!sale) return "livre";
@@ -203,7 +223,6 @@ const GarcomPage = () => {
     return mesaSales.find((s) => s.mesa_id === mesa.id);
   };
 
-  // Filtered products
   const filteredProducts = products.filter((p) => {
     const matchesSearch = !searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = !selectedCategory || p.product_category_relations?.some((r: any) => r.category_id === selectedCategory);
@@ -236,35 +255,52 @@ const GarcomPage = () => {
     onError: (e: any) => toast.error(e.message || "Erro ao criar pedido"),
   });
 
-  // Add items to sale (update total)
+  // Add items to sale
   const addItemsMutation = useMutation({
     mutationFn: async ({ saleId, items }: { saleId: string; items: OrderItem[] }) => {
-      // Get current sale to add to total
-      const { data: currentSale } = await supabase
-        .from("sales")
-        .select("valor_total")
-        .eq("id", saleId)
-        .single();
+      try {
+        const { data: currentSaleData } = await supabase
+          .from("sales")
+          .select("valor_total")
+          .eq("id", saleId)
+          .single();
 
-      const itemsTotal = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
-      const newTotal = (currentSale?.valor_total || 0) + itemsTotal;
+        const itemsTotal = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+        const newTotal = (currentSaleData?.valor_total || 0) + itemsTotal;
 
-      // Update sale total
-      const { error: updateError } = await supabase
-        .from("sales")
-        .update({ valor_total: newTotal } as any)
-        .eq("id", saleId);
-      if (updateError) throw updateError;
+        const { error: updateError } = await supabase
+          .from("sales")
+          .update({ valor_total: newTotal } as any)
+          .eq("id", saleId);
+        if (updateError) throw updateError;
+
+        // Persist items to sale_items table
+        const itemsToInsert = items.map((item) => ({
+          sale_id: saleId,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          observacao: item.observacao || null,
+        }));
+
+        const { error: insertError } = await supabase
+          .from("sale_items" as any)
+          .insert(itemsToInsert);
+        if (insertError) throw insertError;
+      } catch (error: any) {
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["garcom-mesa-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["garcom-sale-items"] });
       setOrderItems([]);
       toast.success("Itens adicionados ao pedido!");
     },
     onError: (e: any) => toast.error(e.message || "Erro ao adicionar itens"),
   });
 
-  // Close order / send to payment
   const updateSaleStatusMutation = useMutation({
     mutationFn: async ({ saleId, status }: { saleId: string; status: string }) => {
       const { error } = await supabase
@@ -276,7 +312,6 @@ const GarcomPage = () => {
     onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ["garcom-mesa-sales"] });
       setSelectedMesa(null);
-      setClosingOrder(false);
       setSendingPayment(false);
       if (status === "waiting_payment") {
         toast.success("Pedido enviado para pagamento!");
@@ -290,7 +325,6 @@ const GarcomPage = () => {
   const handleMesaClick = async (mesa: Mesa) => {
     const status = getMesaStatus(mesa);
     if (status === "livre") {
-      // Create new sale
       await createSaleMutation.mutateAsync(mesa);
     }
     setSelectedMesa(mesa);
@@ -331,12 +365,11 @@ const GarcomPage = () => {
   };
 
   const handleSendItems = () => {
-    const sale = selectedMesa ? getMesaSale(selectedMesa) : null;
-    if (!sale || orderItems.length === 0) return;
-    addItemsMutation.mutate({ saleId: sale.id, items: orderItems });
+    if (!currentSale || orderItems.length === 0) return;
+    addItemsMutation.mutate({ saleId: currentSale.id, items: orderItems });
   };
 
-  // Guard: only garcom, tenant_admin, colaborador, superadmin
+  // Guard
   if (!user) return <Navigate to="/login" replace />;
   const allowedRoles = ["garcom", "tenant_admin", "colaborador", "superadmin"];
   if (!allowedRoles.includes(user.role)) {
@@ -349,6 +382,8 @@ const GarcomPage = () => {
   };
 
   const orderTotal = orderItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+  const existingTotal = existingSaleItems.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+  const isPagamento = selectedMesa ? getMesaStatus(selectedMesa) === "pagamento" : false;
 
   return (
     <div className="min-h-screen bg-background">
@@ -417,7 +452,7 @@ const GarcomPage = () => {
           )}
         </div>
       ) : (
-        /* Mesa Detail View */
+        /* Mesa Detail View - Show existing items + add button */
         <div className="flex flex-col h-[calc(100vh-60px)]">
           {/* Mesa header */}
           <div className="px-4 py-3 bg-card border-b border-border flex items-center justify-between">
@@ -433,43 +468,179 @@ const GarcomPage = () => {
               </div>
             </div>
             <div className="flex gap-2">
-              {getMesaSale(selectedMesa) && getMesaStatus(selectedMesa) !== "pagamento" && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSendingPayment(true)}
-                    className="gap-1"
-                  >
-                    <CreditCard className="w-4 h-4" /> Enviar p/ Pagamento
-                  </Button>
-                </>
+              {currentSale && !isPagamento && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSendingPayment(true)}
+                  className="gap-1"
+                >
+                  <CreditCard className="w-4 h-4" /> Enviar p/ Pagamento
+                </Button>
               )}
             </div>
           </div>
 
           <div className="flex-1 overflow-auto p-4 space-y-4">
-            {/* Current order total */}
-            {getMesaSale(selectedMesa) && (
-              <Card>
+            {/* Sale summary card */}
+            {currentSale && (
+              <Card className="border-primary/20">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Total do pedido</p>
-                    <p className="text-2xl font-bold">R$ {Number(getMesaSale(selectedMesa)!.valor_total).toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">Total do pedido</p>
+                    <p className="text-2xl font-bold">R$ {Number(currentSale.valor_total).toFixed(2)}</p>
                   </div>
-                  <Badge variant={getMesaStatus(selectedMesa) === "pagamento" ? "default" : "secondary"}>
-                    {MESA_STATUS_COLORS[getMesaStatus(selectedMesa)]?.label}
+                  <Badge variant="outline">
+                    {isPagamento ? "Aguardando Pagamento" : "Pedido Aberto"}
                   </Badge>
                 </CardContent>
               </Card>
             )}
 
-            {/* Categories filter */}
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            {/* Existing items list */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Itens do pedido</h3>
+                {!isPagamento && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setShowProductSearch(true);
+                      setSearchTerm("");
+                      setSelectedCategory(null);
+                    }}
+                    className="gap-1"
+                  >
+                    <Plus className="w-4 h-4" /> Adicionar
+                  </Button>
+                )}
+              </div>
+
+              {existingSaleItems.length === 0 && orderItems.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center py-8 text-center">
+                    <UtensilsCrossed className="w-8 h-8 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">Nenhum item adicionado ainda.</p>
+                    {!isPagamento && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3 gap-1"
+                        onClick={() => {
+                          setShowProductSearch(true);
+                          setSearchTerm("");
+                          setSelectedCategory(null);
+                        }}
+                      >
+                        <Plus className="w-4 h-4" /> Adicionar primeiro item
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-1">
+                  {/* Already saved items */}
+                  {existingSaleItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border bg-card"
+                    >
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">
+                          <span className="text-primary font-bold">{item.quantity}x</span>{" "}
+                          {item.product_name}
+                        </p>
+                        {item.observacao && (
+                          <p className="text-xs text-muted-foreground">Obs: {item.observacao}</p>
+                        )}
+                      </div>
+                      <p className="text-sm font-semibold">
+                        R$ {(item.unit_price * item.quantity).toFixed(2)}
+                      </p>
+                    </div>
+                  ))}
+
+                  {/* Pending new items (not yet sent) */}
+                  {orderItems.length > 0 && (
+                    <>
+                      <div className="pt-2 pb-1">
+                        <p className="text-xs font-semibold text-primary uppercase tracking-wide">Novos itens (não enviados)</p>
+                      </div>
+                      {orderItems.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5"
+                        >
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">
+                              <span className="text-primary font-bold">{item.quantity}x</span>{" "}
+                              {item.product_name}
+                            </p>
+                            {item.observacao && (
+                              <p className="text-xs text-muted-foreground">Obs: {item.observacao}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold">
+                              R$ {(item.unit_price * item.quantity).toFixed(2)}
+                            </p>
+                            <button onClick={() => removeFromOrder(idx)} className="text-destructive hover:bg-destructive/10 rounded p-1">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Send items footer */}
+          {orderItems.length > 0 && (
+            <div className="border-t border-border bg-card p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground">Novos itens</p>
+                  <span className="font-bold text-lg">R$ {orderTotal.toFixed(2)}</span>
+                </div>
+                <Button onClick={handleSendItems} disabled={addItemsMutation.isPending} className="gap-2">
+                  {addItemsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Enviar Itens
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Product search dialog */}
+      <Dialog open={showProductSearch} onOpenChange={setShowProductSearch}>
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Adicionar Produto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 flex-1 overflow-hidden flex flex-col">
+            {/* Search input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar produto..."
+                className="pl-9"
+                autoFocus
+              />
+            </div>
+
+            {/* Category filters */}
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant={selectedCategory === null ? "default" : "outline"}
                 size="sm"
                 onClick={() => setSelectedCategory(null)}
+                className="text-xs h-7"
               >
                 Todos
               </Button>
@@ -479,47 +650,36 @@ const GarcomPage = () => {
                   variant={selectedCategory === cat.id ? "default" : "outline"}
                   size="sm"
                   onClick={() => setSelectedCategory(cat.id)}
-                  className="whitespace-nowrap"
+                  className="text-xs h-7"
                 >
                   {cat.emoji} {cat.name}
                 </Button>
               ))}
             </div>
 
-            {/* Search */}
-            <Input
-              placeholder="Buscar produto..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-
-            {/* Products list */}
-            <div className="grid gap-2">
-              {filteredProducts.map((product) => {
-                const effectivePrice = product.has_discount && product.promo_price
-                  ? product.promo_price
-                  : product.price;
-                return (
+            {/* Product list */}
+            <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+              {filteredProducts.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">Nenhum produto encontrado.</p>
+              ) : (
+                filteredProducts.map((product) => (
                   <button
                     key={product.id}
                     onClick={() => {
-                      if (getMesaStatus(selectedMesa) === "pagamento") {
-                        toast.error("Pedido já enviado para pagamento");
-                        return;
-                      }
                       setAddingProduct(product);
                       setItemQty(1);
                       setItemObs("");
+                      setShowProductSearch(false);
                     }}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent transition-colors text-left"
+                    className="flex items-center justify-between w-full p-3 rounded-lg border border-border hover:bg-accent transition-colors text-left"
                   >
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm">{product.name}</p>
                       {product.description && (
-                        <p className="text-xs text-muted-foreground truncate max-w-[200px]">{product.description}</p>
+                        <p className="text-xs text-muted-foreground truncate">{product.description}</p>
                       )}
                     </div>
-                    <div className="text-right">
+                    <div className="text-right ml-2 shrink-0">
                       {product.has_discount && product.promo_price ? (
                         <>
                           <p className="text-xs line-through text-muted-foreground">R$ {Number(product.price).toFixed(2)}</p>
@@ -530,43 +690,14 @@ const GarcomPage = () => {
                       )}
                     </div>
                   </button>
-                );
-              })}
+                ))
+              )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
 
-          {/* Cart footer */}
-          {orderItems.length > 0 && (
-            <div className="border-t border-border bg-card p-4 space-y-3">
-              <div className="max-h-32 overflow-y-auto space-y-2">
-                {orderItems.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between text-sm">
-                    <div className="flex-1">
-                      <span className="font-medium">{item.quantity}x</span> {item.product_name}
-                      {item.observacao && <span className="text-xs text-muted-foreground ml-1">({item.observacao})</span>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">R$ {(item.unit_price * item.quantity).toFixed(2)}</span>
-                      <button onClick={() => removeFromOrder(idx)} className="text-destructive">
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between pt-2 border-t border-border">
-                <span className="font-bold">Total: R$ {orderTotal.toFixed(2)}</span>
-                <Button onClick={handleSendItems} disabled={addItemsMutation.isPending} className="gap-2">
-                  {addItemsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingBag className="w-4 h-4" />}
-                  Enviar Itens
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Dialog para adicionar produto */}
+      {/* Add product quantity/obs dialog */}
       <Dialog open={!!addingProduct} onOpenChange={(open) => !open && setAddingProduct(null)}>
         <DialogContent>
           <DialogHeader>
@@ -599,7 +730,7 @@ const GarcomPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Confirmar envio para pagamento */}
+      {/* Confirm send to payment */}
       <AlertDialog open={sendingPayment} onOpenChange={setSendingPayment}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -613,8 +744,7 @@ const GarcomPage = () => {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                const sale = selectedMesa ? getMesaSale(selectedMesa) : null;
-                if (sale) updateSaleStatusMutation.mutate({ saleId: sale.id, status: "waiting_payment" });
+                if (currentSale) updateSaleStatusMutation.mutate({ saleId: currentSale.id, status: "waiting_payment" });
               }}
             >
               Confirmar
