@@ -798,7 +798,7 @@ const MyStorePage = () => {
       </div>
 
       {/* ── Fixed bottom bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border p-4">
+      <div className="fixed bottom-0 right-0 left-0 md:left-64 z-50 bg-card/95 backdrop-blur-lg border-t border-border p-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <Button variant="outline" onClick={handleDiscard} disabled={!isDirty || saving} className="gap-2">
             <Undo2 className="w-4 h-4" />
