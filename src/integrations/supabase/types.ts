@@ -127,6 +127,125 @@ export type Database = {
           },
         ]
       }
+      combo_category_relations: {
+        Row: {
+          active: boolean
+          category_id: string
+          combo_id: string
+        }
+        Insert: {
+          active?: boolean
+          category_id: string
+          combo_id: string
+        }
+        Update: {
+          active?: boolean
+          category_id?: string
+          combo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combo_category_relations_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combo_category_relations_combo_id_fkey"
+            columns: ["combo_id"]
+            isOneToOne: false
+            referencedRelation: "combos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      combo_products: {
+        Row: {
+          active: boolean
+          combo_id: string
+          id: string
+          product_id: string
+          quantity: number
+        }
+        Insert: {
+          active?: boolean
+          combo_id: string
+          id?: string
+          product_id: string
+          quantity?: number
+        }
+        Update: {
+          active?: boolean
+          combo_id?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combo_products_combo_id_fkey"
+            columns: ["combo_id"]
+            isOneToOne: false
+            referencedRelation: "combos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "combo_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      combos: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          name: string
+          price: number
+          promo_price: number | null
+          slug: string
+          tenant_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+          price?: number
+          promo_price?: number | null
+          slug: string
+          tenant_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          price?: number
+          promo_price?: number | null
+          slug?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combos_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_addresses: {
         Row: {
           active: boolean

@@ -27,6 +27,7 @@ import ConfigsAdminPage from "./pages/admin/ConfigsAdminPage";
 import ConfiguracoesPage from "./pages/admin/ConfiguracoesPage";
 import ProductsListPage from "./pages/admin/ProductsListPage";
 import ProductFormPage from "./pages/admin/ProductFormPage";
+import ComboFormPage from "./pages/admin/ComboFormPage";
 import MyStorePage from "./pages/admin/MyStorePage";
 import NeighborhoodsPage from "./pages/admin/NeighborhoodsPage";
 
@@ -73,6 +74,8 @@ const App = () => (
                 <Route path="produtos" element={<ProductsListPage />} />
                 <Route path="produtos/novo" element={<ProductFormPage />} />
                 <Route path="produtos/:id" element={<ProductFormPage />} />
+                <Route path="produtos/combos/novo" element={<ComboFormPage />} />
+                <Route path="produtos/combos/:id" element={<ComboFormPage />} />
                 
                 <Route path="usuarios" element={<UsersListPage />} />
                 <Route path="usuarios/novo" element={<UserFormPage />} />

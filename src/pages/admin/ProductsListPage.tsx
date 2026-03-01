@@ -19,7 +19,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Power, Search, ChevronLeft, ChevronRight, FolderOpen, Loader2 } from "lucide-react";
+import { Plus, Pencil, Power, Search, ChevronLeft, ChevronRight, FolderOpen, Loader2, Package } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -31,7 +31,7 @@ interface CategoryForm {
 }
 
 const ProductsListPage = () => {
-  const { effectiveTenantId } = useAdmin();
+  const { effectiveTenantId, isSuperAdmin, isAdminTenant } = useAdmin();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -251,6 +251,38 @@ const ProductsListPage = () => {
   const formatPrice = (value: number) =>
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
+  const showCombosTab = isSuperAdmin || isAdminTenant;
+
+  // --- Combos ---
+  const { data: combos = [], isLoading: combosLoading } = useQuery({
+    queryKey: ["admin-combos", tenantId],
+    enabled: !!tenantId && showCombosTab,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("combos")
+        .select("*, combo_products(product_id, quantity, products(name))")
+        .eq("tenant_id", tenantId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const toggleComboActive = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase
+        .from("combos")
+        .update({ active: !active })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-combos"] });
+      toast.success("Status atualizado");
+    },
+    onError: () => toast.error("Erro ao atualizar status"),
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -259,14 +291,23 @@ const ProductsListPage = () => {
           <p className="text-sm text-muted-foreground">Gerencie os produtos e categorias do seu estabelecimento</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={() => navigate("/admin/produtos/novo")} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Novo Produto
-          </Button>
-          <Button variant="outline" onClick={openCreateCat} className="gap-2">
-            <FolderOpen className="w-4 h-4" />
-            Nova Categoria
-          </Button>
+          {activeTab === "combos" ? (
+            <Button onClick={() => navigate("/admin/produtos/combos/novo")} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Novo Combo
+            </Button>
+          ) : (
+            <>
+              <Button onClick={() => navigate("/admin/produtos/novo")} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Novo Produto
+              </Button>
+              <Button variant="outline" onClick={openCreateCat} className="gap-2">
+                <FolderOpen className="w-4 h-4" />
+                Nova Categoria
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -274,6 +315,7 @@ const ProductsListPage = () => {
         <TabsList>
           <TabsTrigger value="produtos">Produtos</TabsTrigger>
           <TabsTrigger value="categorias">Categorias</TabsTrigger>
+          {showCombosTab && <TabsTrigger value="combos">Combos</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="produtos" className="space-y-4 mt-4">
@@ -465,6 +507,79 @@ const ProductsListPage = () => {
             </div>
           )}
         </TabsContent>
+
+        {/* Combos tab */}
+        {showCombosTab && (
+          <TabsContent value="combos" className="mt-4">
+            {combosLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(3)].map((_, i) => (
+                  <Skeleton key={i} className="h-32 rounded-xl" />
+                ))}
+              </div>
+            ) : combos.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <div className="text-5xl mb-4">📦</div>
+                <p>Nenhum combo cadastrado</p>
+                <Button onClick={() => navigate("/admin/produtos/combos/novo")} variant="outline" className="mt-4 gap-2">
+                  <Plus className="w-4 h-4" />
+                  Criar primeiro combo
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {combos.map((combo: any) => (
+                  <Card key={combo.id} className={`transition-opacity ${!combo.active ? "opacity-50" : ""}`}>
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {combo.image_url ? (
+                            <img src={combo.image_url} alt={combo.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
+                              <Package className="w-6 h-6 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-semibold truncate">{combo.name}</p>
+                            <p className="text-sm font-bold text-primary">
+                              {combo.promo_price ? (
+                                <>
+                                  <span className="line-through text-muted-foreground text-xs mr-1">R$ {Number(combo.price).toFixed(2)}</span>
+                                  R$ {Number(combo.promo_price).toFixed(2)}
+                                </>
+                              ) : (
+                                <>R$ {Number(combo.price).toFixed(2)}</>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <Switch
+                          checked={combo.active}
+                          onCheckedChange={() => toggleComboActive.mutate({ id: combo.id, active: combo.active })}
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-0.5">
+                        {(combo.combo_products || []).map((cp: any) => (
+                          <p key={cp.product_id}>{cp.quantity}x {cp.products?.name}</p>
+                        ))}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-1"
+                        onClick={() => navigate(`/admin/produtos/combos/${combo.id}`)}
+                      >
+                        <Pencil className="w-3 h-3" />
+                        Editar
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Category Dialog */}
