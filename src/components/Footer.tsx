@@ -13,23 +13,23 @@ const Footer = () => {
       <div className="bg-muted/50 border-t border-border">
         <div className="container mx-auto px-4 py-12 md:py-16">
           <div className="max-w-2xl mx-auto text-center space-y-4">
-            <h3 className="text-lg md:text-xl font-semibold text-foreground">
-              Quer mais organização, menos erro e mais controle no seu restaurante?
+            <h3 className="text-lg md:text-xl font-semibold text-foreground">Quer mais organização, menos erro e mais controle na sua lanchonete ou restaurante?
+
             </h3>
-            <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-              Nosso sistema ajuda você a organizar pedidos, controlar estoque automaticamente e acompanhar suas vendas de forma simples.
+            <p className="text-sm md:text-base text-muted-foreground leading-relaxed">Nosso sistema ajuda você a organizar pedidos e acompanhar suas vendas de forma simples.
+
             </p>
             <div className="pt-4">
               <Button
                 size="lg"
                 className="w-full sm:w-auto gap-2"
-                asChild
-              >
+                asChild>
+
                 <a
                   href={`https://wa.me/${WHATSAPP_NUMBER}?text=${WHATSAPP_MESSAGE}`}
                   target="_blank"
-                  rel="noopener noreferrer"
-                >
+                  rel="noopener noreferrer">
+
                   Quero assinar o sistema
                   <ArrowRight className="w-4 h-4" />
                 </a>
@@ -45,14 +45,14 @@ const Footer = () => {
           <p className="text-sm text-muted-foreground">© 2025 Sabor Urbano</p>
           <a
             href="/login"
-            className="text-muted-foreground/30 hover:text-primary transition-colors"
-          >
+            className="text-muted-foreground/30 hover:text-primary transition-colors">
+
             <Settings className="w-5 h-5" />
           </a>
         </div>
       </div>
-    </footer>
-  );
+    </footer>);
+
 };
 
 export default Footer;
