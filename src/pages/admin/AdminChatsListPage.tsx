@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Clock, CalendarIcon, Monitor, X } from "lucide-react";
+import { MessageCircle, Clock, CalendarIcon, Monitor, X, Printer } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -598,6 +598,104 @@ const AdminChatsListPage = () => {
   );
 };
 
+const printReceipt = async (chat: any, e: React.MouseEvent) => {
+  e.stopPropagation();
+  const salesArr = chat.sales;
+  const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
+  if (!sale) {
+    toast.error("Nenhuma venda associada a este pedido");
+    return;
+  }
+
+  try {
+    // Fetch sale items
+    const { data: saleItems, error: itemsErr } = await supabase
+      .from("chat_messages")
+      .select("content, metadata")
+      .eq("chat_id", chat.id)
+      .eq("message_type", "order_summary")
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    // Fetch customer address from sale
+    const customerName = chat.customers?.name || "Cliente";
+    const customerPhone = chat.customers?.phone || "";
+    const saleNumber = sale.sale_number || "-";
+    const saleDate = sale.created_at ? format(new Date(sale.created_at), "dd/MM/yyyy HH:mm") : "-";
+    const total = Number(sale.valor_total || 0).toFixed(2);
+    const paymentMethod = sale.forma_pagamento || "-";
+    const financialLabel = FINANCIAL_LABELS[sale.financial_status]?.label || "Pendente";
+    const deliveryAddress = sale.delivery_address;
+    const obs = sale.observacao || "";
+
+    // Try to get order items from chat messages
+    let itemsHtml = "";
+    if (saleItems && saleItems.length > 0) {
+      const content = saleItems[0].content;
+      // Parse the order summary message content
+      itemsHtml = content
+        .split("\n")
+        .filter((line: string) => line.trim())
+        .map((line: string) => `<div style="font-size:12px;padding:1px 0">${line}</div>`)
+        .join("");
+    }
+
+    // Build address string
+    let addressHtml = "";
+    if (deliveryAddress && typeof deliveryAddress === "object") {
+      const addr = deliveryAddress as any;
+      const parts = [addr.street, addr.number, addr.complement, addr.neighborhood, addr.city].filter(Boolean);
+      if (parts.length > 0) {
+        addressHtml = `<div style="margin-top:8px;border-top:1px dashed #000;padding-top:6px">
+          <strong>Endereço:</strong><br/>${parts.join(", ")}
+          ${addr.reference ? `<br/><em>Ref: ${addr.reference}</em>` : ""}
+        </div>`;
+      }
+    }
+
+    const receiptHtml = `
+      <html><head><title>Recibo #${saleNumber}</title>
+      <style>
+        @media print { body { margin: 0; } @page { margin: 10mm; } }
+        body { font-family: monospace; max-width: 280px; margin: 0 auto; padding: 10px; font-size: 12px; }
+        .center { text-align: center; }
+        .divider { border-top: 1px dashed #000; margin: 8px 0; }
+        .bold { font-weight: bold; }
+        .row { display: flex; justify-content: space-between; }
+      </style></head><body>
+        <div class="center bold" style="font-size:16px;margin-bottom:4px">RECIBO DE PEDIDO</div>
+        <div class="center" style="font-size:11px;margin-bottom:8px">Pedido #${saleNumber}</div>
+        <div class="divider"></div>
+        <div><strong>Cliente:</strong> ${customerName}</div>
+        ${customerPhone ? `<div><strong>Tel:</strong> ${customerPhone}</div>` : ""}
+        <div><strong>Data:</strong> ${saleDate}</div>
+        <div class="divider"></div>
+        ${itemsHtml ? `<div class="bold">Itens:</div>${itemsHtml}<div class="divider"></div>` : ""}
+        ${obs ? `<div><strong>Obs:</strong> ${obs}</div><div class="divider"></div>` : ""}
+        ${addressHtml}
+        <div class="divider"></div>
+        <div class="row bold" style="font-size:14px"><span>TOTAL:</span><span>R$ ${total}</span></div>
+        <div style="margin-top:4px"><strong>Pagamento:</strong> ${paymentMethod}</div>
+        <div><strong>Status:</strong> ${financialLabel}</div>
+        <div class="divider"></div>
+        <div class="center" style="font-size:10px;margin-top:8px;color:#666">Impresso em ${format(new Date(), "dd/MM/yyyy HH:mm")}</div>
+      </body></html>
+    `;
+
+    const printWindow = window.open("", "_blank", "width=350,height=600");
+    if (printWindow) {
+      printWindow.document.write(receiptHtml);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => printWindow.print(), 300);
+    }
+  } catch (err) {
+    console.error("Erro ao imprimir recibo:", err);
+    toast.error("Erro ao gerar recibo");
+  }
+};
+
 const KanbanCard = ({
   chat,
   hasUnread,
@@ -648,9 +746,18 @@ const KanbanCard = ({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-          <Clock className="w-3 h-3" />
-          {saleTime}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={(e) => printReceipt(chat, e)}
+            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
+            title="Imprimir recibo"
+          >
+            <Printer className="w-3.5 h-3.5" />
+          </button>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock className="w-3 h-3" />
+            {saleTime}
+          </div>
         </div>
       </div>
 
