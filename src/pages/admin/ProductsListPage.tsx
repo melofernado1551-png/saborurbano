@@ -259,13 +259,13 @@ const ProductsListPage = () => {
           <p className="text-sm text-muted-foreground">Gerencie os produtos e categorias do seu estabelecimento</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={openCreateCat} className="gap-2">
-            <FolderOpen className="w-4 h-4" />
-            Nova Categoria
-          </Button>
           <Button onClick={() => navigate("/admin/produtos/novo")} className="gap-2">
             <Plus className="w-4 h-4" />
             Novo Produto
+          </Button>
+          <Button variant="outline" onClick={openCreateCat} className="gap-2">
+            <FolderOpen className="w-4 h-4" />
+            Nova Categoria
           </Button>
         </div>
       </div>
