@@ -14,10 +14,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Plus, Pencil, Trash2, Star, Sparkles, Loader2, Save, Flame, GripVertical, X, Undo2, Search,
+  Plus, Pencil, Trash2, Star, Sparkles, Loader2, Save, Flame, GripVertical, X, Undo2, Search, Package, ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useNavigate } from "react-router-dom";
 
 const MAX_SECTION_PRODUCTS = 12;
 
@@ -49,6 +50,7 @@ interface DraftFeatured {
 const MyStorePage = () => {
   const { effectiveTenantId } = useAdmin();
   const tenantId = effectiveTenantId;
+  const navigate = useNavigate();
 
   // ── Remote data ──
   const { data: tenantProducts = [] } = useQuery({
@@ -142,6 +144,22 @@ const MyStorePage = () => {
         .single();
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Fetch combos for preview
+  const { data: combos = [] } = useQuery({
+    queryKey: ["tenant-combos-vitrine", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("combos")
+        .select("id, name, price, promo_price, image_url, active, combo_products(product_id, quantity, products(name))")
+        .eq("tenant_id", tenantId!)
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
     },
   });
 
@@ -679,6 +697,68 @@ const MyStorePage = () => {
               })}
             </div>
           </EditableSection>
+
+          {/* ═══ COMBOS SECTION (read-only preview) ═══ */}
+          {combos.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Package className="w-5 h-5 text-primary" />
+                  📦 Combos
+                  <span className="text-xs font-normal text-muted-foreground ml-1">
+                    ({combos.length} combo{combos.length !== 1 ? "s" : ""} ativo{combos.length !== 1 ? "s" : ""})
+                  </span>
+                </h3>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate("/admin/produtos?tab=combos")}
+                  className="gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Gerenciar Combos
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {combos.map((combo: any) => {
+                  const comboItems = (combo.combo_products || [])
+                    .map((cp: any) => `${cp.quantity}x ${cp.products?.name}`)
+                    .join(" + ");
+                  return (
+                    <div key={combo.id} className="bg-card rounded-2xl overflow-hidden shadow-card border-2 border-primary/20">
+                      <div className="relative h-40 overflow-hidden bg-white">
+                        {combo.image_url ? (
+                          <img src={combo.image_url} alt={combo.name} className="w-full h-full object-contain" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-primary/10 to-secondary">
+                            <Package className="w-12 h-12 text-primary/50" />
+                          </div>
+                        )}
+                        <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1 shadow-md">
+                          <Package className="w-3 h-3" />
+                          Combo
+                        </div>
+                      </div>
+                      <div className="p-3">
+                        <h4 className="font-semibold text-sm text-foreground">{combo.name}</h4>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{comboItems}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          {combo.promo_price ? (
+                            <>
+                              <span className="text-base font-bold text-primary">R$ {Number(combo.promo_price).toFixed(2)}</span>
+                              <span className="text-xs text-muted-foreground line-through">R$ {Number(combo.price).toFixed(2)}</span>
+                            </>
+                          ) : (
+                            <span className="text-base font-bold text-foreground">R$ {Number(combo.price).toFixed(2)}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* ═══ CUSTOM SECTIONS ═══ */}
           {sortedActiveSections.map((section, sortedIdx) => {
