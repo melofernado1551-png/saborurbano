@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame, ShoppingBag, Settings, Heart, Package } from "lucide-react";
+import { ArrowLeft, Search, Share2, Sparkles, Plus, MessageCircle, Copy, Flame, ShoppingBag, Settings, Heart, Package, Clock } from "lucide-react";
+import { isStoreOpen, formatStoreHours } from "@/lib/storeHours";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -355,6 +356,10 @@ const RestaurantPage = () => {
     );
   }
 
+  // Check store hours
+  const storeOpen = isStoreOpen(tenant.opening_time, tenant.closing_time);
+  const hoursLabel = formatStoreHours(tenant.opening_time, tenant.closing_time);
+
   // Skeleton loaders
   const ProductSkeleton = () => (
     <div className="bg-card rounded-2xl overflow-hidden shadow-card">
@@ -369,6 +374,10 @@ const RestaurantPage = () => {
 
   const handleAddToCart = (product: typeof products[0], e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!storeOpen) {
+      toast.error(`Loja fechada no momento. Horário: ${hoursLabel || "não definido"}`);
+      return;
+    }
     const outOfStock = stockMap[product.id] !== undefined && stockMap[product.id] <= 0;
     if (outOfStock) return;
     const added = addItem(
@@ -387,6 +396,10 @@ const RestaurantPage = () => {
   };
   const handleAddComboToCart = (combo: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!storeOpen) {
+      toast.error(`Loja fechada no momento. Horário: ${hoursLabel || "não definido"}`);
+      return;
+    }
     const comboProducts = (combo.combo_products || []).map((cp: any) => ({
       productId: cp.product_id,
       name: cp.products?.name || "",
@@ -687,6 +700,23 @@ const RestaurantPage = () => {
           )}
         </div>
       </section>
+
+      {/* Store closed banner */}
+      {!storeOpen && (
+        <section className="container mx-auto px-4 mt-3">
+          <div className="flex items-center gap-3 p-4 rounded-2xl bg-destructive/10 border border-destructive/20">
+            <div className="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 text-destructive" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm text-destructive">Loja fechada no momento</p>
+              {hoursLabel && (
+                <p className="text-xs text-muted-foreground mt-0.5">Horário de funcionamento: {hoursLabel}</p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Search bar */}
       <section className="container mx-auto px-4 mt-3">
