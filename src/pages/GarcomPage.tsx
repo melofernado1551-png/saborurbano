@@ -220,7 +220,7 @@ const GarcomPage = () => {
           tipo_pedido: "mesa",
           mesa_id: mesa.id,
           numero_mesa: mesa.numero,
-          operational_status: "pending",
+          operational_status: "received",
           financial_status: "pending",
           valor_total: 0,
         } as any)
