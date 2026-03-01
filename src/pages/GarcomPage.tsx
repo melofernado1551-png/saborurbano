@@ -92,7 +92,7 @@ interface MesaSale {
 
 const MESA_STATUS_COLORS: Record<string, { bg: string; border: string; text: string; label: string }> = {
   livre: { bg: "bg-muted", border: "border-border", text: "text-muted-foreground", label: "Livre" },
-  aberto: { bg: "bg-blue-50 dark:bg-blue-950/30", border: "border-blue-300 dark:border-blue-700", text: "text-blue-700 dark:text-blue-300", label: "Pedido Aberto" },
+  aberto: { bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-300 dark:border-amber-700", text: "text-amber-700 dark:text-amber-300", label: "Pedido Aberto" },
   andamento: { bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-300 dark:border-amber-700", text: "text-amber-700 dark:text-amber-300", label: "Em Andamento" },
   pagamento: { bg: "bg-emerald-50 dark:bg-emerald-950/30", border: "border-emerald-300 dark:border-emerald-700", text: "text-emerald-700 dark:text-emerald-300", label: "Aguardando Pagamento" },
 };
@@ -111,6 +111,7 @@ const GarcomPage = () => {
   const [itemObs, setItemObs] = useState("");
   const [sendingPayment, setSendingPayment] = useState(false);
   const [showProductSearch, setShowProductSearch] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const tenantId = user?.tenant_id;
 
@@ -500,14 +501,24 @@ const GarcomPage = () => {
             </div>
             <div className="flex gap-2">
               {currentSale && !isPagamento && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSendingPayment(true)}
-                  className="gap-1"
-                >
-                  <CreditCard className="w-4 h-4" /> Enviar p/ Pagamento
-                </Button>
+                <>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => setShowCancelConfirm(true)}
+                    className="gap-1"
+                  >
+                    <X className="w-4 h-4" /> Cancelar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSendingPayment(true)}
+                    className="gap-1"
+                  >
+                    <CreditCard className="w-4 h-4" /> Enviar p/ Pagamento
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -790,6 +801,32 @@ const GarcomPage = () => {
               }}
             >
               Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm cancel order */}
+      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar pedido da Mesa {selectedMesa?.numero}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os itens serão descartados e a mesa ficará livre novamente. Essa ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (currentSale) {
+                  updateSaleStatusMutation.mutate({ saleId: currentSale.id, status: "cancelled" });
+                  setShowCancelConfirm(false);
+                }
+              }}
+            >
+              Confirmar cancelamento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
