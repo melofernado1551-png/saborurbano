@@ -1488,6 +1488,7 @@ export type Database = {
           numero_mesa: number | null
           observacao: string | null
           operational_status: string
+          representante: string | null
           sale_number: number | null
           tenant_id: string
           tipo_pedido: string
@@ -1513,6 +1514,7 @@ export type Database = {
           numero_mesa?: number | null
           observacao?: string | null
           operational_status?: string
+          representante?: string | null
           sale_number?: number | null
           tenant_id: string
           tipo_pedido?: string
@@ -1538,6 +1540,7 @@ export type Database = {
           numero_mesa?: number | null
           observacao?: string | null
           operational_status?: string
+          representante?: string | null
           sale_number?: number | null
           tenant_id?: string
           tipo_pedido?: string

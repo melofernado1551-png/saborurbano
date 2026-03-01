@@ -40,6 +40,8 @@ import {
   Copy,
   Check,
   DollarSign,
+  Printer,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -95,6 +97,7 @@ interface MesaSale {
   valor_total: number;
   mesa_id: string;
   numero_mesa: number;
+  representante: string | null;
 }
 
 const MESA_STATUS_COLORS: Record<string, { bg: string; border: string; text: string; label: string }> = {
@@ -124,6 +127,8 @@ const GarcomPage = () => {
   const [pixCopied, setPixCopied] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [changeAmount, setChangeAmount] = useState("");
+  const [showRepresentanteModal, setShowRepresentanteModal] = useState(false);
+  const [representanteInput, setRepresentanteInput] = useState("");
 
   const tenantId = user?.tenant_id;
 
@@ -150,7 +155,7 @@ const GarcomPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales")
-        .select("id, sale_number, operational_status, financial_status, valor_total, mesa_id, numero_mesa")
+        .select("id, sale_number, operational_status, financial_status, valor_total, mesa_id, numero_mesa, representante")
         .eq("tenant_id", tenantId!)
         .eq("tipo_pedido", "mesa")
         .eq("active", true)
@@ -199,13 +204,86 @@ const GarcomPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tenants")
-        .select("pix_copy_paste, pix_receiver_name")
+        .select("pix_copy_paste, pix_receiver_name, name, address, city, whatsapp_number")
         .eq("id", tenantId!)
         .single();
       if (error) throw error;
       return data;
     },
   });
+
+  // Save representante mutation
+  const saveRepresentanteMutation = useMutation({
+    mutationFn: async ({ saleId, representante }: { saleId: string; representante: string }) => {
+      const { error } = await supabase
+        .from("sales")
+        .update({ representante: representante || null } as any)
+        .eq("id", saleId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["garcom-mesa-sales"] });
+      toast.success("Representante salvo!");
+      setShowRepresentanteModal(false);
+    },
+  });
+
+  // Print receipt function
+  const handlePrintReceipt = () => {
+    if (!currentSale || !selectedMesa) return;
+    const now = new Date();
+    const dateStr = now.toLocaleDateString("pt-BR");
+    const timeStr = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+    const itemsHtml = existingSaleItems.map(item => `
+      <tr>
+        <td style="text-align:left;">${item.quantity}x ${item.product_name}</td>
+        <td style="text-align:right;">R$ ${(item.unit_price * item.quantity).toFixed(2)}</td>
+      </tr>
+      ${item.observacao ? `<tr><td colspan="2" style="font-size:10px;color:#666;padding-left:10px;">Obs: ${item.observacao}</td></tr>` : ""}
+    `).join("");
+
+    const receiptHtml = `
+      <html><head><title>Nota Mesa ${selectedMesa.numero}</title>
+      <style>
+        @media print { body { margin: 0; } @page { margin: 10mm; } }
+        body { font-family: monospace; max-width: 280px; margin: 0 auto; padding: 10px; font-size: 12px; }
+        .center { text-align: center; }
+        .divider { border-top: 1px dashed #000; margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 2px 0; }
+        .bold { font-weight: bold; }
+      </style></head><body>
+        <div class="center bold" style="font-size:14px;">${tenantData?.name || "Estabelecimento"}</div>
+        ${tenantData?.address ? `<div class="center" style="font-size:10px;">${tenantData.address}${tenantData.city ? ` - ${tenantData.city}` : ""}</div>` : ""}
+        ${tenantData?.whatsapp_number ? `<div class="center" style="font-size:10px;">Tel: ${tenantData.whatsapp_number}</div>` : ""}
+        <div class="divider"></div>
+        <div class="center bold">MESA ${selectedMesa.numero}</div>
+        ${currentSale.sale_number ? `<div class="center">Pedido #${currentSale.sale_number}</div>` : ""}
+        ${currentSale.representante ? `<div class="center">Representante: ${currentSale.representante}</div>` : ""}
+        <div class="center" style="font-size:10px;">${dateStr} ${timeStr}</div>
+        <div class="divider"></div>
+        <table>${itemsHtml}</table>
+        <div class="divider"></div>
+        <table>
+          <tr class="bold">
+            <td>TOTAL</td>
+            <td style="text-align:right;font-size:14px;">R$ ${Number(currentSale.valor_total).toFixed(2)}</td>
+          </tr>
+        </table>
+        <div class="divider"></div>
+        <div class="center" style="font-size:10px;">Obrigado pela preferência!</div>
+      </body></html>
+    `;
+
+    const printWindow = window.open("", "_blank", "width=350,height=600");
+    if (printWindow) {
+      printWindow.document.write(receiptHtml);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => printWindow.print(), 300);
+    }
+  };
 
   const generatedPix = tenantData?.pix_copy_paste && currentSale
     ? generatePixWithAmount(tenantData.pix_copy_paste, Number(currentSale.valor_total))
@@ -670,14 +748,49 @@ const GarcomPage = () => {
             {/* Sale summary card */}
             {currentSale && (
               <Card className="border-primary/20">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Total do pedido</p>
-                    <p className="text-2xl font-bold">R$ {Number(currentSale.valor_total).toFixed(2)}</p>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total do pedido</p>
+                      <p className="text-2xl font-bold">R$ {Number(currentSale.valor_total).toFixed(2)}</p>
+                    </div>
+                    <Badge variant="outline">
+                      {isPagamento ? "Aguardando Pagamento" : "Pedido Aberto"}
+                    </Badge>
                   </div>
-                  <Badge variant="outline">
-                    {isPagamento ? "Aguardando Pagamento" : "Pedido Aberto"}
-                  </Badge>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <User className="w-4 h-4 text-muted-foreground shrink-0" />
+                      {currentSale.representante ? (
+                        <span className="text-sm truncate">{currentSale.representante}</span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground italic">Sem representante</span>
+                      )}
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setRepresentanteInput(currentSale.representante || "");
+                          setShowRepresentanteModal(true);
+                        }}
+                        className="gap-1 h-7 text-xs"
+                      >
+                        <User className="w-3 h-3" /> {currentSale.representante ? "Editar" : "Definir"}
+                      </Button>
+                      {existingSaleItems.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePrintReceipt}
+                          className="gap-1 h-7 text-xs"
+                        >
+                          <Printer className="w-3 h-3" /> Nota
+                        </Button>
+                      )}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -1183,6 +1296,39 @@ const GarcomPage = () => {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* Representante Modal */}
+      <Dialog open={showRepresentanteModal} onOpenChange={setShowRepresentanteModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Representante da Mesa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Nome do representante</Label>
+              <Input
+                value={representanteInput}
+                onChange={(e) => setRepresentanteInput(e.target.value)}
+                placeholder="Nome da pessoa..."
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRepresentanteModal(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                if (currentSale) {
+                  saveRepresentanteMutation.mutate({ saleId: currentSale.id, representante: representanteInput.trim() });
+                }
+              }}
+              disabled={saveRepresentanteMutation.isPending}
+            >
+              {saveRepresentanteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              Salvar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
