@@ -3,9 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Clock, CalendarIcon, Monitor, X, Printer } from "lucide-react";
+import { MessageCircle, Clock, CalendarIcon, Monitor, X, Printer, UtensilsCrossed, Truck } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -59,6 +60,8 @@ const AdminChatsListPage = () => {
 
   // TV mode
   const [tvMode, setTvMode] = useState(false);
+  // Tipo pedido filter
+  const [tipoPedidoFilter, setTipoPedidoFilter] = useState<"todos" | "delivery" | "mesa">("todos");
 
   // Drag state
   const [draggedChat, setDraggedChat] = useState<any>(null);
@@ -111,7 +114,7 @@ const AdminChatsListPage = () => {
       // Fetch active chats (non-finished, non-cancelled)
       const { data: activeChats, error: err1 } = await supabase
         .from("chats")
-        .select("*, customers(name, phone), sales!sales_chat_id_fkey(id, sale_number, valor_total, financial_status, operational_status, created_at)")
+        .select("*, customers(name, phone), sales!sales_chat_id_fkey(id, sale_number, valor_total, financial_status, operational_status, created_at, tipo_pedido, numero_mesa)")
         .eq("tenant_id", tenantId!)
         .eq("active", true)
         .order("updated_at", { ascending: false });
@@ -124,7 +127,7 @@ const AdminChatsListPage = () => {
       selectedEnd.setHours(23, 59, 59, 999);
       const { data: closedChats, error: err2 } = await supabase
         .from("chats")
-        .select("*, customers(name, phone), sales!sales_chat_id_fkey(id, sale_number, valor_total, financial_status, operational_status, created_at, cancel_reason, canceled_by)")
+        .select("*, customers(name, phone), sales!sales_chat_id_fkey(id, sale_number, valor_total, financial_status, operational_status, created_at, cancel_reason, canceled_by, tipo_pedido, numero_mesa)")
         .eq("tenant_id", tenantId!)
         .eq("active", false)
         .eq("status", "closed")
@@ -178,6 +181,11 @@ const AdminChatsListPage = () => {
   chats.forEach((chat: any) => {
     const salesArr = chat.sales;
     const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
+    // Filter by tipo_pedido
+    if (tipoPedidoFilter !== "todos") {
+      const tipo = sale?.tipo_pedido || "delivery";
+      if (tipo !== tipoPedidoFilter) return;
+    }
     const status = sale?.operational_status || "received";
     if (grouped[status]) {
       grouped[status].push(chat);
@@ -410,7 +418,14 @@ const AdminChatsListPage = () => {
                                 {customerName.charAt(0).toUpperCase()}
                               </div>
                               <div className="min-w-0">
-                                <p className="font-bold text-lg text-foreground truncate">{customerName}</p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-bold text-lg text-foreground truncate">{customerName}</p>
+                                  {sale?.tipo_pedido === "mesa" ? (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-600 dark:text-amber-400">🍽️ Mesa {sale.numero_mesa}</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-400 text-blue-600 dark:text-blue-400">🛵</Badge>
+                                  )}
+                                </div>
                                 {sale?.sale_number && (
                                   <p className="text-sm text-muted-foreground">Pedido #{sale.sale_number}</p>
                                 )}
@@ -451,10 +466,38 @@ const AdminChatsListPage = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <MessageCircle className="w-6 h-6 text-primary" />
-          Pedidos / Kanban
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+            <MessageCircle className="w-6 h-6 text-primary" />
+            Pedidos / Kanban
+          </h1>
+          <div className="flex items-center gap-1 ml-2">
+            <Button
+              variant={tipoPedidoFilter === "todos" ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs px-2"
+              onClick={() => setTipoPedidoFilter("todos")}
+            >
+              Todos
+            </Button>
+            <Button
+              variant={tipoPedidoFilter === "delivery" ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs px-2 gap-1"
+              onClick={() => setTipoPedidoFilter("delivery")}
+            >
+              🛵 Delivery
+            </Button>
+            <Button
+              variant={tipoPedidoFilter === "mesa" ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs px-2 gap-1"
+              onClick={() => setTipoPedidoFilter("mesa")}
+            >
+              🍽️ Mesa
+            </Button>
+          </div>
+        </div>
         <div className="flex items-center gap-2 text-sm">
           <Button variant="outline" size="sm" onClick={() => setTvMode(true)} className="gap-1.5 mr-2">
             <Monitor className="w-4 h-4" />

@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
   LayoutGrid,
   MapPin,
+  UtensilsCrossed,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -41,6 +42,7 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
   const isAdminTenant = user?.role === "tenant_admin";
   const isContador = user?.role === "contador";
   const isColaborador = user?.role === "colaborador";
+  const isGarcom = user?.role === "garcom";
 
   // Build nav items based on role
   const navItems = [
@@ -66,6 +68,9 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       ? [{ label: "Bairros / Frete", icon: MapPin, path: "/admin/bairros" }]
       : []),
     ...(isSuperAdmin || isAdminTenant
+      ? [{ label: "Mesas", icon: UtensilsCrossed, path: "/admin/mesas" }]
+      : []),
+    ...(isSuperAdmin || isAdminTenant
       ? [{ label: "Minha Vitrine", icon: LayoutGrid, path: "/admin/meu-perfil" }]
       : []),
     ...(isSuperAdmin || isAdminTenant
@@ -73,6 +78,9 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       : []),
     ...(!isContador
       ? [{ label: "Configurações", icon: Settings, path: isAdminTenant ? "/admin/configuracoes" : "/admin/configs-admin" }]
+      : []),
+    ...(!isContador
+      ? [{ label: "Painel Garçom", icon: UtensilsCrossed, path: "/garcom" }]
       : []),
   ];
 
@@ -85,6 +93,8 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       ? "Colaborador"
       : user?.role === "contador"
       ? "Contador"
+      : user?.role === "garcom"
+      ? "Garçom"
       : "Usuário";
 
   return (

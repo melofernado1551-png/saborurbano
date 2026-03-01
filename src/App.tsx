@@ -30,6 +30,8 @@ import ProductFormPage from "./pages/admin/ProductFormPage";
 import ComboFormPage from "./pages/admin/ComboFormPage";
 import MyStorePage from "./pages/admin/MyStorePage";
 import NeighborhoodsPage from "./pages/admin/NeighborhoodsPage";
+import MesasPage from "./pages/admin/MesasPage";
+import GarcomPage from "./pages/GarcomPage";
 
 import RestaurantPage from "./pages/RestaurantPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
@@ -88,8 +90,10 @@ const App = () => (
                 <Route path="tenants/:id" element={<TenantFormPage />} />
                 <Route path="tags" element={<TagsPage />} />
                 <Route path="bairros" element={<NeighborhoodsPage />} />
+                <Route path="mesas" element={<MesasPage />} />
                 <Route path="configs-admin" element={<ConfigsAdminPage />} />
               </Route>
+              <Route path="/garcom" element={<GarcomPage />} />
               <Route path="/loja/:slug" element={<RestaurantPage />} />
               <Route path="/chat/:chatId" element={<CustomerChatPage />} />
               <Route path="/meus-pedidos" element={<CustomerOrdersPage />} />

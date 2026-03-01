@@ -665,6 +665,41 @@ export type Database = {
         }
         Relationships: []
       }
+      mesas: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          identificador: string | null
+          numero: number
+          tenant_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          identificador?: string | null
+          numero: number
+          tenant_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          identificador?: string | null
+          numero?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mesas_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mini_promo_banners: {
         Row: {
           active: boolean
@@ -1398,10 +1433,13 @@ export type Database = {
           financial_status: string
           forma_pagamento: string | null
           id: string
+          mesa_id: string | null
+          numero_mesa: number | null
           observacao: string | null
           operational_status: string
           sale_number: number | null
           tenant_id: string
+          tipo_pedido: string
           valor_total: number
         }
         Insert: {
@@ -1420,10 +1458,13 @@ export type Database = {
           financial_status?: string
           forma_pagamento?: string | null
           id?: string
+          mesa_id?: string | null
+          numero_mesa?: number | null
           observacao?: string | null
           operational_status?: string
           sale_number?: number | null
           tenant_id: string
+          tipo_pedido?: string
           valor_total?: number
         }
         Update: {
@@ -1442,10 +1483,13 @@ export type Database = {
           financial_status?: string
           forma_pagamento?: string | null
           id?: string
+          mesa_id?: string | null
+          numero_mesa?: number | null
           observacao?: string | null
           operational_status?: string
           sale_number?: number | null
           tenant_id?: string
+          tipo_pedido?: string
           valor_total?: number
         }
         Relationships: [
@@ -1461,6 +1505,13 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_mesa_id_fkey"
+            columns: ["mesa_id"]
+            isOneToOne: false
+            referencedRelation: "mesas"
             referencedColumns: ["id"]
           },
           {
