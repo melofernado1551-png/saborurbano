@@ -46,8 +46,8 @@ const PAYMENT_METHODS = [
 const OP_STATUSES = [
   { value: "received", label: "Pedido recebido", emoji: "📥" },
   { value: "preparing", label: "Em preparo", emoji: "👨‍🍳" },
-  { value: "delivering", label: "Saiu para entrega", emoji: "🛵" },
   { value: "delivering_pending", label: "Aguardando confirmação", emoji: "📦" },
+  { value: "delivering", label: "Saiu para entrega", emoji: "🛵" },
   { value: "finished", label: "Finalizado", emoji: "✅" },
 ];
 
