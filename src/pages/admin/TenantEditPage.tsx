@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { X, Upload, Loader2, Store, Image, Truck, QrCode } from "lucide-react";
+import { X, Upload, Loader2, Store, Image, Truck, QrCode, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 const CATEGORIES = [
@@ -40,6 +40,7 @@ interface TenantEditForm {
   shipping_fee: string;
   pix_copy_paste: string;
   pix_receiver_name: string;
+  require_paid_for_delivery: boolean;
 }
 
 const TenantEditPage = () => {
@@ -53,6 +54,7 @@ const TenantEditPage = () => {
     owner_phone: "", owner_email: "", opening_time: "08:00", closing_time: "22:00",
     free_shipping: false, shipping_fee: "",
     pix_copy_paste: "", pix_receiver_name: "",
+    require_paid_for_delivery: true,
   });
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -97,6 +99,7 @@ const TenantEditPage = () => {
         shipping_fee: (tenant as any).shipping_fee != null ? String((tenant as any).shipping_fee) : "",
         pix_copy_paste: (tenant as any).pix_copy_paste || "",
         pix_receiver_name: (tenant as any).pix_receiver_name || "",
+        require_paid_for_delivery: (tenant as any).require_paid_for_delivery !== false,
       });
       setLogoUrl(tenant.logo_url || null);
       setCoverUrl(tenant.cover_url || null);
@@ -167,6 +170,7 @@ const TenantEditPage = () => {
         cover_url: coverUrl || null,
         pix_copy_paste: form.pix_copy_paste || null,
         pix_receiver_name: form.pix_receiver_name || null,
+        require_paid_for_delivery: form.require_paid_for_delivery,
       };
       const { error } = await supabase.from("tenants").update(payload).eq("id", tenantId!);
       if (error) throw error;
@@ -365,6 +369,28 @@ const TenantEditPage = () => {
               <p className="text-xs text-muted-foreground">Se não informar um valor, será exibido "Frete a combinar" no card da loja</p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Regras de Pedido */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5" />
+            Regras de Pedido
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <label className="flex items-center gap-3 cursor-pointer rounded-lg border px-4 py-3 hover:bg-secondary transition-colors">
+            <Checkbox
+              checked={form.require_paid_for_delivery}
+              onCheckedChange={(checked) => set("require_paid_for_delivery", !!checked)}
+            />
+            <div>
+              <span className="text-sm font-medium">Exigir pagamento antes da entrega</span>
+              <p className="text-xs text-muted-foreground">Se ativo, o pedido só poderá sair para entrega após estar totalmente pago</p>
+            </div>
+          </label>
         </CardContent>
       </Card>
 

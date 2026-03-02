@@ -110,6 +110,18 @@ const AdminChatsListPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, [tenantId, queryClient]);
 
+  // Fetch tenant config for require_paid_for_delivery
+  const { data: tenantConfig } = useQuery({
+    queryKey: ["tenant-config", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tenants").select("require_paid_for_delivery").eq("id", tenantId!).single();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const requirePaidForDelivery = tenantConfig?.require_paid_for_delivery !== false;
+
   const { data: chats = [], isLoading } = useQuery({
     queryKey: ["admin-chats-kanban", tenantId, finishedDateFrom.toDateString(), finishedDateTo.toDateString()],
     enabled: !!tenantId,
@@ -264,6 +276,15 @@ const AdminChatsListPage = () => {
       toast.error("Use a validação de código no chat do pedido.");
       setDraggedChat(null);
       return;
+    }
+    // Block delivering if require_paid_for_delivery is on and not paid
+    if (colKey === "delivering" && requirePaidForDelivery) {
+      const financialStatus = sale?.financial_status || "pending";
+      if (financialStatus !== "paid") {
+        toast.error("O pedido precisa estar pago antes de sair para entrega.");
+        setDraggedChat(null);
+        return;
+      }
     }
     // Don't allow drag from cancelled, finished, or delivering_pending
     if (currentStatus === "cancelled" || currentStatus === "finished" || currentStatus === "delivering_pending") {
