@@ -445,6 +445,8 @@ const GarcomPage = () => {
           operational_status: "received",
           financial_status: "pending",
           valor_total: 0,
+          garcom_id: user?.id || null,
+          garcom_nome: user?.name || user?.login || null,
         } as any)
         .select("id, sale_number")
         .single();
