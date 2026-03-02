@@ -164,7 +164,7 @@ const AdminChatsListPage = () => {
 
       const { data: mesaSales, error: err3 } = await supabase
         .from("sales")
-        .select("id, sale_number, valor_total, financial_status, operational_status, created_at, tipo_pedido, numero_mesa, customer_id, representante")
+        .select("id, sale_number, valor_total, financial_status, operational_status, created_at, tipo_pedido, numero_mesa, customer_id, representante, garcom_nome")
         .eq("tenant_id", tenantId!)
         .eq("active", true)
         .eq("tipo_pedido", "mesa")
@@ -809,6 +809,11 @@ const MesaSaleDetailDialog = ({ sale, open, onClose }: { sale: any; open: boolea
             {currentSale?.representante && (
               <Badge variant="secondary" className="text-xs gap-1">
                 <User className="w-3 h-3" /> {currentSale.representante}
+              </Badge>
+            )}
+            {currentSale?.garcom_nome && (
+              <Badge variant="outline" className="text-xs gap-1">
+                🍽️ Garçom: {currentSale.garcom_nome}
               </Badge>
             )}
           </div>
