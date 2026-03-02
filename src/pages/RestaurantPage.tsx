@@ -231,6 +231,20 @@ const RestaurantPage = () => {
     });
   }, [products, searchQuery, activeCategories, categoryMap, categories, showFeaturedOnly, tenantFeaturedIds]);
 
+  // Filter combos by search
+  const filteredCombos = useMemo(() => {
+    if (!searchQuery.trim()) return combos;
+    const q = searchQuery.toLowerCase();
+    return combos.filter((c: any) => {
+      const matchesName = c.name.toLowerCase().includes(q);
+      const matchesDesc = (c.description || "").toLowerCase().includes(q);
+      const matchesItems = (c.combo_products || []).some((cp: any) =>
+        (cp.products?.name || "").toLowerCase().includes(q)
+      );
+      return matchesName || matchesDesc || matchesItems;
+    });
+  }, [combos, searchQuery]);
+
   const featuredProducts = filteredProducts.filter((p) => tenantFeaturedIds.includes(p.id));
   const generalProducts = filteredProducts;
 
@@ -840,13 +854,13 @@ const RestaurantPage = () => {
             )}
 
             {/* Combos section */}
-            {combos.length > 0 && activeCategories.length === 0 && !showFeaturedOnly && !searchQuery && (
+            {filteredCombos.length > 0 && activeCategories.length === 0 && !showFeaturedOnly && (
               <section>
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                   📦 Combos
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {combos.map((combo: any) => (
+                  {filteredCombos.map((combo: any) => (
                     <ComboCard key={combo.id} combo={combo} />
                   ))}
                 </div>
