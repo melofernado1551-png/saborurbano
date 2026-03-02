@@ -1,0 +1,2 @@
+ALTER TABLE public.profiles DROP CONSTRAINT valid_role;
+ALTER TABLE public.profiles ADD CONSTRAINT valid_role CHECK (role IN ('superadmin', 'tenant_admin', 'colaborador', 'contador', 'garcom', 'entregador'));
