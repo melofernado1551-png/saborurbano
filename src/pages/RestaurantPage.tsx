@@ -458,6 +458,32 @@ const RestaurantPage = () => {
             <Package className="w-3 h-3" />
             Combo
           </div>
+          {/* Share & WhatsApp buttons */}
+          <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const comboUrl = `${window.location.origin}/${tenant!.slug}/combo/${combo.slug}`;
+                navigator.clipboard.writeText(comboUrl);
+                toast.success("Link do combo copiado!");
+              }}
+              className="w-8 h-8 rounded-full bg-card/90 backdrop-blur-sm flex items-center justify-center hover:scale-110 transition-transform"
+              title="Copiar link"
+            >
+              <Copy className="w-3.5 h-3.5 text-foreground" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const comboUrl = `${window.location.origin}/${tenant!.slug}/combo/${combo.slug}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(`Confira o combo ${combo.name} no ${tenant!.name}! ${comboUrl}`)}`, "_blank");
+              }}
+              className="w-8 h-8 rounded-full bg-green-500/90 backdrop-blur-sm flex items-center justify-center hover:scale-110 transition-transform"
+              title="Compartilhar via WhatsApp"
+            >
+              <MessageCircle className="w-3.5 h-3.5 text-white" />
+            </button>
+          </div>
         </div>
         <div className="p-3">
           <h4 className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">{combo.name}</h4>
