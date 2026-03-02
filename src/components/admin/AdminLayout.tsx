@@ -73,6 +73,14 @@ const AdminLayout = () => {
     return <Navigate to="/login" replace />;
   }
 
+  // Garçom and Entregador can only access their specific panels
+  if (user.role === "garcom") {
+    return <Navigate to="/garcom" replace />;
+  }
+  if (user.role === "entregador") {
+    return <Navigate to="/entregador" replace />;
+  }
+
   if (mustChangePassword) {
     return <Navigate to="/alterar-senha" replace />;
   }
