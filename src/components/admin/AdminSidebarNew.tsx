@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   MapPin,
   UtensilsCrossed,
+  Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -43,7 +44,7 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
   const isContador = user?.role === "contador";
   const isColaborador = user?.role === "colaborador";
   const isGarcom = user?.role === "garcom";
-
+  const isEntregador = user?.role === "entregador";
   // Build nav items based on role
   const navItems = [
     { label: "Dashboard", icon: LayoutDashboard, path: "/admin" },
@@ -82,6 +83,9 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
     ...(!isContador
       ? [{ label: "Painel Garçom", icon: UtensilsCrossed, path: "/garcom" }]
       : []),
+    ...(!isContador
+      ? [{ label: "Painel Entregador", icon: Truck, path: "/entregador" }]
+      : []),
   ];
 
   const roleLabel =
@@ -95,6 +99,8 @@ const AdminSidebarNew = ({ onNavigate }: Props) => {
       ? "Contador"
       : user?.role === "garcom"
       ? "Garçom"
+      : user?.role === "entregador"
+      ? "Entregador"
       : "Usuário";
 
   return (

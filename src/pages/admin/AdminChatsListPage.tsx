@@ -30,6 +30,7 @@ import { toast } from "sonner";
 const KANBAN_COLUMNS = [
   { key: "received", label: "Aguardando", emoji: "📥", color: "border-t-blue-500" },
   { key: "preparing", label: "Em preparo", emoji: "👨‍🍳", color: "border-t-yellow-500" },
+  { key: "ready", label: "Pronto", emoji: "✅", color: "border-t-green-500" },
   { key: "delivering_pending", label: "Aguard. confirmação", emoji: "📦", color: "border-t-purple-500" },
   { key: "delivering", label: "Saiu p/ entrega", emoji: "🛵", color: "border-t-orange-500" },
   { key: "finished", label: "Finalizado", emoji: "✅", color: "border-t-green-600" },
@@ -39,6 +40,7 @@ const KANBAN_COLUMNS = [
 const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Pedido recebido", emoji: "📥" },
   preparing: { label: "Em preparo", emoji: "👨‍🍳" },
+  ready: { label: "Pronto", emoji: "✅" },
   delivering: { label: "Saiu para entrega", emoji: "🛵" },
   delivering_pending: { label: "Aguardando confirmação", emoji: "📦" },
   finished: { label: "Finalizado", emoji: "✅" },
@@ -224,7 +226,7 @@ const AdminChatsListPage = () => {
   }, []);
 
   // Group chats by operational status
-  const grouped: Record<string, any[]> = { received: [], preparing: [], delivering: [], delivering_pending: [], finished: [], cancelled: [] };
+  const grouped: Record<string, any[]> = { received: [], preparing: [], ready: [], delivering: [], delivering_pending: [], finished: [], cancelled: [] };
   chats.forEach((chat: any) => {
     const salesArr = chat.sales;
     const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
@@ -308,15 +310,37 @@ const AdminChatsListPage = () => {
     }
 
     try {
-      const { error: updateErr } = await supabase.from("sales").update({ operational_status: toStatus }).eq("id", sale.id);
+      const updateData: any = { operational_status: toStatus };
+
+      // If moving to delivering, record entregador info
+      if (toStatus === "delivering" && user) {
+        updateData.entregador_id = user.id;
+        updateData.entregador_nome = user.name || user.login;
+        updateData.hora_saida_entrega = new Date().toISOString();
+      }
+
+      // If moving to finished from delivering, record delivery time
+      if (toStatus === "finished" && sale.operational_status === "delivering") {
+        updateData.hora_entrega = new Date().toISOString();
+      }
+
+      const { error: updateErr } = await supabase.from("sales").update(updateData).eq("id", sale.id);
       if (updateErr) throw updateErr;
 
-      const statusInfo = STATUS_LABELS[toStatus] || { label: toStatus, emoji: "📋" };
+      // Custom message for delivering
+      let statusMessage: string;
+      if (toStatus === "delivering" && user) {
+        statusMessage = `🛵 Seu pedido saiu para entrega com ${user.name || user.login || "Entregador"}`;
+      } else {
+        const statusInfo = STATUS_LABELS[toStatus] || { label: toStatus, emoji: "📋" };
+        statusMessage = `${statusInfo.emoji} Status atualizado: **${statusInfo.label}**`;
+      }
+
       await supabase.from("chat_messages").insert({
         chat_id: chat.id,
         sender_id: user.id || null,
         sender_type: "system",
-        content: `${statusInfo.emoji} Status atualizado: **${statusInfo.label}**`,
+        content: statusMessage,
         message_type: "status_update",
         metadata: { sender_name: user.name || user.login || "Sistema" },
       });
