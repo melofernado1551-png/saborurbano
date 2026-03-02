@@ -429,7 +429,8 @@ const RestaurantPage = () => {
 
     return (
       <div
-        className="group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 border-2 border-primary/20"
+        className="group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover transition-all duration-300 border-2 border-primary/20 cursor-pointer"
+        onClick={() => navigate(`/${tenant!.slug}/combo/${combo.slug}`)}
       >
         <div className="relative h-40 overflow-hidden bg-white">
           {combo.image_url ? (
