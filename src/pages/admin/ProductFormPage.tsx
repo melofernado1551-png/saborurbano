@@ -462,8 +462,12 @@ const ProductFormPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-products"] });
-      queryClient.invalidateQueries({ queryKey: ["product-images"] });
-      queryClient.invalidateQueries({ queryKey: ["product-addons-admin"] });
+      queryClient.invalidateQueries({ queryKey: ["product-detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["product-images", id] });
+      queryClient.invalidateQueries({ queryKey: ["product-cat-rel", id] });
+      queryClient.invalidateQueries({ queryKey: ["product-tag-rels", id] });
+      queryClient.invalidateQueries({ queryKey: ["product-addons-admin", id] });
+      queryClient.invalidateQueries({ queryKey: ["product-featured", id] });
       toast.success(isEditing ? "Produto atualizado!" : "Produto criado!");
       navigate("/admin/produtos");
     },
