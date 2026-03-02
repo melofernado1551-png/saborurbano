@@ -30,8 +30,8 @@ import { toast } from "sonner";
 const KANBAN_COLUMNS = [
   { key: "received", label: "Aguardando", emoji: "📥", color: "border-t-blue-500" },
   { key: "preparing", label: "Em preparo", emoji: "👨‍🍳", color: "border-t-yellow-500" },
-  { key: "delivering", label: "Saiu p/ entrega", emoji: "🛵", color: "border-t-orange-500" },
   { key: "delivering_pending", label: "Aguard. confirmação", emoji: "📦", color: "border-t-purple-500" },
+  { key: "delivering", label: "Saiu p/ entrega", emoji: "🛵", color: "border-t-orange-500" },
   { key: "finished", label: "Finalizado", emoji: "✅", color: "border-t-green-600" },
   { key: "cancelled", label: "Cancelado", emoji: "❌", color: "border-t-red-500" },
 ];
