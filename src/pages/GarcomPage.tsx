@@ -657,7 +657,7 @@ const GarcomPage = () => {
   if (!user) return <Navigate to="/login" replace />;
   const allowedRoles = ["garcom", "tenant_admin", "colaborador", "superadmin"];
   if (!allowedRoles.includes(user.role)) {
-    return <Navigate to="/admin" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   const handleLogout = async () => {

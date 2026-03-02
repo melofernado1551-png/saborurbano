@@ -140,7 +140,7 @@ const EntregadorPage = () => {
   };
 
   if (!user) return <Navigate to="/login" />;
-  if (!isAllowed) return <Navigate to="/admin" />;
+  if (!isAllowed) return <Navigate to="/login" replace />;
 
   const handleLogout = async () => {
     await logout();

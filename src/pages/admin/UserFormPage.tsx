@@ -74,6 +74,16 @@ const ROLE_OPTIONS = [
     label: "Contador",
     description: "Acesso somente leitura a dados monetários. Não pode gerenciar operações.",
   },
+  {
+    value: "garcom",
+    label: "Garçom",
+    description: "Acesso exclusivo ao painel de mesas. Pode criar e gerenciar pedidos de mesa.",
+  },
+  {
+    value: "entregador",
+    label: "Entregador",
+    description: "Acesso exclusivo ao painel de entregas. Pode assumir e finalizar entregas.",
+  },
 ];
 
 const UserFormPage = () => {
