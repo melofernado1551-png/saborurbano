@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
 
     // Validate role if provided
     if (role) {
-      const validRoles = ["tenant_admin", "colaborador", "contador"];
+      const validRoles = ["tenant_admin", "colaborador", "contador", "garcom", "entregador"];
       if (!validRoles.includes(role)) {
         return new Response(JSON.stringify({ error: "Permissão inválida" }), {
           status: 400,
