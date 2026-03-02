@@ -98,6 +98,18 @@ const AdminChatPage = () => {
     },
   });
 
+  // Fetch tenant config for require_paid_for_delivery
+  const { data: tenantConfig } = useQuery({
+    queryKey: ["tenant-config-delivery", chat?.tenant_id],
+    enabled: !!chat?.tenant_id,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tenants").select("require_paid_for_delivery").eq("id", chat!.tenant_id).single();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const requirePaidForDelivery = tenantConfig?.require_paid_for_delivery !== false;
+
   // Fetch customer info
   const { data: customerInfo } = useQuery({
     queryKey: ["admin-chat-customer", chat?.customer_id],
@@ -289,6 +301,12 @@ const AdminChatPage = () => {
 
   const executeStatusUpdate = async (newStatus: string) => {
     if (!sale) return;
+    // Block delivering if require_paid_for_delivery is on and not paid
+    if (newStatus === "delivering" && requirePaidForDelivery && sale.financial_status !== "paid") {
+      toast.error("O pedido precisa estar pago antes de sair para entrega.");
+      setShowStatusMenu(false);
+      return;
+    }
     try {
       const { error: updateErr } = await supabase.from("sales").update({ operational_status: newStatus }).eq("id", sale.id);
       if (updateErr) throw updateErr;

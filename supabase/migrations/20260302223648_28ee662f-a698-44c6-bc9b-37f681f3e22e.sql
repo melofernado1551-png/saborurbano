@@ -1,0 +1,1 @@
+ALTER TABLE public.tenants ADD COLUMN require_paid_for_delivery boolean NOT NULL DEFAULT true;

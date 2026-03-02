@@ -1887,6 +1887,7 @@ export type Database = {
           pix_copy_paste: string | null
           pix_receiver_name: string | null
           primary_color: string | null
+          require_paid_for_delivery: boolean
           secondary_color: string | null
           shipping_fee: number | null
           slug: string
@@ -1917,6 +1918,7 @@ export type Database = {
           pix_copy_paste?: string | null
           pix_receiver_name?: string | null
           primary_color?: string | null
+          require_paid_for_delivery?: boolean
           secondary_color?: string | null
           shipping_fee?: number | null
           slug: string
@@ -1947,6 +1949,7 @@ export type Database = {
           pix_copy_paste?: string | null
           pix_receiver_name?: string | null
           primary_color?: string | null
+          require_paid_for_delivery?: boolean
           secondary_color?: string | null
           shipping_fee?: number | null
           slug?: string
