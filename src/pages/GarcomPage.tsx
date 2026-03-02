@@ -681,9 +681,6 @@ const GarcomPage = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate("/admin")} className="gap-1">
-            <ArrowLeft className="w-4 h-4" /> Admin
-          </Button>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             <LogOut className="w-4 h-4" />
           </Button>
