@@ -35,6 +35,7 @@ import GarcomPage from "./pages/GarcomPage";
 
 import RestaurantPage from "./pages/RestaurantPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
+import ComboDetailPage from "./pages/ComboDetailPage";
 import CustomerChatPage from "./pages/CustomerChatPage";
 import CustomerOrdersPage from "./pages/CustomerOrdersPage";
 import AdminChatsListPage from "./pages/admin/AdminChatsListPage";
@@ -98,6 +99,7 @@ const App = () => (
               <Route path="/chat/:chatId" element={<CustomerChatPage />} />
               <Route path="/meus-pedidos" element={<CustomerOrdersPage />} />
               <Route path="/favoritos" element={<FavoritesPage />} />
+              <Route path="/:tenantSlug/combo/:comboSlug" element={<ComboDetailPage />} />
               <Route path="/:tenantSlug/:productSlug" element={<ProductDetailPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
