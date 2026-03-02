@@ -32,6 +32,7 @@ import MyStorePage from "./pages/admin/MyStorePage";
 import NeighborhoodsPage from "./pages/admin/NeighborhoodsPage";
 import MesasPage from "./pages/admin/MesasPage";
 import GarcomPage from "./pages/GarcomPage";
+import EntregadorPage from "./pages/EntregadorPage";
 
 import RestaurantPage from "./pages/RestaurantPage";
 import ProductDetailPage from "./pages/ProductDetailPage";
@@ -95,6 +96,7 @@ const App = () => (
                 <Route path="configs-admin" element={<ConfigsAdminPage />} />
               </Route>
               <Route path="/garcom" element={<GarcomPage />} />
+              <Route path="/entregador" element={<EntregadorPage />} />
               <Route path="/loja/:slug" element={<RestaurantPage />} />
               <Route path="/chat/:chatId" element={<CustomerChatPage />} />
               <Route path="/meus-pedidos" element={<CustomerOrdersPage />} />

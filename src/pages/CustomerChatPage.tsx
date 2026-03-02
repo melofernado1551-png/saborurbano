@@ -24,6 +24,7 @@ import {
 const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Pedido recebido", emoji: "📥" },
   preparing: { label: "Em preparo", emoji: "👨‍🍳" },
+  ready: { label: "Pronto", emoji: "✅" },
   delivering: { label: "Saiu para entrega", emoji: "🛵" },
   delivering_pending: { label: "Aguardando sua confirmação", emoji: "📦" },
   finished: { label: "Finalizado", emoji: "✅" },

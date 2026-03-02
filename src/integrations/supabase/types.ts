@@ -1481,8 +1481,14 @@ export type Database = {
           delivered_confirmed_by: string | null
           delivery_address: Json | null
           delivery_code: string | null
+          entregador_id: string | null
+          entregador_nome: string | null
           financial_status: string
           forma_pagamento: string | null
+          garcom_id: string | null
+          garcom_nome: string | null
+          hora_entrega: string | null
+          hora_saida_entrega: string | null
           id: string
           mesa_id: string | null
           numero_mesa: number | null
@@ -1490,6 +1496,7 @@ export type Database = {
           operational_status: string
           representante: string | null
           sale_number: number | null
+          tempo_total_entrega: number | null
           tenant_id: string
           tipo_pedido: string
           valor_total: number
@@ -1507,8 +1514,14 @@ export type Database = {
           delivered_confirmed_by?: string | null
           delivery_address?: Json | null
           delivery_code?: string | null
+          entregador_id?: string | null
+          entregador_nome?: string | null
           financial_status?: string
           forma_pagamento?: string | null
+          garcom_id?: string | null
+          garcom_nome?: string | null
+          hora_entrega?: string | null
+          hora_saida_entrega?: string | null
           id?: string
           mesa_id?: string | null
           numero_mesa?: number | null
@@ -1516,6 +1529,7 @@ export type Database = {
           operational_status?: string
           representante?: string | null
           sale_number?: number | null
+          tempo_total_entrega?: number | null
           tenant_id: string
           tipo_pedido?: string
           valor_total?: number
@@ -1533,8 +1547,14 @@ export type Database = {
           delivered_confirmed_by?: string | null
           delivery_address?: Json | null
           delivery_code?: string | null
+          entregador_id?: string | null
+          entregador_nome?: string | null
           financial_status?: string
           forma_pagamento?: string | null
+          garcom_id?: string | null
+          garcom_nome?: string | null
+          hora_entrega?: string | null
+          hora_saida_entrega?: string | null
           id?: string
           mesa_id?: string | null
           numero_mesa?: number | null
@@ -1542,6 +1562,7 @@ export type Database = {
           operational_status?: string
           representante?: string | null
           sale_number?: number | null
+          tempo_total_entrega?: number | null
           tenant_id?: string
           tipo_pedido?: string
           valor_total?: number
@@ -1559,6 +1580,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_entregador_id_fkey"
+            columns: ["entregador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_garcom_id_fkey"
+            columns: ["garcom_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
