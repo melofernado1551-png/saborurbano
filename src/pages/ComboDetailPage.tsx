@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Share2, ShoppingBag, Minus, Plus, Package, Clock } from "lucide-react";
+import { ArrowLeft, Share2, ShoppingBag, Minus, Plus, Package, Clock, MessageCircle } from "lucide-react";
 import { isStoreOpen, formatStoreHours } from "@/lib/storeHours";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -66,6 +66,12 @@ const ComboDetailPage = () => {
         toast.success("Link copiado!");
       }
     } catch { /* cancelled */ }
+  };
+
+  const handleShareWhatsApp = () => {
+    const url = window.location.href;
+    const text = encodeURIComponent(`Confira o combo *${combo?.name}* no *${tenant?.name}*! 🍔📦\n${url}`);
+    window.open(`https://wa.me/?text=${text}`, "_blank");
   };
 
   const handleAddToCart = () => {
@@ -154,6 +160,9 @@ const ComboDetailPage = () => {
             <h1 className="font-semibold text-foreground truncate text-sm">{tenant.name}</h1>
           </div>
           <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={handleShareWhatsApp} className="text-green-500 hover:text-green-600">
+              <MessageCircle className="w-5 h-5" />
+            </Button>
             <Button variant="ghost" size="icon" onClick={handleShare}>
               <Share2 className="w-5 h-5" />
             </Button>
