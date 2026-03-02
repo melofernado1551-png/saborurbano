@@ -461,29 +461,6 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Alerts */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-yellow-500" />
-            Alertas de Estoque
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {stockAlerts && stockAlerts.length > 0 ? (
-            <ul className="space-y-2">
-              {stockAlerts.map((alert) => (
-                <li key={alert.id} className="flex items-start gap-2 text-sm">
-                  <Flame className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
-                  <span>{alert.message}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">Nenhum alerta no momento 🎉</p>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 };
