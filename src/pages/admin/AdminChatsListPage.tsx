@@ -333,6 +333,12 @@ const AdminChatsListPage = () => {
       setPendingMove(null);
       return;
     }
+    // Double-check payment requirement before delivering
+    if (toStatus === "delivering" && requirePaidForDelivery && sale.financial_status !== "paid") {
+      toast.error("O pedido precisa estar pago antes de sair para entrega.");
+      setPendingMove(null);
+      return;
+    }
 
     try {
       const updateData: any = { operational_status: toStatus };

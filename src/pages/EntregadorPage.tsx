@@ -27,7 +27,7 @@ const EntregadorPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales")
-        .select("id, sale_number, valor_total, created_at, delivery_address, customer_id, operational_status, entregador_id, entregador_nome")
+        .select("id, sale_number, valor_total, created_at, delivery_address, customer_id, operational_status, entregador_id, entregador_nome, financial_status")
         .eq("tenant_id", tenantId!)
         .eq("active", true)
         .eq("tipo_pedido", "delivery")
@@ -57,6 +57,18 @@ const EntregadorPage = () => {
       return data || [];
     },
   });
+
+  // Fetch tenant config for require_paid_for_delivery
+  const { data: tenantConfig } = useQuery({
+    queryKey: ["entregador-tenant-config", tenantId],
+    enabled: !!tenantId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tenants").select("require_paid_for_delivery").eq("id", tenantId!).single();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const requirePaidForDelivery = tenantConfig?.require_paid_for_delivery !== false;
 
   // Fetch customer names for orders
   const customerIds = [...readyOrders, ...myDeliveries].map((o: any) => o.customer_id).filter(Boolean);
@@ -126,6 +138,11 @@ const EntregadorPage = () => {
 
   const handleAssumirEntrega = async (sale: any) => {
     if (!user) return;
+    // Block if require_paid_for_delivery is on and not paid
+    if (requirePaidForDelivery && sale.financial_status !== "paid") {
+      toast.error("O pedido precisa estar pago antes de sair para entrega.");
+      return;
+    }
     try {
       const { error } = await supabase.from("sales").update({
         operational_status: "delivering",
@@ -306,8 +323,18 @@ const EntregadorPage = () => {
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="w-3 h-3" />
                         <span>Criado há {getTimeSince(sale.created_at)}</span>
+                        {requirePaidForDelivery && sale.financial_status !== "paid" && (
+                          <Badge variant="outline" className="text-destructive border-destructive/30 text-[10px]">
+                            <DollarSign className="w-3 h-3 mr-0.5" /> Pendente
+                          </Badge>
+                        )}
                       </div>
-                      <Button size="sm" className="gap-1.5" onClick={() => handleAssumirEntrega(sale)}>
+                      <Button
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => handleAssumirEntrega(sale)}
+                        disabled={requirePaidForDelivery && sale.financial_status !== "paid"}
+                      >
                         <Truck className="w-4 h-4" /> Assumir entrega
                       </Button>
                     </div>
