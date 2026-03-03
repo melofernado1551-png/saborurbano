@@ -102,6 +102,18 @@ const OrderStatusNotifier = () => {
 
     loadInitialStates();
 
+    // Load active chat IDs for message filtering
+    let activeChatIds: string[] = [];
+    const loadChatIds = async () => {
+      const { data: chats } = await supabase
+        .from("chats")
+        .select("id")
+        .eq("customer_id", customer.id)
+        .eq("active", true);
+      activeChatIds = chats?.map((c: any) => c.id) || [];
+    };
+    loadChatIds();
+
     const channel = supabase
       .channel("customer-order-status")
       .on(
@@ -150,6 +162,34 @@ const OrderStatusNotifier = () => {
             operational: sale.operational_status,
             financial: sale.financial_status,
           };
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+        },
+        (payload) => {
+          const msg = payload.new as any;
+
+          // Only notify for messages NOT sent by the customer and in active chats
+          if (msg.sender_type === "customer") return;
+          if (activeChatIds.length > 0 && !activeChatIds.includes(msg.chat_id)) return;
+
+          playNotificationSound();
+
+          const preview = msg.content?.length > 60
+            ? msg.content.substring(0, 60) + "…"
+            : msg.content;
+
+          toast("💬 Nova mensagem", {
+            description: preview || "Você recebeu uma nova mensagem",
+            duration: 5000,
+            position: "top-center",
+            className: "!bg-card !border-primary/30 !shadow-lg",
+          });
         }
       )
       .subscribe();
