@@ -167,8 +167,25 @@ const AdminChatPage = () => {
     if (!chatId) return;
     const channel = supabase
       .channel(`admin-chat-${chatId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `chat_id=eq.${chatId}` }, () => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `chat_id=eq.${chatId}` }, (payload: any) => {
         queryClient.invalidateQueries({ queryKey: ["admin-chat-messages", chatId] });
+        // Play sound when customer sends a message
+        if (payload.new?.sender_type === "customer") {
+          try {
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(587, ctx.currentTime);
+            osc.frequency.setValueAtTime(784, ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.4);
+          } catch { /* Audio not available */ }
+        }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "sales" }, () => {
         queryClient.invalidateQueries({ queryKey: ["admin-sale", chat?.sale_id] });
@@ -224,6 +241,15 @@ const AdminChatPage = () => {
         metadata: { sender_name: user?.name || user?.login || "Loja" },
       });
       if (error) throw error;
+
+      // Auto-assign attendant (representante) if not already set
+      if (sale && !(sale as any).representante && user) {
+        await supabase.from("sales").update({
+          representante: user.name || user.login || "Atendente",
+        }).eq("id", sale.id);
+        queryClient.invalidateQueries({ queryKey: ["admin-sale", chat?.sale_id] });
+      }
+
       queryClient.invalidateQueries({ queryKey: ["admin-chat-messages", chatId] });
     } catch {
       setOptimisticMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
