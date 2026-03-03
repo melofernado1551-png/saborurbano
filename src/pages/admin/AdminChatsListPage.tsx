@@ -106,6 +106,31 @@ const AdminChatsListPage = () => {
             return next;
           });
           queryClient.invalidateQueries({ queryKey: ["admin-chats-kanban", tenantId] });
+
+          // Play notification sound for new customer message
+          try {
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(587, ctx.currentTime);
+            osc.frequency.setValueAtTime(784, ctx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.4);
+          } catch { /* Audio not available */ }
+
+          const preview = payload.new.content?.length > 60
+            ? payload.new.content.substring(0, 60) + "…"
+            : payload.new.content;
+          toast("💬 Nova mensagem do cliente", {
+            description: preview || "Você recebeu uma nova mensagem",
+            duration: 5000,
+            position: "top-center",
+          });
         }
       })
       .subscribe();
