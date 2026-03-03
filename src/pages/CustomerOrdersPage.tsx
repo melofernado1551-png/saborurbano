@@ -4,6 +4,8 @@ import { useCustomerAuth } from "@/contexts/CustomerAuthContext";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { format, isToday, isYesterday, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Recebido", emoji: "📥" },
@@ -109,73 +111,89 @@ const CustomerOrdersPage = () => {
             <p className="text-muted-foreground">Nenhum pedido ainda</p>
           </div>
         ) : (
-          chats.map((chat: any) => {
-            const sale = chat._sale;
-            const tenant = chat.tenants;
-            const operational = sale ? STATUS_LABELS[sale.operational_status] || { label: sale.operational_status, emoji: "📋" } : null;
-            const isPaid = sale?.financial_status === "paid";
-            const valorTotal = sale ? Number(sale.valor_total) : 0;
+          (() => {
+            let lastDateLabel = "";
+            return chats.map((chat: any) => {
+              const sale = chat._sale;
+              const tenant = chat.tenants;
+              const operational = sale ? STATUS_LABELS[sale.operational_status] || { label: sale.operational_status, emoji: "📋" } : null;
+              const isPaid = sale?.financial_status === "paid";
+              const valorTotal = sale ? Number(sale.valor_total) : 0;
 
-            // Extract product names from order_summary
-            const orderMsg = chat.chat_messages?.[0]?.content || "";
-            const productNames = orderMsg
-              .split("\n")
-              .filter((line: string) => line.startsWith("•"))
-              .map((line: string) => {
-                const match = line.match(/•\s*\d+x\s+(.+?)\s*—/);
-                return match ? match[1].trim() : null;
-              })
-              .filter(Boolean) as string[];
+              const orderMsg = chat.chat_messages?.[0]?.content || "";
+              const productNames = orderMsg
+                .split("\n")
+                .filter((line: string) => line.startsWith("•"))
+                .map((line: string) => {
+                  const match = line.match(/•\s*\d+x\s+(.+?)\s*—/);
+                  return match ? match[1].trim() : null;
+                })
+                .filter(Boolean) as string[];
 
-            const firstProductName = productNames[0] || "Pedido";
-            const firstProductImage = chat._productsMap?.[firstProductName] || null;
-            const extraCount = productNames.length > 1 ? productNames.length - 1 : 0;
+              const firstProductName = productNames[0] || "Pedido";
+              const firstProductImage = chat._productsMap?.[firstProductName] || null;
+              const extraCount = productNames.length > 1 ? productNames.length - 1 : 0;
 
-            return (
-              <button
-                key={chat.id}
-                onClick={() => navigate(`/chat/${chat.id}`)}
-                className="w-full text-left p-3 rounded-xl bg-card border border-border hover:border-primary/30 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  {/* Product image */}
-                  <div className="w-12 h-12 rounded-lg bg-secondary overflow-hidden flex-shrink-0">
-                    {firstProductImage ? (
-                      <img src={firstProductImage} alt={firstProductName} className="w-full h-full object-contain bg-white" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
-                    )}
-                  </div>
+              // Date separator
+              const chatDate = parseISO(chat.updated_at || chat.created_at);
+              let dateLabel: string;
+              if (isToday(chatDate)) {
+                dateLabel = "Hoje";
+              } else if (isYesterday(chatDate)) {
+                dateLabel = "Ontem";
+              } else {
+                dateLabel = format(chatDate, "dd 'de' MMMM", { locale: ptBR });
+              }
+              const showDateHeader = dateLabel !== lastDateLabel;
+              lastDateLabel = dateLabel;
 
-                  {/* Info */}
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold text-sm text-foreground truncate">
-                      {firstProductName}
-                      {extraCount > 0 && <span className="font-normal text-muted-foreground"> +{extraCount}</span>}
+              return (
+                <div key={chat.id}>
+                  {showDateHeader && (
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-2 pb-1">
+                      {dateLabel}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {tenant?.name || "Restaurante"}
-                      {sale?.sale_number && <span> · #{sale.sale_number}</span>}
-                    </p>
-                  </div>
-
-                  {/* Right: value + status */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {sale && (
-                      <span className={`text-sm font-semibold ${isPaid ? "text-green-600" : "text-foreground"}`}>
-                        R$ {valorTotal.toFixed(2)}
-                      </span>
-                    )}
-                    {operational && (
-                      <span className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-xs flex items-center gap-1">
-                        {operational.emoji} {operational.label}
-                      </span>
-                    )}
-                  </div>
+                  )}
+                  <button
+                    onClick={() => navigate(`/chat/${chat.id}`)}
+                    className="w-full text-left p-3 rounded-xl bg-card border border-border hover:border-primary/30 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-secondary overflow-hidden flex-shrink-0">
+                        {firstProductImage ? (
+                          <img src={firstProductImage} alt={firstProductName} className="w-full h-full object-contain bg-white" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-lg">🍽️</div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold text-sm text-foreground truncate">
+                          {firstProductName}
+                          {extraCount > 0 && <span className="font-normal text-muted-foreground"> +{extraCount}</span>}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {tenant?.name || "Restaurante"}
+                          {sale?.sale_number && <span> · #{sale.sale_number}</span>}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {sale && (
+                          <span className={`text-sm font-semibold ${isPaid ? "text-green-600" : "text-foreground"}`}>
+                            R$ {valorTotal.toFixed(2)}
+                          </span>
+                        )}
+                        {operational && (
+                          <span className="px-2 py-0.5 rounded-full bg-secondary text-foreground text-xs flex items-center gap-1">
+                            {operational.emoji} {operational.label}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
                 </div>
-              </button>
-            );
-          })
+              );
+            });
+          })()
         )}
       </div>
     </div>
