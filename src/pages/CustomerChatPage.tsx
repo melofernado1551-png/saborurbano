@@ -672,12 +672,23 @@ const CustomerChatPage = () => {
 
         {/* Delivery code display */}
         {sale && (sale.operational_status === "delivering" || sale.operational_status === "delivering_pending") && (sale as any).delivery_code && (
-          <div className="px-4 py-2 border-t border-border bg-primary/5">
+          <div className="px-4 py-3 border-t border-border bg-primary/5">
             <div className="flex items-center justify-between">
-              <span className="text-xs text-foreground">🔑 Seu código de recebimento:</span>
-              <span className="font-mono font-bold text-lg text-primary tracking-widest">{(sale as any).delivery_code}</span>
+              <div>
+                <span className="text-xs text-foreground">🔑 Seu código de recebimento:</span>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Apresente este código ao entregador</p>
+              </div>
+              <span className="font-mono font-extrabold text-2xl sm:text-3xl text-primary tracking-[0.2em]">{(sale as any).delivery_code}</span>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-1">Apresente este código ao entregador</p>
+            {sale.operational_status === "delivering_pending" && !existingReview && (
+              <button
+                onClick={() => setShowConfirmDelivery(true)}
+                className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors shadow-md active:scale-[0.98]"
+              >
+                <PackageCheck className="w-5 h-5" />
+                Confirmar recebimento
+              </button>
+            )}
           </div>
         )}
       </header>
@@ -717,18 +728,6 @@ const CustomerChatPage = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Confirm delivery button - only when delivering_pending and no existing review */}
-      {sale && sale.operational_status === "delivering_pending" && !existingReview && (
-        <div className="px-4 pb-2">
-          <button
-            onClick={() => setShowConfirmDelivery(true)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors shadow-md"
-          >
-            <PackageCheck className="w-5 h-5" />
-            Confirmar recebimento
-          </button>
-        </div>
-      )}
 
       {/* Payment + Cancel buttons */}
       {sale && sale.operational_status !== "cancelled" && sale.operational_status !== "finished" && sale.operational_status !== "delivering_pending" && (
@@ -825,9 +824,10 @@ const CustomerChatPage = () => {
       <AlertDialog open={showReview} onOpenChange={(open) => { if (!open) setShowReview(false); }}>
         <AlertDialogContent className="max-w-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-center">Como foi seu pedido?</AlertDialogTitle>
+            <div className="text-center text-4xl mb-2">🎉</div>
+            <AlertDialogTitle className="text-center">Obrigado pelo seu pedido!</AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              Avalie sua experiência com {tenant?.name || "o estabelecimento"}
+              Ficamos felizes em atender você! Como foi sua experiência com {tenant?.name || "o estabelecimento"}?
             </AlertDialogDescription>
           </AlertDialogHeader>
 
