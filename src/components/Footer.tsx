@@ -9,11 +9,8 @@ const WHATSAPP_MESSAGE = encodeURIComponent(
 
 const Footer = () => {
   const [isDark, setIsDark] = useState(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("theme");
-      return saved ? saved === "dark" : true;
-    }
-    return true;
+    const saved = localStorage.getItem("theme");
+    return saved !== "light"; // default dark
   });
 
   useEffect(() => {
@@ -25,13 +22,6 @@ const Footer = () => {
       localStorage.setItem("theme", "light");
     }
   }, [isDark]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    if (!saved) {
-      document.documentElement.classList.add("dark");
-    }
-  }, []);
 
   return (
     <footer className="mt-12">
