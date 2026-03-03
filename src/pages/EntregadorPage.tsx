@@ -5,7 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Truck, Clock, MapPin, DollarSign, Loader2, Package } from "lucide-react";
+import { LogOut, Truck, Clock, MapPin, DollarSign, Loader2, Package, PackageCheck, Key } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Navigate, useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
@@ -46,7 +47,7 @@ const EntregadorPage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales")
-        .select("id, sale_number, valor_total, created_at, delivery_address, customer_id, operational_status, entregador_nome, hora_saida_entrega")
+        .select("id, sale_number, valor_total, created_at, delivery_address, customer_id, operational_status, entregador_nome, hora_saida_entrega, delivery_code")
         .eq("tenant_id", tenantId!)
         .eq("active", true)
         .eq("entregador_id", user!.id)
@@ -71,6 +72,40 @@ const EntregadorPage = () => {
   const getCustomerName = (customerId: string) => {
     const c = customers.find((c: any) => c.id === customerId);
     return c?.name || "Cliente";
+  };
+
+  const [confirmingSaleId, setConfirmingSaleId] = useState<string | null>(null);
+  const [concluding, setConcluding] = useState(false);
+
+  const handleConcluirEntrega = async (saleId: string) => {
+    setConcluding(true);
+    try {
+      const { error } = await supabase.from("sales").update({
+        operational_status: "delivering_pending",
+      } as any).eq("id", saleId);
+      if (error) throw error;
+
+      const { data: chat } = await supabase.from("chats").select("id").eq("sale_id", saleId).single();
+      if (chat) {
+        await supabase.from("chat_messages").insert({
+          chat_id: chat.id,
+          sender_id: user!.id,
+          sender_type: "system",
+          content: "📦 O entregador informou que a entrega foi realizada. Por favor, confirme o recebimento.",
+          message_type: "status_update",
+          metadata: { sender_name: user!.name || user!.login || "Sistema" },
+        });
+      }
+
+      toast.success("Entrega marcada como concluída! Aguardando confirmação do cliente.");
+      setConfirmingSaleId(null);
+      queryClient.invalidateQueries({ queryKey: ["entregador-my-deliveries"] });
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao concluir entrega");
+    } finally {
+      setConcluding(false);
+    }
   };
 
   // Realtime
@@ -187,9 +222,26 @@ const EntregadorPage = () => {
                       <MapPin className="w-3.5 h-3.5" />
                       <span>{formatAddress(sale.delivery_address)}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="w-3 h-3" />
-                      <span>Saiu há {sale.hora_saida_entrega ? getTimeSince(sale.hora_saida_entrega) : "—"}</span>
+                    {(sale as any).delivery_code && (
+                      <div className="flex items-center gap-2 mt-2 p-2 rounded-lg bg-primary/10 border border-primary/20">
+                        <Key className="w-4 h-4 text-primary" />
+                        <span className="text-xs text-muted-foreground">Código:</span>
+                        <span className="font-mono font-extrabold text-xl text-primary tracking-[0.15em]">{(sale as any).delivery_code}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        <span>Saiu há {sale.hora_saida_entrega ? getTimeSince(sale.hora_saida_entrega) : "—"}</span>
+                      </div>
+                      {sale.operational_status === "delivering" && (
+                        <Button size="sm" variant="default" className="gap-1.5 bg-green-600 hover:bg-green-700" onClick={() => setConfirmingSaleId(sale.id)}>
+                          <PackageCheck className="w-4 h-4" /> Concluir entrega
+                        </Button>
+                      )}
+                      {sale.operational_status === "delivering_pending" && (
+                        <Badge className="bg-yellow-500/20 text-yellow-700 border-yellow-500/30">Aguardando confirmação</Badge>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -248,6 +300,24 @@ const EntregadorPage = () => {
           )}
         </div>
       </div>
+
+      {/* Confirm conclude dialog */}
+      <AlertDialog open={!!confirmingSaleId} onOpenChange={(open) => { if (!open) setConfirmingSaleId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Concluir entrega</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você confirma que a entrega foi realizada? O cliente será notificado para confirmar o recebimento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => confirmingSaleId && handleConcluirEntrega(confirmingSaleId)} disabled={concluding}>
+              {concluding ? "Concluindo..." : "Sim, concluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
