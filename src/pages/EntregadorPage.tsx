@@ -110,14 +110,15 @@ const EntregadorPage = () => {
     }
   };
 
-  // Realtime
+  // Realtime - immediately refetch on any sales change
   useEffect(() => {
     if (!tenantId) return;
     const channel = supabase
       .channel("entregador-orders")
       .on("postgres_changes", { event: "*", schema: "public", table: "sales", filter: `tenant_id=eq.${tenantId}` }, () => {
-        queryClient.invalidateQueries({ queryKey: ["entregador-ready-orders"] });
-        queryClient.invalidateQueries({ queryKey: ["entregador-my-deliveries"] });
+        queryClient.refetchQueries({ queryKey: ["entregador-ready-orders"] });
+        queryClient.refetchQueries({ queryKey: ["entregador-my-deliveries"] });
+        queryClient.invalidateQueries({ queryKey: ["entregador-customers"] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
