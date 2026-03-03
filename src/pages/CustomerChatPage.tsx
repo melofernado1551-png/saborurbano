@@ -362,8 +362,8 @@ const CustomerChatPage = () => {
   // Confirm delivery handler
   const handleConfirmDelivery = async () => {
     if (!sale || !chatId || !customer) return;
-    if (sale.operational_status !== "delivering_pending") {
-      toast.error("O pedido não está aguardando confirmação.");
+    if (sale.operational_status !== "delivering_pending" && sale.operational_status !== "delivering") {
+      toast.error("O pedido não está em entrega.");
       return;
     }
     setConfirmingDelivery(true);
@@ -680,7 +680,7 @@ const CustomerChatPage = () => {
               </div>
               <span className="font-mono font-extrabold text-2xl sm:text-3xl text-primary tracking-[0.2em]">{(sale as any).delivery_code}</span>
             </div>
-            {sale.operational_status === "delivering_pending" && !existingReview && (
+            {(sale.operational_status === "delivering" || sale.operational_status === "delivering_pending") && !existingReview && (
               <button
                 onClick={() => setShowConfirmDelivery(true)}
                 className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors shadow-md active:scale-[0.98]"
