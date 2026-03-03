@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Truck, Clock, MapPin, DollarSign, Loader2, Package, PackageCheck, Key } from "lucide-react";
+import { LogOut, Truck, Clock, MapPin, DollarSign, Loader2, Package, PackageCheck, Key, RefreshCw } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -23,7 +23,7 @@ const EntregadorPage = () => {
   const { data: readyOrders = [], isLoading } = useQuery({
     queryKey: ["entregador-ready-orders", tenantId],
     enabled: !!tenantId && isAllowed,
-    refetchInterval: 10000,
+    refetchInterval: 15000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales")
@@ -43,7 +43,7 @@ const EntregadorPage = () => {
   const { data: myDeliveries = [] } = useQuery({
     queryKey: ["entregador-my-deliveries", tenantId, user?.id],
     enabled: !!tenantId && !!user?.id && isAllowed,
-    refetchInterval: 10000,
+    refetchInterval: 15000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales")
@@ -76,6 +76,8 @@ const EntregadorPage = () => {
 
   const [confirmingSaleId, setConfirmingSaleId] = useState<string | null>(null);
   const [concluding, setConcluding] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleConcluirEntrega = async (saleId: string) => {
     setConcluding(true);
@@ -182,6 +184,16 @@ const EntregadorPage = () => {
     navigate("/login");
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["entregador-ready-orders"] }),
+      queryClient.invalidateQueries({ queryKey: ["entregador-my-deliveries"] }),
+    ]);
+    setTimeout(() => setRefreshing(false), 600);
+    toast.success("Pedidos atualizados!");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -194,9 +206,14 @@ const EntregadorPage = () => {
               <p className="text-xs text-muted-foreground">{user.name || user.login}</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5">
-            <LogOut className="w-4 h-4" /> Sair
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={handleRefresh} className="h-9 w-9">
+              <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowLogoutConfirm(true)} className="gap-1.5">
+              <LogOut className="w-4 h-4" /> Sair
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -315,6 +332,22 @@ const EntregadorPage = () => {
             <AlertDialogAction onClick={() => confirmingSaleId && handleConcluirEntrega(confirmingSaleId)} disabled={concluding}>
               {concluding ? "Concluindo..." : "Sim, concluir"}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Logout confirmation */}
+      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sair do painel</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja sair do painel de entregas?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout}>Sim, sair</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
