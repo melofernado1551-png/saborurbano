@@ -338,6 +338,37 @@ const TenantEditPage = () => {
               <Truck className="w-5 h-5 text-muted-foreground" />
               <Label className="text-base font-semibold">Configuração de Frete</Label>
             </div>
+
+            {/* Explicação visual dos 3 modos */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+              <div className={`rounded-xl border-2 p-3 transition-colors ${form.free_shipping ? "border-primary bg-primary/5" : "border-border"}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">🎁</span>
+                  <span className="text-sm font-bold">Frete Grátis</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  O cliente não paga frete, independente do bairro cadastrado.
+                </p>
+              </div>
+              <div className={`rounded-xl border-2 p-3 transition-colors ${!form.free_shipping && form.shipping_fee ? "border-primary bg-primary/5" : "border-border"}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">💰</span>
+                  <span className="text-sm font-bold">Valor Fixo</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Um valor único de frete para todos os bairros, ignorando o valor cadastrado no bairro.
+                </p>
+              </div>
+              <div className={`rounded-xl border-2 p-3 transition-colors ${!form.free_shipping && !form.shipping_fee ? "border-primary bg-primary/5" : "border-border"}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">📍</span>
+                  <span className="text-sm font-bold">Por Bairro</span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  O frete é calculado pelo valor configurado em cada bairro na aba Bairros.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="sm:col-span-2">
@@ -357,16 +388,16 @@ const TenantEditPage = () => {
 
           {!form.free_shipping && (
             <div className="space-y-2 sm:col-span-2">
-              <Label>Valor do frete (R$)</Label>
+              <Label>Valor do frete fixo (R$)</Label>
               <Input
                 type="number"
                 step="0.01"
                 min="0"
                 value={form.shipping_fee}
                 onChange={(e) => set("shipping_fee", e.target.value)}
-                placeholder="Deixe vazio para 'Frete a combinar'"
+                placeholder="Deixe vazio para usar o valor por bairro"
               />
-              <p className="text-xs text-muted-foreground">Se não informar um valor, será exibido "Frete a combinar" no card da loja</p>
+              <p className="text-xs text-muted-foreground">Se não informar um valor, o frete será calculado pelo valor configurado em cada bairro</p>
             </div>
           )}
         </CardContent>
