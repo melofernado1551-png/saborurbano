@@ -41,11 +41,11 @@ const CustomerAddressesModal = ({ open, onOpenChange, onSelect, selectMode = fal
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tenants")
-        .select("city")
+        .select("city, free_shipping, shipping_fee")
         .eq("id", tenantId!)
         .single();
       if (error) throw error;
-      return data as { city: string | null };
+      return data as { city: string | null; free_shipping: boolean | null; shipping_fee: number | null };
     },
   });
 
@@ -206,11 +206,20 @@ const CustomerAddressesModal = ({ open, onOpenChange, onSelect, selectMode = fal
                       <SelectValue placeholder="Selecione o bairro" />
                     </SelectTrigger>
                     <SelectContent>
-                      {neighborhoods.map((n: any) => (
-                        <SelectItem key={n.id} value={n.id}>
-                          {n.name} — R$ {Number(n.shipping_fee).toFixed(2)}
-                        </SelectItem>
-                      ))}
+                      {neighborhoods.map((n: any) => {
+                        const displayFee = tenant?.free_shipping
+                          ? "Grátis"
+                          : (tenant?.shipping_fee != null && tenant.shipping_fee > 0)
+                            ? `R$ ${Number(tenant.shipping_fee).toFixed(2)}`
+                            : Number(n.shipping_fee) === 0
+                              ? "Grátis"
+                              : `R$ ${Number(n.shipping_fee).toFixed(2)}`;
+                        return (
+                          <SelectItem key={n.id} value={n.id}>
+                            {n.name} — {displayFee}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 ) : (
@@ -299,9 +308,15 @@ const CustomerAddressesModal = ({ open, onOpenChange, onSelect, selectMode = fal
                     <p className="text-xs text-muted-foreground">
                       {addr.neighborhood} - {addr.city}
                     </p>
-                    {neighborhoodInfo && selectMode && (
+                    {selectMode && (
                       <p className="text-xs font-semibold text-primary">
-                        Frete: {Number(neighborhoodInfo.shipping_fee) === 0 ? "Grátis" : `R$ ${Number(neighborhoodInfo.shipping_fee).toFixed(2)}`}
+                        Frete: {tenant?.free_shipping
+                          ? "Grátis"
+                          : (tenant?.shipping_fee != null && tenant.shipping_fee > 0)
+                            ? `R$ ${Number(tenant.shipping_fee).toFixed(2)}`
+                            : neighborhoodInfo
+                              ? Number(neighborhoodInfo.shipping_fee) === 0 ? "Grátis" : `R$ ${Number(neighborhoodInfo.shipping_fee).toFixed(2)}`
+                              : "A combinar"}
                       </p>
                     )}
                     {addr.reference && <p className="text-xs text-muted-foreground italic">Ref: {addr.reference}</p>}

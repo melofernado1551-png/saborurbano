@@ -89,6 +89,16 @@ const generateCartItemId = (productId: string, addons?: CartAddon[], observation
   return `${productId}__${addonKey}__${observation || ""}`;
 };
 
+const computeDeliveryFee = (
+  address: SelectedAddress | null,
+  freeShipping?: boolean,
+  baseShippingFee?: number | null,
+): number => {
+  if (freeShipping) return 0;
+  if (baseShippingFee != null && baseShippingFee > 0) return baseShippingFee;
+  return address?.shipping_fee ?? 0;
+};
+
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<StoredCart | null>(() => {
     try {
@@ -141,18 +151,19 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
           newItems = [...existing, { ...item, quantity: item.quantity || 1, cartItemId }];
         }
 
-        // Compute default delivery fee (when no address selected)
-        const baseFee = tenant.freeShipping ? 0 : (tenant.shippingFee ?? 0);
+        const fs = prev?.freeShipping ?? tenant.freeShipping;
+        const bsf = prev?.baseShippingFee ?? tenant.shippingFee;
+        const addr = prev?.selectedAddress || null;
 
         return {
           tenantId: prev?.tenantId || tenant.id,
           tenantSlug: prev?.tenantSlug || tenant.slug,
           tenantName: prev?.tenantName || tenant.name,
           items: newItems,
-          deliveryFee: prev?.selectedAddress?.shipping_fee ?? prev?.deliveryFee ?? baseFee,
-          freeShipping: prev?.freeShipping ?? tenant.freeShipping,
-          baseShippingFee: prev?.baseShippingFee ?? tenant.shippingFee,
-          selectedAddress: prev?.selectedAddress || null,
+          deliveryFee: computeDeliveryFee(addr, fs, bsf),
+          freeShipping: fs,
+          baseShippingFee: bsf,
+          selectedAddress: addr,
         };
       });
       return true;
@@ -163,11 +174,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const setSelectedAddress = useCallback((address: SelectedAddress | null) => {
     setCart((prev) => {
       if (!prev) return null;
-      const fee = address?.shipping_fee ?? (prev.freeShipping ? 0 : (prev.baseShippingFee ?? 0));
       return {
         ...prev,
         selectedAddress: address,
-        deliveryFee: fee,
+        deliveryFee: computeDeliveryFee(address, prev.freeShipping, prev.baseShippingFee),
       };
     });
   }, []);
