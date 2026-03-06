@@ -19,6 +19,7 @@ import { Send, ArrowLeft, ChevronDown, DollarSign, CreditCard, Banknote, QrCode,
 import { toast } from "sonner";
 import { useNavigate, useParams } from "react-router-dom";
 import { CancelOrderModal, CANCEL_REASONS } from "@/components/CancelOrderModal";
+import { notifyCustomer } from "@/lib/notifyCustomer";
 
 const STATUS_LABELS: Record<string, { label: string; emoji: string }> = {
   received: { label: "Pedido recebido", emoji: "📥" },
