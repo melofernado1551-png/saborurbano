@@ -12,9 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Eye, Pencil, Power, LayoutDashboard, Users } from "lucide-react";
+import { Plus, Pencil, Power } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { isStoreOpen } from "@/lib/storeHours";
 
 const TenantsListPage = () => {
   const { user } = useAuth();
@@ -108,9 +109,16 @@ const TenantsListPage = () => {
                     {t.city || "—"}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={t.active ? "default" : "secondary"}>
-                      {t.active ? "Ativo" : "Inativo"}
-                    </Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={t.active ? "default" : "secondary"}>
+                        {t.active ? "Ativo" : "Inativo"}
+                      </Badge>
+                      {t.active && (
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${isStoreOpen(t.opening_time, t.closing_time) ? "border-green-500 text-green-600" : "border-red-400 text-red-500"}`}>
+                          {isStoreOpen(t.opening_time, t.closing_time) ? "🟢 Aberta" : "🔴 Fechada"}
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
                     {format(new Date(t.created_at), "dd/MM/yyyy")}
