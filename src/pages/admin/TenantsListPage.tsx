@@ -12,9 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Eye, Pencil, Power, LayoutDashboard, Users } from "lucide-react";
+import { Plus, Pencil, Power } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { isStoreOpen } from "@/lib/storeHours";
 
 const TenantsListPage = () => {
   const { user } = useAuth();
