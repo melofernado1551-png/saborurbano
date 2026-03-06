@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { notifyCustomer } from "@/lib/notifyCustomer";
 
 const KANBAN_COLUMNS = [
   { key: "received", label: "Aguardando", emoji: "📥", color: "border-t-blue-500" },
@@ -375,6 +376,11 @@ const AdminChatsListPage = () => {
         message_type: "status_update",
         metadata: { sender_name: user.name || user.login || "Sistema" },
       });
+
+      // Send push notification to customer
+      if (chat.customer_id) {
+        notifyCustomer(chat.customer_id, toStatus, chat.id);
+      }
 
       if (toStatus === "finished") {
         await supabase.from("chats").update({ active: false, status: "closed" }).eq("id", chat.id);
