@@ -13,10 +13,19 @@ export async function notifyCustomer(customerId: string, status: string, chatId:
     const notification = STATUS_NOTIFICATIONS[status];
     if (!notification) return;
 
+    // customerId here is from the customers table; look up auth_id
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("auth_id")
+      .eq("id", customerId)
+      .maybeSingle();
+
+    if (!customer?.auth_id) return;
+
     const { data: sub } = await supabase
       .from("push_subscriptions")
       .select("subscription")
-      .eq("customer_id", customerId)
+      .eq("customer_id", customer.auth_id)
       .maybeSingle();
 
     if (!sub?.subscription) return;
