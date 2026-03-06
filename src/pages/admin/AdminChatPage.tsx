@@ -243,6 +243,11 @@ const AdminChatPage = () => {
       });
       if (error) throw error;
 
+      // Send push notification for new message
+      if (chat?.customer_id) {
+        notifyCustomer(chat.customer_id, "new_message", chatId!);
+      }
+
       // Auto-assign attendant (representante) if not already set
       if (sale && !(sale as any).representante && user) {
         await supabase.from("sales").update({
@@ -377,6 +382,11 @@ const AdminChatPage = () => {
         metadata: { sender_name: user?.name || user?.login || "Sistema" },
       });
       if (msgErr) console.error("Erro ao enviar mensagem de status:", msgErr);
+
+      // Send push notification to customer
+      if (chat?.customer_id) {
+        notifyCustomer(chat.customer_id, newStatus, chatId!);
+      }
 
       if (newStatus === "finished" && chatId) {
         await supabase.from("chats").update({ active: false, status: "closed" }).eq("id", chatId);
