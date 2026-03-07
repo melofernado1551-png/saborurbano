@@ -1379,7 +1379,7 @@ const GarcomPage = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
-              if (!currentSale) setSelectedMesa(null);
+              if (!currentSale && !pendingRepresentante) { setSelectedMesa(null); setPendingRepresentante(null); }
               setShowRepresentanteModal(false);
             }}>Cancelar</Button>
             <Button
