@@ -632,7 +632,7 @@ const AdminChatPage = () => {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {operationalStatus && sale?.operational_status !== "cancelled" && (
+            {operationalStatus && sale?.operational_status !== "cancelled" && sale?.operational_status !== "finished" && (
               <div className="relative">
                 <button
                   onClick={() => setShowStatusMenu(!showStatusMenu)}
