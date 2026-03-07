@@ -30,7 +30,7 @@ interface PhaseColors {
   buildingMid: string;
   buildingNear: string;
   bokeh: string;
-  stars: number; // opacity 0-1
+  stars: number;
   sunGlow: string;
   sunY: number;
 }
@@ -118,13 +118,11 @@ const phaseMap: Record<TimePhase, PhaseColors> = {
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 const lerpColor = (a: string, b: string, t: number): string => {
-  // Handle hex
   const parse = (c: string) => {
     if (c.startsWith("#")) {
       const hex = c.slice(1);
       return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
     }
-    // rgba
     const m = c.match(/[\d.]+/g);
     return m ? [parseFloat(m[0]), parseFloat(m[1]), parseFloat(m[2])] : [0, 0, 0];
   };
@@ -142,7 +140,7 @@ const lerpPhase = (a: PhaseColors, b: PhaseColors, t: number): PhaseColors => ({
   buildingFar: lerpColor(a.buildingFar, b.buildingFar, t),
   buildingMid: lerpColor(a.buildingMid, b.buildingMid, t),
   buildingNear: lerpColor(a.buildingNear, b.buildingNear, t),
-  bokeh: a.bokeh, // skip lerp for rgba strings
+  bokeh: a.bokeh,
   stars: lerp(a.stars, b.stars, t),
   sunGlow: a.sunGlow,
   sunY: lerp(a.sunY, b.sunY, t),
@@ -169,9 +167,9 @@ const getInterpolatedColors = (h: number): PhaseColors => {
   return phaseMap[getPhase(h)];
 };
 
-// Building definitions (x, width, height) — heights relative to viewBox 200
+// Building definitions
 const buildings = [
-  // Far layer - tall background buildings
+  // Far layer
   { x: 0, w: 35, h: 90, layer: "far" },
   { x: 30, w: 25, h: 115, layer: "far" },
   { x: 55, w: 40, h: 80, layer: "far" },
@@ -199,7 +197,7 @@ const buildings = [
   { x: 310, w: 38, h: 115, layer: "mid" },
   { x: 348, w: 28, h: 105, layer: "mid" },
   { x: 378, w: 35, h: 130, layer: "mid" },
-  // Near layer - shorter foreground
+  // Near layer
   { x: 5, w: 28, h: 70, layer: "near" },
   { x: 60, w: 35, h: 85, layer: "near" },
   { x: 130, w: 30, h: 65, layer: "near" },
@@ -209,7 +207,6 @@ const buildings = [
   { x: 385, w: 25, h: 68, layer: "near" },
 ];
 
-// Food utensils as "lampposts"
 const utensils = [
   { x: 50, type: "fork" },
   { x: 140, type: "spoon" },
@@ -219,7 +216,6 @@ const utensils = [
   { x: 280, type: "fork" },
 ];
 
-// Stable random for windows (seeded by position)
 const stableRandom = (seed: number) => {
   const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
   return x - Math.floor(x);
@@ -242,11 +238,18 @@ const bokehBubbles = Array.from({ length: 12 }, (_, i) => ({
 
 export type WeatherOverlay = "clear" | "clouds_light" | "clouds_heavy" | "rain_light" | "rain_heavy" | "storm" | null;
 
-interface CityScapeBackgroundProps {
-  weatherCondition?: WeatherOverlay;
+export interface ParallaxOffsets {
+  sky: number;
+  far: number;
+  mid: number;
+  near: number;
 }
 
-// Rain drops component
+interface CityScapeBackgroundProps {
+  weatherCondition?: WeatherOverlay;
+  parallaxOffsets?: ParallaxOffsets;
+}
+
 const RainOverlay = ({ intensity }: { intensity: "light" | "heavy" }) => {
   const count = intensity === "heavy" ? 60 : 25;
   const drops = useMemo(
@@ -282,7 +285,6 @@ const RainOverlay = ({ intensity }: { intensity: "light" | "heavy" }) => {
   );
 };
 
-// Cloud overlay component
 const CloudOverlay = ({ density }: { density: "light" | "heavy" }) => {
   const clouds = useMemo(
     () =>
@@ -320,14 +322,11 @@ const CloudOverlay = ({ density }: { density: "light" | "heavy" }) => {
   );
 };
 
-// Lightning flash for storm
-const LightningOverlay = () => {
-  return (
-    <div className="absolute inset-0 pointer-events-none z-[1] animate-lightning-flash" />
-  );
-};
+const LightningOverlay = () => (
+  <div className="absolute inset-0 pointer-events-none z-[1] animate-lightning-flash" />
+);
 
-const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => {
+const CityScapeBackground = ({ weatherCondition, parallaxOffsets }: CityScapeBackgroundProps) => {
   const [hour, setHour] = useState(getBrasiliaHour);
 
   useEffect(() => {
@@ -338,7 +337,11 @@ const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => 
   const colors = useMemo(() => getInterpolatedColors(hour), [hour]);
   const isNight = colors.stars > 0.3;
 
-  // Compute dark overlay opacity based on weather
+  const pSky = parallaxOffsets?.sky ?? 0;
+  const pFar = parallaxOffsets?.far ?? 0;
+  const pMid = parallaxOffsets?.mid ?? 0;
+  const pNear = parallaxOffsets?.near ?? 0;
+
   const darkOverlayOpacity = useMemo(() => {
     if (!weatherCondition) return 0;
     switch (weatherCondition) {
@@ -352,20 +355,34 @@ const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => 
 
   return (
     <div className="absolute inset-0 z-0 overflow-hidden">
-      {/* Sky gradient */}
+      {/* Sky gradient — parallax slowest */}
       <div
         className="absolute inset-0 transition-colors duration-[3000ms]"
         style={{
           background: `linear-gradient(180deg, ${colors.skyTop} 0%, ${colors.skyBottom} 100%)`,
+          transform: `translateY(-${pSky}px)`,
+          willChange: "transform",
         }}
       />
 
-      {/* SVG Cityscape */}
+      {/* Atmospheric haze between layers for depth */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `radial-gradient(ellipse 120% 60% at 50% 80%, rgba(255,255,255,0.04) 0%, transparent 70%)`,
+        }}
+      />
+
+      {/* SVG Cityscape — split into parallax layer groups */}
+      {/* FAR LAYER */}
       <svg
         viewBox="0 0 420 200"
         preserveAspectRatio="xMidYMax slice"
         className="absolute bottom-0 left-0 w-full h-full"
-        style={{ minHeight: "100%" }}
+        style={{
+          transform: `translateY(-${pFar}px) scale(1.02)`,
+          willChange: "transform",
+        }}
       >
         <defs>
           <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
@@ -388,7 +405,7 @@ const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => 
           </radialGradient>
         </defs>
 
-        {/* === SUN === visible ~5:30 to 19:00 */}
+        {/* SUN */}
         {(() => {
           const sunRise = 5.5;
           const sunSet = 19;
@@ -396,7 +413,7 @@ const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => 
           const sunProgress = Math.max(0, Math.min(1, (hour - sunRise) / sunDuration));
           const sunX = -20 + sunProgress * 460;
           const sunArc = Math.sin(sunProgress * Math.PI);
-          const sunY = 110 - sunArc * 60; // peak at ~50, edges at ~110
+          const sunY = 110 - sunArc * 60;
           const sunOpacity = hour >= sunRise && hour <= sunSet ? Math.min(1, sunArc * 3) : 0;
           return sunOpacity > 0 ? (
             <g opacity={sunOpacity}>
@@ -416,7 +433,7 @@ const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => 
           ) : null;
         })()}
 
-        {/* === MOON === visible ~19:00 to 5:30 */}
+        {/* MOON */}
         {(() => {
           const moonRise = 19;
           const moonSet = 5.5;
@@ -430,7 +447,7 @@ const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => 
           }
           const moonX = -20 + moonProgress * 460;
           const moonArc = Math.sin(moonProgress * Math.PI);
-          const moonY = 90 - moonArc * 45; // peak at ~45, edges at ~90
+          const moonY = 90 - moonArc * 45;
           const moonOpacity = moonProgress >= 0 && moonProgress <= 1 ? Math.min(1, moonArc * 3) : 0;
           return moonOpacity > 0 ? (
             <g opacity={moonOpacity}>
@@ -480,7 +497,6 @@ const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => 
                 className="transition-colors duration-[3000ms]"
                 rx={1}
               />
-              {/* Windows for night */}
               {isNight &&
                 Array.from({ length: Math.floor(b.h / 12) }, (_, wi) =>
                   Array.from({ length: Math.floor(b.w / 8) }, (_, wj) => (
@@ -497,8 +513,18 @@ const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => 
                 )}
             </g>
           ))}
+      </svg>
 
-        {/* Mid buildings */}
+      {/* MID LAYER */}
+      <svg
+        viewBox="0 0 420 200"
+        preserveAspectRatio="xMidYMax slice"
+        className="absolute bottom-0 left-0 w-full h-full"
+        style={{
+          transform: `translateY(-${pMid}px) scale(1.04)`,
+          willChange: "transform",
+        }}
+      >
         {buildings
           .filter((b) => b.layer === "mid")
           .map((b, i) => (
@@ -529,12 +555,11 @@ const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => 
             </g>
           ))}
 
-        {/* Food utensils as silhouettes */}
+        {/* Food utensils */}
         {utensils.map((u, i) => (
           <g key={`utensil-${i}`} className="transition-colors duration-[3000ms]">
             {u.type === "fork" ? (
               <g transform={`translate(${u.x}, 130)`}>
-                {/* Fork */}
                 <rect x={0} y={0} width={1.5} height={70} fill={colors.buildingMid} rx={0.5} />
                 <rect x={-3} y={0} width={1} height={20} fill={colors.buildingMid} rx={0.5} />
                 <rect x={3.5} y={0} width={1} height={20} fill={colors.buildingMid} rx={0.5} />
@@ -543,15 +568,24 @@ const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => 
               </g>
             ) : (
               <g transform={`translate(${u.x}, 130)`}>
-                {/* Spoon */}
                 <rect x={0} y={15} width={1.5} height={55} fill={colors.buildingMid} rx={0.5} />
                 <ellipse cx={0.75} cy={8} rx={5} ry={8} fill={colors.buildingMid} />
               </g>
             )}
           </g>
         ))}
+      </svg>
 
-        {/* Near buildings */}
+      {/* NEAR LAYER */}
+      <svg
+        viewBox="0 0 420 200"
+        preserveAspectRatio="xMidYMax slice"
+        className="absolute bottom-0 left-0 w-full h-full"
+        style={{
+          transform: `translateY(-${pNear}px) scale(1.06)`,
+          willChange: "transform",
+        }}
+      >
         {buildings
           .filter((b) => b.layer === "near")
           .map((b, i) => (
@@ -595,45 +629,43 @@ const CityScapeBackground = ({ weatherCondition }: CityScapeBackgroundProps) => 
         ))}
       </svg>
 
-      {/* Subtle top fade for text readability */}
+      {/* Top fade for text readability */}
       <div
-        className="absolute top-0 left-0 right-0 h-1/2 pointer-events-none"
+        className="absolute top-0 left-0 right-0 h-1/2 pointer-events-none z-[1]"
         style={{
-          background: `linear-gradient(to bottom, ${colors.skyTop}99, transparent)`,
+          background: `linear-gradient(to bottom, ${colors.skyTop}cc, ${colors.skyTop}66 30%, transparent)`,
         }}
       />
 
-      {/* Weather overlays — only rendered when weatherCondition is set */}
+      {/* Bottom vignette for depth */}
+      <div
+        className="absolute bottom-0 left-0 right-0 h-1/3 pointer-events-none z-[1]"
+        style={{
+          background: `linear-gradient(to top, rgba(0,0,0,0.2) 0%, transparent 100%)`,
+        }}
+      />
+
+      {/* Weather overlays */}
       {weatherCondition && weatherCondition !== "clear" && (
         <>
-          {/* Dark overlay for rain/storm */}
           {darkOverlayOpacity > 0 && (
             <div
-              className="absolute inset-0 pointer-events-none z-[1] transition-opacity duration-[2000ms]"
+              className="absolute inset-0 pointer-events-none z-[2] transition-opacity duration-[2000ms]"
               style={{ backgroundColor: `rgba(30,35,50,${darkOverlayOpacity})` }}
             />
           )}
 
-          {/* Clouds */}
           {(weatherCondition === "clouds_light" || weatherCondition === "clouds_heavy" ||
             weatherCondition === "rain_light" || weatherCondition === "rain_heavy" ||
             weatherCondition === "storm") && (
-            <CloudOverlay
-              density={
-                weatherCondition === "clouds_light" ? "light" : "heavy"
-              }
-            />
+            <CloudOverlay density={weatherCondition === "clouds_light" ? "light" : "heavy"} />
           )}
 
-          {/* Rain */}
           {(weatherCondition === "rain_light" || weatherCondition === "rain_heavy" ||
             weatherCondition === "storm") && (
-            <RainOverlay
-              intensity={weatherCondition === "rain_light" ? "light" : "heavy"}
-            />
+            <RainOverlay intensity={weatherCondition === "rain_light" ? "light" : "heavy"} />
           )}
 
-          {/* Lightning */}
           {weatherCondition === "storm" && <LightningOverlay />}
         </>
       )}
