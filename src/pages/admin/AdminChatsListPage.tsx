@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Clock, CalendarIcon, Monitor, X, Printer, UtensilsCrossed, Truck, User, DollarSign } from "lucide-react";
+import { MessageCircle, Clock, CalendarIcon, Monitor, X, Printer, UtensilsCrossed, Truck, User, DollarSign, MapPin, ShoppingBag, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,6 +72,7 @@ const AdminChatsListPage = () => {
   const [draggedChat, setDraggedChat] = useState<any>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [selectedMesaSale, setSelectedMesaSale] = useState<any>(null);
+  const [selectedDeliveryChat, setSelectedDeliveryChat] = useState<any>(null);
   // Confirmation dialog
   const [pendingMove, setPendingMove] = useState<{ chat: any; toStatus: string } | null>(null);
   // Finished/cancelled column date range filter (defaults to today)
