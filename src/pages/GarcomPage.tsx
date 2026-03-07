@@ -129,6 +129,7 @@ const GarcomPage = () => {
   const [changeAmount, setChangeAmount] = useState("");
   const [showRepresentanteModal, setShowRepresentanteModal] = useState(false);
   const [representanteInput, setRepresentanteInput] = useState("");
+  const [pendingRepresentante, setPendingRepresentante] = useState<string | null>(null);
 
   const tenantId = user?.tenant_id;
 
@@ -617,28 +618,10 @@ const GarcomPage = () => {
     if (!name || !selectedMesa) return;
 
     if (!currentSale) {
-      // Free table: create sale first, then save representative
-      try {
-        await createSaleMutation.mutateAsync(selectedMesa);
-        const { data: newSale } = await supabase
-          .from("sales")
-          .select("id")
-          .eq("mesa_id", selectedMesa.id)
-          .eq("tenant_id", tenantId!)
-          .eq("active", true)
-          .not("operational_status", "in", '("finished","cancelled")')
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-        if (newSale) {
-          await supabase.from("sales").update({ representante: name } as any).eq("id", newSale.id);
-        }
-        queryClient.invalidateQueries({ queryKey: ["garcom-mesa-sales"] });
-        setShowRepresentanteModal(false);
-        toast.success("Mesa aberta!");
-      } catch {
-        toast.error("Erro ao abrir mesa");
-      }
+      // Free table: just store the representative name locally, don't create sale yet
+      setPendingRepresentante(name);
+      setShowRepresentanteModal(false);
+      toast.success("Mesa aberta! Adicione itens ao pedido.");
     } else {
       saveRepresentanteMutation.mutate({ saleId: currentSale.id, representante: name });
     }
@@ -648,9 +631,25 @@ const GarcomPage = () => {
     setOrderItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSendItems = () => {
-    if (!currentSale || orderItems.length === 0) return;
-    addItemsMutation.mutate({ saleId: currentSale.id, items: orderItems });
+  const handleSendItems = async () => {
+    if (orderItems.length === 0) return;
+
+    if (currentSale) {
+      // Sale already exists, just add items
+      addItemsMutation.mutate({ saleId: currentSale.id, items: orderItems });
+    } else if (selectedMesa && pendingRepresentante) {
+      // No sale yet — create one first, then add items
+      try {
+        const created = await createSaleMutation.mutateAsync(selectedMesa);
+        if (created?.id) {
+          await supabase.from("sales").update({ representante: pendingRepresentante } as any).eq("id", created.id);
+          addItemsMutation.mutate({ saleId: created.id, items: orderItems });
+          setPendingRepresentante(null);
+        }
+      } catch {
+        toast.error("Erro ao criar pedido");
+      }
+    }
   };
 
   // Guard
@@ -738,7 +737,7 @@ const GarcomPage = () => {
           {/* Mesa header */}
           <div className="px-4 py-3 bg-card border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={() => { setSelectedMesa(null); setOrderItems([]); }}>
+              <Button variant="ghost" size="icon" onClick={() => { setSelectedMesa(null); setOrderItems([]); setPendingRepresentante(null); }}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
@@ -965,8 +964,8 @@ const GarcomPage = () => {
                   <p className="text-xs text-muted-foreground">Novos itens</p>
                   <span className="font-bold text-lg">R$ {orderTotal.toFixed(2)}</span>
                 </div>
-                <Button onClick={handleSendItems} disabled={addItemsMutation.isPending} className="gap-2">
-                  {addItemsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                <Button onClick={handleSendItems} disabled={addItemsMutation.isPending || createSaleMutation.isPending} className="gap-2">
+                  {(addItemsMutation.isPending || createSaleMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   Enviar Itens
                 </Button>
               </div>
@@ -1351,9 +1350,10 @@ const GarcomPage = () => {
       </Dialog>
       {/* Representante Modal */}
       <Dialog open={showRepresentanteModal} onOpenChange={(open) => {
-        if (!open && !currentSale) {
+        if (!open && !currentSale && !pendingRepresentante) {
           // If closing without saving on a free table, go back to table list
           setSelectedMesa(null);
+          setPendingRepresentante(null);
         }
         setShowRepresentanteModal(open);
       }}>
@@ -1379,7 +1379,7 @@ const GarcomPage = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
-              if (!currentSale) setSelectedMesa(null);
+              if (!currentSale && !pendingRepresentante) { setSelectedMesa(null); setPendingRepresentante(null); }
               setShowRepresentanteModal(false);
             }}>Cancelar</Button>
             <Button
