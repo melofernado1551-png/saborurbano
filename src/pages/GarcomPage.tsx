@@ -618,28 +618,10 @@ const GarcomPage = () => {
     if (!name || !selectedMesa) return;
 
     if (!currentSale) {
-      // Free table: create sale first, then save representative
-      try {
-        await createSaleMutation.mutateAsync(selectedMesa);
-        const { data: newSale } = await supabase
-          .from("sales")
-          .select("id")
-          .eq("mesa_id", selectedMesa.id)
-          .eq("tenant_id", tenantId!)
-          .eq("active", true)
-          .not("operational_status", "in", '("finished","cancelled")')
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-        if (newSale) {
-          await supabase.from("sales").update({ representante: name } as any).eq("id", newSale.id);
-        }
-        queryClient.invalidateQueries({ queryKey: ["garcom-mesa-sales"] });
-        setShowRepresentanteModal(false);
-        toast.success("Mesa aberta!");
-      } catch {
-        toast.error("Erro ao abrir mesa");
-      }
+      // Free table: just store the representative name locally, don't create sale yet
+      setPendingRepresentante(name);
+      setShowRepresentanteModal(false);
+      toast.success("Mesa aberta! Adicione itens ao pedido.");
     } else {
       saveRepresentanteMutation.mutate({ saleId: currentSale.id, representante: name });
     }
