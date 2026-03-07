@@ -663,12 +663,17 @@ const AdminChatPage = () => {
                 ❌ Cancelado
               </span>
             )}
-            {financialStatus && sale?.operational_status !== "cancelled" && (
+            {sale?.operational_status === "finished" && (
+              <span className="px-2.5 py-1 rounded-full bg-green-600 text-white text-xs font-medium">
+                ✅ Finalizado
+              </span>
+            )}
+            {financialStatus && sale?.operational_status !== "cancelled" && sale?.operational_status !== "finished" && (
               <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${financialStatus.color}`}>
                 {financialStatus.emoji} {financialStatus.label}
               </span>
             )}
-            {sale && sale.financial_status !== "paid" && sale.operational_status !== "cancelled" && (
+            {sale && sale.financial_status !== "paid" && sale.operational_status !== "cancelled" && sale.operational_status !== "finished" && (
               <Button
                 variant="outline"
                 size="sm"
