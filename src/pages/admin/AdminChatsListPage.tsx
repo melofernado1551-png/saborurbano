@@ -1072,12 +1072,12 @@ const KanbanCard = ({
 
   return (
     <div
-      draggable={!isCancelled}
+      draggable={!isCancelled && !isLocked}
       onDragStart={onDragStart}
       onClick={onClick}
       className={`w-full text-left p-3 rounded-lg bg-card border border-border hover:border-primary/40 hover:shadow-sm transition-all cursor-grab active:cursor-grabbing select-none relative ${
         hasUnread ? "ring-2 ring-destructive/60 border-destructive" : ""
-      } ${isCancelled ? "opacity-70 cursor-pointer" : ""}`}
+      } ${isCancelled ? "opacity-70 cursor-pointer" : ""} ${isLocked ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
