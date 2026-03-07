@@ -737,7 +737,7 @@ const GarcomPage = () => {
           {/* Mesa header */}
           <div className="px-4 py-3 bg-card border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={() => { setSelectedMesa(null); setOrderItems([]); }}>
+              <Button variant="ghost" size="icon" onClick={() => { setSelectedMesa(null); setOrderItems([]); setPendingRepresentante(null); }}>
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <div>
