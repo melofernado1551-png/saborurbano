@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Clock, CalendarIcon, Monitor, X, Printer, UtensilsCrossed, Truck, User, DollarSign } from "lucide-react";
+import { MessageCircle, Clock, CalendarIcon, Monitor, X, Printer, UtensilsCrossed, Truck, User, DollarSign, MapPin, ShoppingBag, ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,6 +72,7 @@ const AdminChatsListPage = () => {
   const [draggedChat, setDraggedChat] = useState<any>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [selectedMesaSale, setSelectedMesaSale] = useState<any>(null);
+  const [selectedDeliveryChat, setSelectedDeliveryChat] = useState<any>(null);
   // Confirmation dialog
   const [pendingMove, setPendingMove] = useState<{ chat: any; toStatus: string } | null>(null);
   // Finished/cancelled column date range filter (defaults to today)
@@ -724,7 +725,7 @@ const AdminChatsListPage = () => {
                             const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
                             setSelectedMesaSale({ ...sale, _mesaNumero: chat.customers?.name });
                           } else {
-                            navigate(`/admin/pedidos/${chat.id}`);
+                            setSelectedDeliveryChat(chat);
                           }
                         }}
                         onDragStart={() => handleDragStart(chat)}
@@ -767,6 +768,17 @@ const AdminChatsListPage = () => {
         sale={selectedMesaSale}
         open={!!selectedMesaSale}
         onClose={() => setSelectedMesaSale(null)}
+      />
+
+      {/* Delivery/App Sale Detail Modal */}
+      <DeliverySaleDetailDialog
+        chat={selectedDeliveryChat}
+        open={!!selectedDeliveryChat}
+        onClose={() => setSelectedDeliveryChat(null)}
+        onOpenChat={(chatId) => {
+          setSelectedDeliveryChat(null);
+          navigate(`/admin/pedidos/${chatId}`);
+        }}
       />
     </div>
   );
@@ -925,8 +937,206 @@ const MesaSaleDetailDialog = ({ sale, open, onClose }: { sale: any; open: boolea
   );
 };
 
-const printReceipt = async (chat: any, e: React.MouseEvent) => {
-  e.stopPropagation();
+const DeliverySaleDetailDialog = ({ chat, open, onClose, onOpenChat }: { chat: any; open: boolean; onClose: () => void; onOpenChat: (chatId: string) => void }) => {
+  const salesArr = chat?.sales;
+  const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
+
+  const { data: saleItems = [] } = useQuery({
+    queryKey: ["delivery-sale-items-kanban", sale?.id],
+    enabled: !!sale?.id && open,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("sale_items")
+        .select("*")
+        .eq("sale_id", sale.id)
+        .eq("active", true)
+        .order("created_at");
+      return data || [];
+    },
+  });
+
+  // Fallback: try chat order_summary if no sale_items
+  const { data: orderSummary } = useQuery({
+    queryKey: ["delivery-order-summary-kanban", chat?.id],
+    enabled: !!chat?.id && open && saleItems.length === 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("chat_messages")
+        .select("content")
+        .eq("chat_id", chat.id)
+        .eq("message_type", "order_summary")
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      return data?.[0]?.content || null;
+    },
+  });
+
+  const { data: payments = [] } = useQuery({
+    queryKey: ["delivery-sale-payments-kanban", sale?.id],
+    enabled: !!sale?.id && open,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("sale_payments")
+        .select("*")
+        .eq("sale_id", sale.id)
+        .eq("active", true)
+        .order("created_at");
+      return data || [];
+    },
+  });
+
+  const { data: freshSale } = useQuery({
+    queryKey: ["delivery-sale-fresh-kanban", sale?.id],
+    enabled: !!sale?.id && open,
+    queryFn: async () => {
+      const { data } = await supabase.from("sales").select("*").eq("id", sale.id).single();
+      return data;
+    },
+  });
+
+  const currentSale = freshSale || sale;
+  if (!chat || !sale) return null;
+
+  const customerName = chat.customers?.name || "Cliente";
+  const customerPhone = chat.customers?.phone;
+  const financial = FINANCIAL_LABELS[currentSale?.financial_status] || FINANCIAL_LABELS.pending;
+  const opInfo = STATUS_LABELS[currentSale?.operational_status] || STATUS_LABELS.received;
+  const saleDate = currentSale?.created_at ? format(new Date(currentSale.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "";
+  const totalPaid = payments.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+  const remaining = Number(currentSale?.valor_total || 0) - totalPaid;
+  const deliveryAddress = currentSale?.delivery_address as any;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Truck className="w-5 h-5" />
+            Pedido #{currentSale?.sale_number || "—"}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Status badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1.5 text-xs"><span className={`w-2 h-2 rounded-full ${financial.dotClass}`} />{financial.label}</span>
+            <Badge variant="outline" className="text-xs">{opInfo.emoji} {opInfo.label}</Badge>
+          </div>
+
+          {saleDate && <p className="text-xs text-muted-foreground">{saleDate}</p>}
+
+          {/* Customer */}
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <User className="w-3.5 h-3.5" /> Cliente
+            </h4>
+            <div className="px-3 py-2.5 rounded-xl bg-secondary/50 border border-border">
+              <p className="font-medium text-sm text-foreground">{customerName}</p>
+              {customerPhone && <p className="text-xs text-muted-foreground">{customerPhone}</p>}
+            </div>
+          </div>
+
+          {/* Address */}
+          {deliveryAddress && (
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5" /> Endereço de entrega
+              </h4>
+              <div className="px-3 py-2.5 rounded-xl bg-secondary/50 border border-border">
+                {deliveryAddress.label && <p className="font-medium text-sm text-foreground">{deliveryAddress.label}</p>}
+                <p className="text-xs text-muted-foreground">
+                  {deliveryAddress.street}, {deliveryAddress.number}
+                  {deliveryAddress.complement ? ` - ${deliveryAddress.complement}` : ""} — {deliveryAddress.neighborhood}, {deliveryAddress.city}
+                </p>
+                {deliveryAddress.reference && (
+                  <p className="text-xs text-muted-foreground mt-0.5">Ref: {deliveryAddress.reference}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Items */}
+          <div className="space-y-1.5">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <ShoppingBag className="w-3.5 h-3.5" /> Itens do pedido
+            </h4>
+            {saleItems.length > 0 ? (
+              <div className="space-y-1">
+                {saleItems.map((item: any) => (
+                  <div key={item.id} className="flex justify-between items-start p-2 rounded-lg bg-secondary/30">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">
+                        <span className="text-primary font-bold">{item.quantity}x</span> {item.product_name}
+                      </p>
+                      {item.observacao && (
+                        <p className="text-xs text-muted-foreground">Obs: {item.observacao}</p>
+                      )}
+                    </div>
+                    <span className="text-sm font-semibold shrink-0 ml-2">
+                      R$ {(Number(item.unit_price) * item.quantity).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : orderSummary ? (
+              <p className="text-sm text-foreground whitespace-pre-wrap bg-secondary/30 p-2 rounded-lg">{orderSummary}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">Nenhum item encontrado</p>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Total */}
+          <div className="flex justify-between items-center">
+            <span className="font-semibold">Total</span>
+            <span className="text-xl font-bold">R$ {Number(currentSale?.valor_total || 0).toFixed(2)}</span>
+          </div>
+
+          {/* Payments */}
+          {payments.length > 0 && (
+            <div className="space-y-1.5">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <DollarSign className="w-3.5 h-3.5" /> Pagamentos
+              </h4>
+              {payments.map((p: any) => (
+                <div key={p.id} className="flex justify-between items-center p-2 rounded-lg bg-secondary/30">
+                  <span className="text-sm">{PAYMENT_LABELS_KANBAN[p.payment_method] || p.payment_method}</span>
+                  <span className="text-sm font-semibold">R$ {Number(p.amount).toFixed(2)}</span>
+                </div>
+              ))}
+              {remaining > 0.01 && (
+                <p className="text-xs text-destructive font-medium">Falta: R$ {remaining.toFixed(2)}</p>
+              )}
+            </div>
+          )}
+
+          {/* Observacao */}
+          {currentSale?.observacao && (
+            <div className="space-y-1">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Observação</h4>
+              <p className="text-sm bg-secondary/30 p-2 rounded-lg">{currentSale.observacao}</p>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Action: go to chat */}
+          <Button className="w-full" onClick={() => onOpenChat(chat.id)}>
+            <MessageCircle className="w-4 h-4 mr-2" />
+            Abrir Chat
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+
+  const printReceipt = async (chat: any, e: React.MouseEvent) => {
   const salesArr = chat.sales;
   const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
   if (!sale) {
