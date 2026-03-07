@@ -25,7 +25,7 @@ const HeroSection = ({ weatherCondition }: HeroSectionProps) => {
   };
 
   return (
-    <section className="relative pb-0 overflow-hidden min-h-[220px] md:min-h-[280px] flex flex-col justify-end">
+    <section className="relative pb-0 overflow-hidden min-h-[220px] md:min-h-[340px] lg:min-h-[400px] xl:min-h-[440px] flex flex-col justify-end">
       <CityScapeBackground weatherCondition={weatherCondition} />
 
       <div className="container mx-auto px-4 relative z-10">
