@@ -428,7 +428,30 @@ const TenantEditPage = () => {
         </CardContent>
       </Card>
 
-      {/* Localização */}
+      {/* Numeração de Pedidos */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Hash className="w-5 h-5" />
+            Numeração de Pedidos
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <Label>Último número usado</Label>
+            <Input
+              type="number"
+              min="0"
+              value={form.sale_number_counter}
+              onChange={(e) => set("sale_number_counter", e.target.value)}
+              placeholder="0"
+            />
+            <p className="text-xs text-muted-foreground">
+              O próximo pedido será <strong>#{(parseInt(form.sale_number_counter) || 0) + 1}</strong>. Altere este valor para reiniciar ou ajustar a numeração.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader><CardTitle className="text-lg">Localização</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
