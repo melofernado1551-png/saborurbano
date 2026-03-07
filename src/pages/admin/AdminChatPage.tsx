@@ -817,22 +817,30 @@ const AdminChatPage = () => {
       </div>
 
       {/* Input */}
-      <div className="border-t border-border p-4 bg-card">
-        <div className="flex gap-2 items-end">
-          <textarea
-            ref={textareaRef}
-            value={message}
-            onChange={handleTextareaInput}
-            onKeyDown={handleKeyDown}
-            placeholder="Responder ao cliente..."
-            rows={1}
-            className="flex-1 min-h-[40px] max-h-[120px] px-4 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
-          />
-          <Button size="icon" className="h-10 w-10 rounded-xl flex-shrink-0" onClick={handleSend} disabled={!message.trim() || sending}>
-            <Send className="w-4 h-4" />
-          </Button>
+      {sale && (sale.operational_status === "finished" || sale.operational_status === "cancelled") ? (
+        <div className="border-t border-border p-4 bg-card">
+          <p className="text-center text-sm text-muted-foreground">
+            {sale.operational_status === "finished" ? "✅ Pedido finalizado — chat encerrado." : "❌ Pedido cancelado — chat encerrado."}
+          </p>
         </div>
-      </div>
+      ) : (
+        <div className="border-t border-border p-4 bg-card">
+          <div className="flex gap-2 items-end">
+            <textarea
+              ref={textareaRef}
+              value={message}
+              onChange={handleTextareaInput}
+              onKeyDown={handleKeyDown}
+              placeholder="Responder ao cliente..."
+              rows={1}
+              className="flex-1 min-h-[40px] max-h-[120px] px-4 py-2.5 rounded-xl bg-secondary border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+            />
+            <Button size="icon" className="h-10 w-10 rounded-xl flex-shrink-0" onClick={handleSend} disabled={!message.trim() || sending}>
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation dialog for finishing */}
       <AlertDialog open={pendingFinishStatus} onOpenChange={setPendingFinishStatus}>
