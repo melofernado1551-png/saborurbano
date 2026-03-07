@@ -769,6 +769,17 @@ const AdminChatsListPage = () => {
         open={!!selectedMesaSale}
         onClose={() => setSelectedMesaSale(null)}
       />
+
+      {/* Delivery/App Sale Detail Modal */}
+      <DeliverySaleDetailDialog
+        chat={selectedDeliveryChat}
+        open={!!selectedDeliveryChat}
+        onClose={() => setSelectedDeliveryChat(null)}
+        onOpenChat={(chatId) => {
+          setSelectedDeliveryChat(null);
+          navigate(`/admin/pedidos/${chatId}`);
+        }}
+      />
     </div>
   );
 };
