@@ -1350,9 +1350,10 @@ const GarcomPage = () => {
       </Dialog>
       {/* Representante Modal */}
       <Dialog open={showRepresentanteModal} onOpenChange={(open) => {
-        if (!open && !currentSale) {
+        if (!open && !currentSale && !pendingRepresentante) {
           // If closing without saving on a free table, go back to table list
           setSelectedMesa(null);
+          setPendingRepresentante(null);
         }
         setShowRepresentanteModal(open);
       }}>
