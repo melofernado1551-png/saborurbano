@@ -964,8 +964,8 @@ const GarcomPage = () => {
                   <p className="text-xs text-muted-foreground">Novos itens</p>
                   <span className="font-bold text-lg">R$ {orderTotal.toFixed(2)}</span>
                 </div>
-                <Button onClick={handleSendItems} disabled={addItemsMutation.isPending} className="gap-2">
-                  {addItemsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                <Button onClick={handleSendItems} disabled={addItemsMutation.isPending || createSaleMutation.isPending} className="gap-2">
+                  {(addItemsMutation.isPending || createSaleMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   Enviar Itens
                 </Button>
               </div>
