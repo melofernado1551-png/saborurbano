@@ -631,9 +631,25 @@ const GarcomPage = () => {
     setOrderItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSendItems = () => {
-    if (!currentSale || orderItems.length === 0) return;
-    addItemsMutation.mutate({ saleId: currentSale.id, items: orderItems });
+  const handleSendItems = async () => {
+    if (orderItems.length === 0) return;
+
+    if (currentSale) {
+      // Sale already exists, just add items
+      addItemsMutation.mutate({ saleId: currentSale.id, items: orderItems });
+    } else if (selectedMesa && pendingRepresentante) {
+      // No sale yet — create one first, then add items
+      try {
+        const created = await createSaleMutation.mutateAsync(selectedMesa);
+        if (created?.id) {
+          await supabase.from("sales").update({ representante: pendingRepresentante } as any).eq("id", created.id);
+          addItemsMutation.mutate({ saleId: created.id, items: orderItems });
+          setPendingRepresentante(null);
+        }
+      } catch {
+        toast.error("Erro ao criar pedido");
+      }
+    }
   };
 
   // Guard
