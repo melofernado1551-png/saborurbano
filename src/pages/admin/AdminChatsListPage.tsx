@@ -728,7 +728,8 @@ const AdminChatsListPage = () => {
                           }
                         }}
                         onDragStart={() => handleDragStart(chat)}
-                        isCancelled={col.key === "cancelled" || col.key === "delivering_pending"}
+                        isCancelled={col.key === "cancelled"}
+                        isLocked={col.key === "delivering_pending"}
                       />
                     ))}
                   </div>
