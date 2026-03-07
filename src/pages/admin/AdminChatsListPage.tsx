@@ -725,7 +725,7 @@ const AdminChatsListPage = () => {
                             const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
                             setSelectedMesaSale({ ...sale, _mesaNumero: chat.customers?.name });
                           } else {
-                            navigate(`/admin/pedidos/${chat.id}`);
+                            setSelectedDeliveryChat(chat);
                           }
                         }}
                         onDragStart={() => handleDragStart(chat)}
