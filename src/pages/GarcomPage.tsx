@@ -129,6 +129,7 @@ const GarcomPage = () => {
   const [changeAmount, setChangeAmount] = useState("");
   const [showRepresentanteModal, setShowRepresentanteModal] = useState(false);
   const [representanteInput, setRepresentanteInput] = useState("");
+  const [pendingRepresentante, setPendingRepresentante] = useState<string | null>(null);
 
   const tenantId = user?.tenant_id;
 
