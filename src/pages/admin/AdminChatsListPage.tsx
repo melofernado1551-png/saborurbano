@@ -1055,12 +1055,14 @@ const KanbanCard = ({
   onClick,
   onDragStart,
   isCancelled = false,
+  isLocked = false,
 }: {
   chat: any;
   hasUnread: boolean;
   onClick: () => void;
   onDragStart: () => void;
   isCancelled?: boolean;
+  isLocked?: boolean;
 }) => {
   const salesArr = chat.sales;
   const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
