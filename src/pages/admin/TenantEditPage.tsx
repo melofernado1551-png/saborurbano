@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { X, Upload, Loader2, Store, Image, Truck, QrCode, ShieldCheck } from "lucide-react";
+import { X, Upload, Loader2, Store, Image, Truck, QrCode, ShieldCheck, Hash } from "lucide-react";
 import { toast } from "sonner";
 
 const CATEGORIES = [
@@ -41,6 +41,7 @@ interface TenantEditForm {
   pix_copy_paste: string;
   pix_receiver_name: string;
   require_paid_for_delivery: boolean;
+  sale_number_counter: string;
 }
 
 const TenantEditPage = () => {
@@ -54,7 +55,7 @@ const TenantEditPage = () => {
     owner_phone: "", owner_email: "", opening_time: "08:00", closing_time: "22:00",
     free_shipping: false, shipping_fee: "",
     pix_copy_paste: "", pix_receiver_name: "",
-    require_paid_for_delivery: true,
+    require_paid_for_delivery: true, sale_number_counter: "0",
   });
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
@@ -100,6 +101,7 @@ const TenantEditPage = () => {
         pix_copy_paste: (tenant as any).pix_copy_paste || "",
         pix_receiver_name: (tenant as any).pix_receiver_name || "",
         require_paid_for_delivery: (tenant as any).require_paid_for_delivery !== false,
+        sale_number_counter: String((tenant as any).sale_number_counter ?? 0),
       });
       setLogoUrl(tenant.logo_url || null);
       setCoverUrl(tenant.cover_url || null);
@@ -171,6 +173,7 @@ const TenantEditPage = () => {
         pix_copy_paste: form.pix_copy_paste || null,
         pix_receiver_name: form.pix_receiver_name || null,
         require_paid_for_delivery: form.require_paid_for_delivery,
+        sale_number_counter: parseInt(form.sale_number_counter) || 0,
       };
       const { error } = await supabase.from("tenants").update(payload).eq("id", tenantId!);
       if (error) throw error;
@@ -425,7 +428,30 @@ const TenantEditPage = () => {
         </CardContent>
       </Card>
 
-      {/* Localização */}
+      {/* Numeração de Pedidos */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Hash className="w-5 h-5" />
+            Numeração de Pedidos
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-2">
+            <Label>Último número usado</Label>
+            <Input
+              type="number"
+              min="0"
+              value={form.sale_number_counter}
+              onChange={(e) => set("sale_number_counter", e.target.value)}
+              placeholder="0"
+            />
+            <p className="text-xs text-muted-foreground">
+              O próximo pedido será <strong>#{(parseInt(form.sale_number_counter) || 0) + 1}</strong>. Altere este valor para reiniciar ou ajustar a numeração.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
       <Card>
         <CardHeader><CardTitle className="text-lg">Localização</CardTitle></CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">

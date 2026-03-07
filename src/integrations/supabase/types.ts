@@ -1906,6 +1906,7 @@ export type Database = {
           pix_receiver_name: string | null
           primary_color: string | null
           require_paid_for_delivery: boolean
+          sale_number_counter: number
           secondary_color: string | null
           shipping_fee: number | null
           slug: string
@@ -1937,6 +1938,7 @@ export type Database = {
           pix_receiver_name?: string | null
           primary_color?: string | null
           require_paid_for_delivery?: boolean
+          sale_number_counter?: number
           secondary_color?: string | null
           shipping_fee?: number | null
           slug: string
@@ -1968,6 +1970,7 @@ export type Database = {
           pix_receiver_name?: string | null
           primary_color?: string | null
           require_paid_for_delivery?: boolean
+          sale_number_counter?: number
           secondary_color?: string | null
           shipping_fee?: number | null
           slug?: string
