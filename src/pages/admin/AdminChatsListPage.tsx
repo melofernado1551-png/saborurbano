@@ -1136,7 +1136,7 @@ const DeliverySaleDetailDialog = ({ chat, open, onClose, onOpenChat }: { chat: a
 };
 
 
-  e.stopPropagation();
+  const printReceipt = async (chat: any, e: React.MouseEvent) => {
   const salesArr = chat.sales;
   const sale = Array.isArray(salesArr) ? salesArr[0] : salesArr;
   if (!sale) {
