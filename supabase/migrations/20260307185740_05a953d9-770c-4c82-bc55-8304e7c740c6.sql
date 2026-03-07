@@ -1,0 +1,1 @@
+UPDATE sales SET operational_status = 'finished', delivered_confirmed_at = now(), delivered_confirmed_by = 'admin_fix' WHERE id = '77418598-7bf3-418e-8357-d6fbd1479a36';
